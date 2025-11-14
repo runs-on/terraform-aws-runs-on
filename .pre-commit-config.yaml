@@ -1,0 +1,66 @@
+# .pre-commit-config.yaml
+# Pre-commit hooks for OpenTofu module development
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.88.4
+    hooks:
+      - id: terraform_fmt
+        name: OpenTofu fmt
+        description: Format OpenTofu files
+
+      - id: terraform_validate
+        name: OpenTofu validate
+        description: Validate OpenTofu configuration
+
+      - id: terraform_tflint
+        name: TFLint
+        description: Lint OpenTofu files
+        args:
+          - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+
+      - id: terraform_docs
+        name: Generate OpenTofu docs
+        description: Auto-generate module documentation
+        args:
+          - --hook-config=--path-to-file=README.md
+          - --hook-config=--add-to-existing-file=true
+          - --hook-config=--create-file-if-not-exist=true
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim trailing whitespace
+
+      - id: end-of-file-fixer
+        name: Fix end of files
+
+      - id: check-yaml
+        name: Check YAML syntax
+
+      - id: check-added-large-files
+        name: Check for large files
+        args: ["--maxkb=1000"]
+
+      - id: check-merge-conflict
+        name: Check for merge conflicts
+
+      - id: detect-private-key
+        name: Detect private keys
+
+  - repo: https://github.com/bridgecrewio/checkov
+    rev: 3.2.1
+    hooks:
+      - id: checkov
+        name: Checkov security scan
+        description: Run security/compliance checks
+        args:
+          - --quiet
+          - --compact
+          - --framework=terraform
+          - --skip-check=CKV_TF_1
+        verbose: true
+        always_run: false
