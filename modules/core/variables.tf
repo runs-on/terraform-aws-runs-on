@@ -149,8 +149,14 @@ variable "networking_stack" {
   default     = "external"
 }
 
-variable "private_networking_enabled" {
-  description = "Enable private networking for App Runner"
+variable "private_mode" {
+  description = "Private networking mode: 'false', 'true', 'always', or 'only'"
+  type        = string
+  default     = "false"
+}
+
+variable "app_debug" {
+  description = "Enable debug mode for RunsOn stack"
   type        = bool
   default     = false
 }

@@ -25,7 +25,7 @@ resource "aws_apprunner_auto_scaling_configuration_version" "this" {
 ###########################
 
 resource "aws_apprunner_vpc_connector" "this" {
-  count = var.private_networking_enabled ? 1 : 0
+  count = var.private_mode != "false" ? 1 : 0
 
   vpc_connector_name = "${var.stack_name}-vpc-connector"
   subnets            = var.private_subnet_ids
@@ -286,8 +286,8 @@ resource "aws_apprunner_service" "this" {
 
   network_configuration {
     egress_configuration {
-      egress_type       = var.private_networking_enabled ? "VPC" : "DEFAULT"
-      vpc_connector_arn = var.private_networking_enabled ? aws_apprunner_vpc_connector.this[0].arn : null
+      egress_type       = var.private_mode != "false" ? "VPC" : "DEFAULT"
+      vpc_connector_arn = var.private_mode != "false" ? aws_apprunner_vpc_connector.this[0].arn : null
     }
 
     ingress_configuration {
@@ -339,7 +339,7 @@ resource "aws_apprunner_service" "this" {
           RUNS_ON_APP_GITHUB_API_STRATEGY           = var.github_api_strategy
           RUNS_ON_PUBLIC_SUBNET_IDS                 = join(",", var.public_subnet_ids)
           RUNS_ON_PRIVATE_SUBNET_IDS                = join(",", var.private_subnet_ids)
-          RUNS_ON_PRIVATE                           = var.private_networking_enabled ? "true" : "false"
+          RUNS_ON_PRIVATE                           = var.private_mode
           RUNS_ON_DEFAULT_ADMINS                    = var.default_admins
           RUNS_ON_RUNNER_MAX_RUNTIME                = tostring(var.runner_max_runtime)
           RUNS_ON_RUNNER_CONFIG_AUTO_EXTENDS_FROM   = var.runner_config_auto_extends_from

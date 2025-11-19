@@ -115,8 +115,26 @@ variable "runner_default_volume_throughput" {
   default     = 250
 }
 
-variable "private_networking_enabled" {
-  description = "Enable private networking launch templates"
+variable "private_mode" {
+  description = "Private networking mode: 'false', 'true', 'always', or 'only'"
+  type        = string
+  default     = "false"
+}
+
+variable "app_debug" {
+  description = "Enable debug mode for RunsOn stack"
+  type        = bool
+  default     = false
+}
+
+variable "runner_max_runtime" {
+  description = "Maximum runtime in minutes for runners"
+  type        = number
+  default     = 720
+}
+
+variable "enable_efs" {
+  description = "Whether EFS is enabled"
   type        = bool
   default     = false
 }
@@ -125,6 +143,12 @@ variable "efs_file_system_id" {
   description = "EFS file system ID (optional)"
   type        = string
   default     = ""
+}
+
+variable "enable_ecr" {
+  description = "Whether ECR is enabled"
+  type        = bool
+  default     = false
 }
 
 variable "ephemeral_registry_arn" {

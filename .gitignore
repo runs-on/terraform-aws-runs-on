@@ -63,5 +63,20 @@ test-results/
 # Terragrunt cache
 .terragrunt-cache/
 
+# Test artifacts
+test/go.sum
+test/*.test
+test/*.out
+test/coverage.txt
+test/fixtures/**/backend.tf
+test/fixtures/**/provider.tf
+test/fixtures/**/.terraform.lock.hcl
+test/live/**/backend.tf
+test/live/**/provider.tf
+test/live/**/.terraform.lock.hcl
+test/live/**/.terragrunt-cache/
+test/live/**/terraform.tfstate
+test/live/**/terraform.tfstate.backup
+
 cloudformation*
 scripts

@@ -1,5 +1,5 @@
-# Complete Example: VPC + RunsOn Infrastructure
-# This example demonstrates deploying RunsOn with a dedicated VPC
+# Basic RunsOn Deployment Example
+# This demonstrates the standard configuration with all smart defaults
 
 terraform {
   required_version = ">= 1.6.0"
@@ -33,58 +33,37 @@ module "vpc" {
   private_subnets = var.private_subnet_cidrs
   public_subnets  = var.public_subnet_cidrs
 
-  # NAT Gateway for private subnets
-  # Only created when user enables private networking (matches CF default: Private="false")
-  enable_nat_gateway = var.enable_private_networking
-  single_nat_gateway = var.single_nat_gateway # Set to false for HA across AZs
+  # NAT Gateway for private subnets (only if private networking enabled)
+  enable_nat_gateway = length(var.private_subnet_cidrs) > 0
+  single_nat_gateway = true
 
   # Internet connectivity
   enable_dns_hostnames = true
   enable_dns_support   = true
 
-  # Tags
   tags = {
-    Environment = var.environment
+    Environment = "production"
     ManagedBy   = "OpenTofu"
     Project     = "RunsOn"
   }
-
-  public_subnet_tags = {
-    Type = "public"
-  }
-
-  private_subnet_tags = {
-    Type = "private"
-  }
 }
 
-# RunsOn Module - Deploys RunsOn infrastructure
+# RunsOn Module - Deploys RunsOn infrastructure with smart defaults
 module "runs_on" {
-  source = "../../" # Points to root of this repo
-
-  # Stack configuration
-  stack_name  = var.stack_name
-  aws_region  = var.aws_region
-  environment = var.environment
+  source = "../../"
 
   # Required: GitHub and License
   github_organization = var.github_organization
   license_key         = var.license_key
   email               = var.email
 
-  # Network configuration (BYOV)
+  # Required: Network configuration (BYOV - Bring Your Own VPC)
   vpc_id             = module.vpc.vpc_id
   public_subnet_ids  = module.vpc.public_subnets
   private_subnet_ids = module.vpc.private_subnets
 
-  # Security groups will be created automatically if not provided
-  security_group_ids = [] # Empty = module creates them
+  # Optional: Security groups (if not provided, module creates them automatically)
+  # security_group_ids = ["sg-xxxxx"]
 
-  # Optional features
-  enable_efs = var.enable_efs
-  enable_ecr = var.enable_ecr
-
-  # SSH access (optional)
-  ssh_allowed    = var.ssh_allowed
-  ssh_cidr_range = var.ssh_cidr_range
+  # All other variables use smart defaults matching CloudFormation
 }

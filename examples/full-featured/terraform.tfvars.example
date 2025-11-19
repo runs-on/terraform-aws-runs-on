@@ -1,0 +1,24 @@
+stack_name          = "my-runs-on-full"
+github_organization = "my-github-org"
+license_key         = "your-license-key-here"
+email               = "devops@example.com"
+
+aws_region = "us-east-1"
+
+# NAT gateway configuration
+single_nat_gateway = true  # Set false for HA (3 NAT gateways)
+
+# Monitoring
+detailed_monitoring_enabled = false  # Set true for detailed EC2 metrics
+enable_cost_reports         = true   # Daily cost emails
+
+# Security
+ssh_allowed    = false  # Set true to enable SSH to runners
+ssh_cidr_range = "0.0.0.0/0"  # Restrict to your office IP
+
+tags = {
+  Environment = "production"
+  ManagedBy   = "terraform"
+  Project     = "runs-on"
+  Features    = "all-enabled"
+}

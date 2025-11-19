@@ -336,7 +336,7 @@ resource "aws_iam_role_policy" "ec2_detailed_monitoring" {
 
 # EFS access policy (conditional)
 resource "aws_iam_role_policy" "ec2_efs_access" {
-  count = var.efs_file_system_id != "" ? 1 : 0
+  count = var.enable_efs ? 1 : 0
 
   name = "EfsMountAccess"
   role = aws_iam_role.ec2_instance.id
@@ -363,7 +363,7 @@ resource "aws_iam_role_policy" "ec2_efs_access" {
 
 # ECR access policy (conditional)
 resource "aws_iam_role_policy" "ec2_ecr_access" {
-  count = var.ephemeral_registry_arn != "" ? 1 : 0
+  count = var.enable_ecr ? 1 : 0
 
   name = "EphemeralRegistryAccess"
   role = aws_iam_role.ec2_instance.id

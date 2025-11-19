@@ -96,9 +96,20 @@ variable "public_subnet_ids" {
 }
 
 variable "private_subnet_ids" {
-  description = "List of private subnet IDs for runner instances (optional, enables private networking)"
+  description = "List of private subnet IDs for runner instances (required if private_mode is not 'false')"
   type        = list(string)
   default     = []
+}
+
+variable "private_mode" {
+  description = "Private networking mode: 'false' (disabled), 'true' (opt-in with label), 'always' (default with opt-out), 'only' (forced, no public option)"
+  type        = string
+  default     = "false"
+
+  validation {
+    condition     = contains(["false", "true", "always", "only"], var.private_mode)
+    error_message = "Private mode must be one of: false, true, always, only."
+  }
 }
 
 variable "security_group_ids" {
@@ -120,7 +131,7 @@ variable "networking_stack" {
 variable "cache_expiration_days" {
   description = "Number of days to retain cache artifacts in S3 before expiration"
   type        = number
-  default     = 30
+  default     = 10
 
   validation {
     condition     = var.cache_expiration_days >= 1 && var.cache_expiration_days <= 365
@@ -194,7 +205,7 @@ variable "ebs_encryption_key_id" {
 variable "runner_default_disk_size" {
   description = "Default EBS volume size in GB for runner instances"
   type        = number
-  default     = 50
+  default     = 40
 
   validation {
     condition     = var.runner_default_disk_size >= 20 && var.runner_default_disk_size <= 16384
@@ -266,7 +277,7 @@ variable "bootstrap_tag" {
 variable "app_cpu" {
   description = "CPU units for App Runner service (256, 512, 1024, 2048, 4096)"
   type        = number
-  default     = 1024
+  default     = 256
 
   validation {
     condition     = contains([256, 512, 1024, 2048, 4096], var.app_cpu)
@@ -277,12 +288,18 @@ variable "app_cpu" {
 variable "app_memory" {
   description = "Memory in MB for App Runner service (512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288)"
   type        = number
-  default     = 2048
+  default     = 512
 
   validation {
     condition     = contains([512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288], var.app_memory)
     error_message = "Memory must be one of: 512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288."
   }
+}
+
+variable "app_debug" {
+  description = "Enable debug mode for RunsOn stack (prevents auto-shutdown of failed runner instances)"
+  type        = bool
+  default     = false
 }
 
 ###########################
@@ -337,7 +354,7 @@ variable "default_admins" {
 variable "runner_max_runtime" {
   description = "Maximum runtime in minutes for runners before forced termination"
   type        = number
-  default     = 360
+  default     = 720
 
   validation {
     condition     = var.runner_max_runtime >= 1

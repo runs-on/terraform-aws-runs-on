@@ -10,6 +10,9 @@ $env:RUNS_ON_CONFIG_BUCKET = "${config_bucket}"
 $env:RUNS_ON_CACHE_BUCKET = "${cache_bucket}"
 $env:RUNS_ON_REGION = "${region}"
 $env:RUNS_ON_LOG_GROUP = "${log_group}"
+$env:RUNS_ON_DEBUG = "${app_debug}"
+$env:RUNS_ON_RUNNER_MAX_RUNTIME = "${runner_max_runtime}"
+$env:RUNS_ON_LOG_GROUP_NAME = "${log_group}"
 
 # Optional: EFS configuration (environment variable only for Windows)
 %{ if efs_file_system_id != "" ~}
@@ -24,8 +27,12 @@ $env:RUNS_ON_EPHEMERAL_REGISTRY = "${ephemeral_registry_uri}"
 # Set error action preference
 $ErrorActionPreference = "Stop"
 
-# Create log directory
+# Bootstrap binary location
+$BootstrapBin = "C:\runs-on\bootstrap.exe"
+
+# Create directories
 New-Item -ItemType Directory -Force -Path C:\runs-on\logs | Out-Null
+New-Item -ItemType Directory -Force -Path (Split-Path $BootstrapBin) | Out-Null
 $LogFile = "C:\runs-on\logs\bootstrap.log"
 
 function Write-Log {
@@ -34,6 +41,20 @@ function Write-Log {
     $LogMessage = "[$Timestamp] $Message"
     Write-Host $LogMessage
     Add-Content -Path $LogFile -Value $LogMessage
+}
+
+# Setup shutdown function - auto-shutdown on exit unless debug mode is enabled
+function Invoke-TheEnd {
+    if ($env:RUNS_ON_DEBUG -ne "true") {
+        Write-Log "THE END"
+        Start-Sleep -Seconds 180
+        Stop-Computer -Force
+    }
+}
+
+# Register shutdown handler
+$null = Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
+    Invoke-TheEnd
 }
 
 Write-Log "Starting RunsOn Windows runner initialization..."
@@ -48,21 +69,51 @@ if (-not (Get-Command aws -ErrorAction SilentlyContinue)) {
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 }
 
-# Download and run RunsOn bootstrap script
-Write-Log "Downloading RunsOn bootstrap script..."
+# Download RunsOn bootstrap binary from GitHub releases
+Write-Log "Downloading RunsOn bootstrap binary..."
 try {
-    $bootstrapScript = "C:\runs-on\bootstrap.ps1"
-    New-Item -ItemType Directory -Force -Path C:\runs-on | Out-Null
+    if (-not (Test-Path $BootstrapBin)) {
+        $arch = if ([Environment]::Is64BitOperatingSystem) { "x86_64" } else { "x86" }
+        $bootstrapUrl = "https://github.com/runs-on/bootstrap/releases/download/$env:RUNS_ON_BOOTSTRAP_TAG/bootstrap-$env:RUNS_ON_BOOTSTRAP_TAG-windows-$arch.exe"
 
-    aws s3 cp "s3://$env:RUNS_ON_CONFIG_BUCKET/agents/$env:RUNS_ON_BOOTSTRAP_TAG/bootstrap-windows.ps1" $bootstrapScript
+        # Download with retry logic
+        $maxRetries = 5
+        $retryCount = 0
+        $downloaded = $false
+
+        while (-not $downloaded -and $retryCount -lt $maxRetries) {
+            try {
+                Invoke-WebRequest -Uri $bootstrapUrl -OutFile $BootstrapBin -TimeoutSec 15
+                $downloaded = $true
+            }
+            catch {
+                $retryCount++
+                if ($retryCount -lt $maxRetries) {
+                    Write-Log "Download failed, retrying ($retryCount/$maxRetries)..."
+                    Start-Sleep -Seconds 3
+                }
+                else {
+                    throw
+                }
+            }
+        }
+    }
 
     Write-Log "Running RunsOn bootstrap..."
-    & $bootstrapScript *>> $LogFile
+    $agentUrl = "s3://$env:RUNS_ON_CONFIG_BUCKET/agents/$env:RUNS_ON_APP_TAG/agent-windows-x86_64.exe"
+
+    & $BootstrapBin `
+        --debug=$env:RUNS_ON_DEBUG `
+        --exec `
+        --post-exec shutdown `
+        $agentUrl `
+        *>> $LogFile
 
     Write-Log "RunsOn runner initialization complete"
 }
 catch {
     Write-Log "ERROR: Bootstrap failed - $_"
+    Invoke-TheEnd
     exit 1
 }
 

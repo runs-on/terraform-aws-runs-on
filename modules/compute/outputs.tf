@@ -43,22 +43,22 @@ output "launch_template_windows_default_latest_version" {
 
 output "launch_template_linux_private_id" {
   description = "ID of the Linux private launch template"
-  value       = var.private_networking_enabled ? aws_launch_template.linux_private[0].id : null
+  value       = var.private_mode != "false" ? aws_launch_template.linux_private[0].id : null
 }
 
 output "launch_template_linux_private_latest_version" {
   description = "Latest version of the Linux private launch template"
-  value       = var.private_networking_enabled ? aws_launch_template.linux_private[0].latest_version : null
+  value       = var.private_mode != "false" ? aws_launch_template.linux_private[0].latest_version : null
 }
 
 output "launch_template_windows_private_id" {
   description = "ID of the Windows private launch template"
-  value       = var.private_networking_enabled ? aws_launch_template.windows_private[0].id : null
+  value       = var.private_mode != "false" ? aws_launch_template.windows_private[0].id : null
 }
 
 output "launch_template_windows_private_latest_version" {
   description = "Latest version of the Windows private launch template"
-  value       = var.private_networking_enabled ? aws_launch_template.windows_private[0].latest_version : null
+  value       = var.private_mode != "false" ? aws_launch_template.windows_private[0].latest_version : null
 }
 
 output "log_group_name" {

@@ -8,7 +8,7 @@
 resource "aws_sqs_queue" "main_dead_letter" {
   name                      = "${var.stack_name}-main-dlq.fifo"
   fifo_queue                = true
-  message_retention_seconds = 1209600 # 14 days
+  message_retention_seconds = 259200 # 3 days
 
   tags = merge(
     local.common_tags,
@@ -23,7 +23,7 @@ resource "aws_sqs_queue" "main_dead_letter" {
 resource "aws_sqs_queue" "jobs_dead_letter" {
   name                      = "${var.stack_name}-jobs-dlq.fifo"
   fifo_queue                = true
-  message_retention_seconds = 1209600 # 14 days
+  message_retention_seconds = 259200 # 3 days
 
   tags = merge(
     local.common_tags,
@@ -38,7 +38,7 @@ resource "aws_sqs_queue" "jobs_dead_letter" {
 resource "aws_sqs_queue" "github_dead_letter" {
   name                      = "${var.stack_name}-github-dlq.fifo"
   fifo_queue                = true
-  message_retention_seconds = 1209600 # 14 days
+  message_retention_seconds = 259200 # 3 days
 
   tags = merge(
     local.common_tags,
@@ -52,7 +52,7 @@ resource "aws_sqs_queue" "github_dead_letter" {
 
 resource "aws_sqs_queue" "pool_dead_letter" {
   name                      = "${var.stack_name}-pool-dlq"
-  message_retention_seconds = 1209600 # 14 days
+  message_retention_seconds = 259200 # 3 days
 
   tags = merge(
     local.common_tags,
@@ -120,7 +120,7 @@ resource "aws_sqs_queue" "github" {
   content_based_deduplication = true
   message_retention_seconds   = 86400
   receive_wait_time_seconds   = 10
-  visibility_timeout_seconds  = 120
+  visibility_timeout_seconds  = 60
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.github_dead_letter.arn

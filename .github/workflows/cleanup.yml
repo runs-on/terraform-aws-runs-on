@@ -1,0 +1,121 @@
+name: Cleanup Test Resources
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (don't actually delete)"
+        required: false
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+env:
+  AWS_REGION: "us-east-1"
+
+jobs:
+  cleanup-old-resources:
+    name: Cleanup Old Test Resources
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Find old test resources
+        id: find-resources
+        run: |
+          DRY_RUN="${{ github.event.inputs.dry_run || 'true' }}"
+          CUTOFF_TIME=$(date -u -d '24 hours ago' +%s)
+
+          echo "Looking for test resources older than 24 hours..."
+          echo "Cutoff time: $(date -u -d @${CUTOFF_TIME})"
+
+          # Find S3 buckets with TestFramework tag
+          echo "## S3 Buckets" >> $GITHUB_STEP_SUMMARY
+          aws s3api list-buckets --query 'Buckets[].Name' --output text | while read bucket; do
+            TAGS=$(aws s3api get-bucket-tagging --bucket "$bucket" 2>/dev/null || echo "")
+            if echo "$TAGS" | grep -q "TestFramework"; then
+              CREATED=$(aws s3api list-buckets --query "Buckets[?Name=='$bucket'].CreationDate" --output text)
+              CREATED_TS=$(date -d "$CREATED" +%s)
+              if [ $CREATED_TS -lt $CUTOFF_TIME ]; then
+                echo "Found old test bucket: $bucket (created: $CREATED)"
+                echo "- \`$bucket\` (created: $CREATED)" >> $GITHUB_STEP_SUMMARY
+                if [ "$DRY_RUN" = "false" ]; then
+                  echo "Deleting bucket: $bucket"
+                  aws s3 rb s3://$bucket --force || echo "Failed to delete $bucket"
+                fi
+              fi
+            fi
+          done
+
+          # Find VPCs with AutoCleanup tag
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## VPCs" >> $GITHUB_STEP_SUMMARY
+          aws ec2 describe-vpcs \
+            --filters "Name=tag:AutoCleanup,Values=true" \
+            --query 'Vpcs[].VpcId' \
+            --output text | while read vpc; do
+            TAGS=$(aws ec2 describe-vpcs --vpc-ids "$vpc" --query 'Vpcs[0].Tags' --output json)
+            echo "Found test VPC: $vpc"
+            echo "- \`$vpc\`" >> $GITHUB_STEP_SUMMARY
+
+            if [ "$DRY_RUN" = "false" ]; then
+              echo "Would delete VPC: $vpc (requires manual cleanup of dependencies)"
+              # Note: Deleting VPCs requires deleting all dependencies first
+              # This is complex and risky, so we just report them
+            fi
+          done
+
+          # Find old EFS file systems
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## EFS File Systems" >> $GITHUB_STEP_SUMMARY
+          aws efs describe-file-systems --query 'FileSystems[].FileSystemId' --output text | while read fs; do
+            TAGS=$(aws efs list-tags-for-resource --resource-id "$fs" --query 'Tags' --output json 2>/dev/null || echo "[]")
+            if echo "$TAGS" | grep -q "TestFramework"; then
+              echo "Found test EFS: $fs"
+              echo "- \`$fs\`" >> $GITHUB_STEP_SUMMARY
+
+              if [ "$DRY_RUN" = "false" ]; then
+                echo "Note: EFS has prevent_destroy lifecycle rule - manual deletion required"
+              fi
+            fi
+          done
+
+          # Find old ECR repositories
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ECR Repositories" >> $GITHUB_STEP_SUMMARY
+          aws ecr describe-repositories --query 'repositories[].repositoryName' --output text | while read repo; do
+            TAGS=$(aws ecr list-tags-for-resource --resource-arn "arn:aws:ecr:${AWS_REGION}:$(aws sts get-caller-identity --query Account --output text):repository/${repo}" --query 'tags' --output json 2>/dev/null || echo "[]")
+            if echo "$TAGS" | grep -q "TestFramework"; then
+              echo "Found test ECR: $repo"
+              echo "- \`$repo\`" >> $GITHUB_STEP_SUMMARY
+
+              if [ "$DRY_RUN" = "false" ]; then
+                echo "Note: ECR has prevent_destroy lifecycle rule - manual deletion required"
+              fi
+            fi
+          done
+
+      - name: Summary
+        run: |
+          echo "## Cleanup Summary" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event.inputs.dry_run || 'true' }}" = "true" ]; then
+            echo "**Mode**: Dry run (no resources deleted)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Mode**: Cleanup executed" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check the logs above for detailed information about test resources." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> **Note**: Some resources (EFS, ECR) have prevent_destroy lifecycle rules and require manual deletion." >> $GITHUB_STEP_SUMMARY

@@ -128,6 +128,11 @@ output "apprunner_service_status" {
   value       = module.core.apprunner_service_status
 }
 
+output "apprunner_log_group_name" {
+  description = "CloudWatch log group name for App Runner service"
+  value       = module.core.apprunner_log_group_name
+}
+
 output "sns_topic_arn" {
   description = "ARN of the SNS alerts topic"
   value       = module.core.sns_topic_arn

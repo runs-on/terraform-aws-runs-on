@@ -59,10 +59,18 @@ module "compute" {
   runner_default_volume_throughput = var.runner_default_volume_throughput
 
   # Private networking
-  private_networking_enabled = length(var.private_subnet_ids) > 0
+  private_mode = var.private_mode
+
+  # Debug mode
+  app_debug = var.app_debug
+
+  # Runner configuration
+  runner_max_runtime = var.runner_max_runtime
 
   # Optional features from optional module
+  enable_efs             = var.enable_efs
   efs_file_system_id     = var.enable_efs ? module.optional.efs_file_system_id : ""
+  enable_ecr             = var.enable_ecr
   ephemeral_registry_arn = var.enable_ecr ? module.optional.ecr_repository_arn : ""
   ephemeral_registry_uri = var.enable_ecr ? module.optional.ecr_repository_url : ""
 
@@ -139,8 +147,11 @@ module "core" {
   bootstrap_tag = var.bootstrap_tag
 
   # Networking
-  networking_stack           = var.networking_stack
-  private_networking_enabled = length(var.private_subnet_ids) > 0
+  networking_stack = var.networking_stack
+  private_mode     = var.private_mode
+
+  # Debug mode
+  app_debug = var.app_debug
 
   # Runner configuration
   ssh_allowed                      = var.ssh_allowed

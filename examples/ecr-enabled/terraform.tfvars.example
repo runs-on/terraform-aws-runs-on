@@ -1,0 +1,12 @@
+stack_name          = "my-runs-on-ecr"
+github_organization = "my-github-org"
+license_key         = "your-license-key-here"
+
+aws_region = "us-east-1"
+
+tags = {
+  Environment = "production"
+  ManagedBy   = "terraform"
+  Project     = "runs-on"
+  Registry    = "ecr"
+}

@@ -21,6 +21,11 @@ output "apprunner_service_status" {
   value       = aws_apprunner_service.this.status
 }
 
+output "apprunner_log_group_name" {
+  description = "CloudWatch log group name for App Runner service"
+  value       = "/aws/apprunner/${aws_apprunner_service.this.service_name}/${aws_apprunner_service.this.service_id}/application"
+}
+
 output "sns_topic_arn" {
   description = "ARN of the SNS alerts topic"
   value       = aws_sns_topic.alerts.arn
