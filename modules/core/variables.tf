@@ -143,12 +143,6 @@ variable "app_memory" {
   default     = 2048
 }
 
-variable "networking_stack" {
-  description = "Networking stack type"
-  type        = string
-  default     = "external"
-}
-
 variable "private_mode" {
   description = "Private networking mode: 'false', 'true', 'always', or 'only'"
   type        = string

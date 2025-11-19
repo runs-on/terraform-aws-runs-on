@@ -36,7 +36,7 @@ variable "environment" {
 variable "cost_allocation_tag" {
   description = "Name of the tag key used for cost allocation and tracking"
   type        = string
-  default     = "CostCenter"
+  default     = "stack"
 }
 
 variable "tags" {
@@ -118,12 +118,6 @@ variable "security_group_ids" {
   default     = []
 }
 
-variable "networking_stack" {
-  description = "Networking stack type (external for BYOV scenarios)"
-  type        = string
-  default     = "external"
-}
-
 ###########################
 # Storage Configuration
 ###########################
@@ -187,7 +181,7 @@ variable "detailed_monitoring_enabled" {
 variable "ipv6_enabled" {
   description = "Enable IPv6 support for runner instances"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "ebs_encryption_enabled" {
@@ -309,7 +303,7 @@ variable "app_debug" {
 variable "ssh_allowed" {
   description = "Allow SSH access to runner instances"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "ssh_cidr_range" {
@@ -365,7 +359,7 @@ variable "runner_max_runtime" {
 variable "runner_config_auto_extends_from" {
   description = "Auto-extend runner configuration from this base config"
   type        = string
-  default     = ""
+  default     = ".github-private"
 }
 
 variable "runner_custom_tags" {
@@ -392,9 +386,9 @@ variable "server_password" {
 }
 
 variable "spot_circuit_breaker" {
-  description = "Spot instance circuit breaker configuration (e.g., '5m:3' = 3 failures in 5 minutes)"
+  description = "Spot instance circuit breaker configuration (e.g., '2/15/30' = 2 failures in 15min, block for 30min)"
   type        = string
-  default     = ""
+  default     = "2/15/30"
 }
 
 ###########################

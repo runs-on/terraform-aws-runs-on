@@ -170,7 +170,6 @@ No modules.
 | <a name="input_launch_template_linux_private_id"></a> [launch\_template\_linux\_private\_id](#input\_launch\_template\_linux\_private\_id) | ID of the Linux private launch template | `string` | `null` | no |
 | <a name="input_launch_template_windows_private_id"></a> [launch\_template\_windows\_private\_id](#input\_launch\_template\_windows\_private\_id) | ID of the Windows private launch template | `string` | `null` | no |
 | <a name="input_logger_level"></a> [logger\_level](#input\_logger\_level) | Logger level | `string` | `"info"` | no |
-| <a name="input_networking_stack"></a> [networking\_stack](#input\_networking\_stack) | Networking stack type | `string` | `"external"` | no |
 | <a name="input_otel_exporter_endpoint"></a> [otel\_exporter\_endpoint](#input\_otel\_exporter\_endpoint) | OpenTelemetry exporter endpoint | `string` | `""` | no |
 | <a name="input_otel_exporter_headers"></a> [otel\_exporter\_headers](#input\_otel\_exporter\_headers) | OpenTelemetry exporter headers | `string` | `""` | no |
 | <a name="input_private_networking_enabled"></a> [private\_networking\_enabled](#input\_private\_networking\_enabled) | Enable private networking for App Runner | `bool` | `false` | no |

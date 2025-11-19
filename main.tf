@@ -2,6 +2,59 @@
 # Root module for RunsOn infrastructure - orchestrates all submodules
 
 ###########################
+# Mock CloudFormation Stack
+# Temporary solution for App Runner CloudFormation dependency
+###########################
+
+resource "aws_cloudformation_stack" "runs_on_mock" {
+  name = var.stack_name
+
+  template_body = jsonencode({
+    AWSTemplateFormatVersion = "2010-09-09"
+    Description              = "Mock CloudFormation stack for RunsOn deployed via Terraform/OpenTofu"
+
+    Metadata = {
+      ManagedBy        = "Terraform"
+      DeploymentMethod = "OpenTofu"
+    }
+
+    Parameters = {
+      StackName = {
+        Type    = "String"
+        Default = var.stack_name
+      }
+    }
+
+    Outputs = {
+      StackName = {
+        Value       = var.stack_name
+        Description = "RunsOn stack name"
+      }
+      ManagedBy = {
+        Value       = "Terraform"
+        Description = "Infrastructure management tool"
+      }
+    }
+
+    # CloudFormation requires at least one resource
+    # Use WaitConditionHandle as a no-op placeholder
+    Resources = {
+      MockResource = {
+        Type = "AWS::CloudFormation::WaitConditionHandle"
+      }
+    }
+  })
+
+  tags = merge(
+    var.tags,
+    {
+      Name      = var.stack_name
+      ManagedBy = "Terraform"
+    }
+  )
+}
+
+###########################
 # Storage Module
 ###########################
 
@@ -147,8 +200,7 @@ module "core" {
   bootstrap_tag = var.bootstrap_tag
 
   # Networking
-  networking_stack = var.networking_stack
-  private_mode     = var.private_mode
+  private_mode = var.private_mode
 
   # Debug mode
   app_debug = var.app_debug

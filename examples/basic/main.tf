@@ -52,6 +52,9 @@ module "vpc" {
 module "runs_on" {
   source = "../../"
 
+  # Stack configuration
+  stack_name = var.stack_name
+
   # Required: GitHub and License
   github_organization = var.github_organization
   license_key         = var.license_key

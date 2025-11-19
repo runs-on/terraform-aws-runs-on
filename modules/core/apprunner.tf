@@ -319,7 +319,7 @@ resource "aws_apprunner_service" "this" {
           RUNS_ON_STACK_NAME                        = var.stack_name
           RUNS_ON_LOCKS_TABLE                       = aws_dynamodb_table.locks.name
           RUNS_ON_WORKFLOW_JOBS_TABLE               = aws_dynamodb_table.workflow_jobs.name
-          RUNS_ON_NETWORKING_STACK                  = var.networking_stack
+          RUNS_ON_NETWORKING_STACK                  = "external"
           RUNS_ON_GITHUB_ORGANIZATION               = var.github_organization
           RUNS_ON_APP_TAG                           = var.app_tag
           RUNS_ON_BOOTSTRAP_TAG                     = var.bootstrap_tag
