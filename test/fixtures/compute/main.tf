@@ -5,40 +5,40 @@ module "compute" {
   source = "../../../modules/compute"
 
   stack_name              = var.stack_name
-  vpc_id                  = var.vpc_id
+  cost_allocation_tag     = var.cost_allocation_tag
+  environment             = var.environment
   security_group_ids      = var.security_group_ids
-  public_subnet_ids       = var.public_subnet_ids
-  private_subnet_ids      = var.private_subnet_ids
   config_bucket_name      = var.config_bucket_name
   config_bucket_arn       = var.config_bucket_arn
   cache_bucket_name       = var.cache_bucket_name
   cache_bucket_arn        = var.cache_bucket_arn
-  efs_id                  = var.efs_id
-  ecr_repository_url      = var.ecr_repository_url
+  efs_file_system_id      = var.efs_file_system_id
+  enable_efs              = var.enable_efs
+  ephemeral_registry_uri  = var.ephemeral_registry_uri
+  ephemeral_registry_arn  = var.ephemeral_registry_arn
+  enable_ecr              = var.enable_ecr
   log_retention_days      = var.log_retention_days
   permission_boundary_arn = var.permission_boundary_arn
   app_tag                 = var.app_tag
   bootstrap_tag           = var.bootstrap_tag
+  tags                    = var.tags
 }
 
 variable "stack_name" {
   type = string
 }
 
-variable "vpc_id" {
-  type = string
+variable "cost_allocation_tag" {
+  type    = string
+  default = "test-cost-center"
+}
+
+variable "environment" {
+  type    = string
+  default = "test"
 }
 
 variable "security_group_ids" {
-  type    = list(string)
-  default = []
-}
-
-variable "public_subnet_ids" {
-  type = list(string)
-}
-
-variable "private_subnet_ids" {
   type    = list(string)
   default = []
 }
@@ -59,14 +59,29 @@ variable "cache_bucket_arn" {
   type = string
 }
 
-variable "efs_id" {
+variable "efs_file_system_id" {
   type    = string
   default = ""
 }
 
-variable "ecr_repository_url" {
+variable "enable_efs" {
+  type    = bool
+  default = false
+}
+
+variable "ephemeral_registry_uri" {
   type    = string
   default = ""
+}
+
+variable "ephemeral_registry_arn" {
+  type    = string
+  default = ""
+}
+
+variable "enable_ecr" {
+  type    = bool
+  default = false
 }
 
 variable "log_retention_days" {
@@ -87,6 +102,11 @@ variable "app_tag" {
 variable "bootstrap_tag" {
   type    = string
   default = "v0.1.12"
+}
+
+variable "tags" {
+  type    = map(string)
+  default = {}
 }
 
 output "instance_role_name" {
@@ -110,11 +130,11 @@ output "launch_template_windows_default_id" {
 }
 
 output "launch_template_linux_private_id" {
-  value = length(var.private_subnet_ids) > 0 ? module.compute.launch_template_linux_private_id : ""
+  value = module.compute.launch_template_linux_private_id
 }
 
 output "launch_template_windows_private_id" {
-  value = length(var.private_subnet_ids) > 0 ? module.compute.launch_template_windows_private_id : ""
+  value = module.compute.launch_template_windows_private_id
 }
 
 output "log_group_name" {

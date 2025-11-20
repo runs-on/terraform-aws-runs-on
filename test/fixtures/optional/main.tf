@@ -5,8 +5,10 @@ module "optional" {
   enable_efs         = var.enable_efs
   enable_ecr         = var.enable_ecr
   vpc_id             = var.vpc_id
-  subnet_ids         = var.subnet_ids
+  public_subnet_ids  = var.public_subnet_ids
   security_group_ids = var.security_group_ids
+  environment        = var.environment
+  tags               = var.tags
 }
 
 variable "stack_name" {
@@ -32,8 +34,8 @@ variable "vpc_id" {
   default     = ""
 }
 
-variable "subnet_ids" {
-  description = "Subnet IDs for EFS mount targets"
+variable "public_subnet_ids" {
+  description = "Public subnet IDs for EFS mount targets"
   type        = list(string)
   default     = []
 }
@@ -42,6 +44,18 @@ variable "security_group_ids" {
   description = "Security group IDs for EFS"
   type        = list(string)
   default     = []
+}
+
+variable "environment" {
+  description = "Environment name (e.g., prod, dev, staging)"
+  type        = string
+  default     = "test"
+}
+
+variable "tags" {
+  description = "Additional tags for all resources"
+  type        = map(string)
+  default     = {}
 }
 
 output "efs_id" {

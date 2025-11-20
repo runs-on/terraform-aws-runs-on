@@ -23,6 +23,18 @@ variable "cost_allocation_tag" {
   default     = "test-cost-center"
 }
 
+variable "environment" {
+  description = "Environment name (e.g., prod, dev, staging)"
+  type        = string
+  default     = "test"
+}
+
+variable "tags" {
+  description = "Additional tags for all resources"
+  type        = map(string)
+  default     = {}
+}
+
 output "config_bucket_name" {
   description = "Name of the config S3 bucket"
   value       = module.storage.config_bucket_name

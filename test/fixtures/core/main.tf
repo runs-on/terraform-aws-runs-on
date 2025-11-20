@@ -5,6 +5,8 @@ module "core" {
   source = "../../../modules/core"
 
   stack_name                         = var.stack_name
+  cost_allocation_tag                = var.cost_allocation_tag
+  environment                        = var.environment
   github_organization                = var.github_organization
   license_key                        = var.license_key
   vpc_id                             = var.vpc_id
@@ -12,20 +14,33 @@ module "core" {
   private_subnet_ids                 = var.private_subnet_ids
   security_group_ids                 = var.security_group_ids
   config_bucket_name                 = var.config_bucket_name
+  config_bucket_arn                  = var.config_bucket_arn
   cache_bucket_name                  = var.cache_bucket_name
-  instance_profile_arn               = var.instance_profile_arn
-  instance_role_name                 = var.instance_role_name
+  cache_bucket_arn                   = var.cache_bucket_arn
+  ec2_instance_profile_arn           = var.ec2_instance_profile_arn
+  ec2_instance_role_arn              = var.ec2_instance_role_arn
+  ec2_instance_role_name             = var.ec2_instance_role_name
   launch_template_linux_default_id   = var.launch_template_linux_default_id
   launch_template_windows_default_id = var.launch_template_windows_default_id
   launch_template_linux_private_id   = var.launch_template_linux_private_id
   launch_template_windows_private_id = var.launch_template_windows_private_id
   app_cpu                            = var.app_cpu
   app_memory                         = var.app_memory
-  environment                        = var.environment
+  tags                               = var.tags
 }
 
 variable "stack_name" {
   type = string
+}
+
+variable "cost_allocation_tag" {
+  type    = string
+  default = "test-cost-center"
+}
+
+variable "environment" {
+  type    = string
+  default = "test"
 }
 
 variable "github_organization" {
@@ -57,15 +72,27 @@ variable "config_bucket_name" {
   type = string
 }
 
+variable "config_bucket_arn" {
+  type = string
+}
+
 variable "cache_bucket_name" {
   type = string
 }
 
-variable "instance_profile_arn" {
+variable "cache_bucket_arn" {
   type = string
 }
 
-variable "instance_role_name" {
+variable "ec2_instance_profile_arn" {
+  type = string
+}
+
+variable "ec2_instance_role_arn" {
+  type = string
+}
+
+variable "ec2_instance_role_name" {
   type = string
 }
 
@@ -97,9 +124,9 @@ variable "app_memory" {
   default = 2048
 }
 
-variable "environment" {
-  type    = string
-  default = "test"
+variable "tags" {
+  type    = map(string)
+  default = {}
 }
 
 output "app_runner_service_url" {

@@ -11,6 +11,7 @@ on:
       - main
       - "feat/**"
   workflow_dispatch:
+    inputs:
 
 env:
   GO_VERSION: "1.21"
