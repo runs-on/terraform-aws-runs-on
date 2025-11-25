@@ -2,45 +2,180 @@
 # Root module for RunsOn infrastructure - orchestrates all submodules
 
 ###########################
-# Mock CloudFormation Stack
-# Temporary solution for App Runner CloudFormation dependency
+# CloudFormation Stack for CLI Compatibility
+# Exposes all outputs that the RunsOn CLI expects from a CloudFormation deployment
 ###########################
 
 resource "aws_cloudformation_stack" "runs_on_mock" {
   name = var.stack_name
 
+  # The stack must be created after all modules to reference their outputs
+  depends_on = [module.core, module.compute, module.storage, module.optional]
+
   template_body = jsonencode({
     AWSTemplateFormatVersion = "2010-09-09"
-    Description              = "Mock CloudFormation stack for RunsOn deployed via Terraform/OpenTofu"
+    Description              = "RunsOn stack deployed via Terraform/OpenTofu"
 
-    Metadata = {
-      ManagedBy        = "Terraform"
-      DeploymentMethod = "OpenTofu"
-    }
-
-    Parameters = {
-      StackName = {
-        Type    = "String"
-        Default = var.stack_name
+    # CloudFormation requires at least one resource
+    Resources = {
+      MockResource = {
+        Type = "AWS::CloudFormation::WaitConditionHandle"
       }
     }
 
     Outputs = {
-      StackName = {
-        Value       = var.stack_name
-        Description = "RunsOn stack name"
+      # Core Service
+      RunsOnEntryPoint = {
+        Value       = module.core.apprunner_service_url
+        Description = "App Runner service URL"
       }
+      RunsOnService = {
+        Value       = "https://${data.aws_region.current.name}.console.aws.amazon.com/apprunner/home?region=${data.aws_region.current.name}#/services/dashboard?service_arn=${module.core.apprunner_service_arn}"
+        Description = "Link to App Runner service in AWS console"
+      }
+      RunsOnServiceArn = {
+        Value       = module.core.apprunner_service_arn
+        Description = "App Runner service ARN"
+      }
+      RunsOnServiceLogGroupName = {
+        Value       = module.core.apprunner_log_group_name
+        Description = "CloudWatch log group name for App Runner service"
+      }
+
+      # Account & Region
+      RunsOnAwsAccountId = {
+        Value       = data.aws_caller_identity.current.account_id
+        Description = "AWS Account ID"
+      }
+      RunsOnRegion = {
+        Value       = data.aws_region.current.name
+        Description = "AWS Region"
+      }
+
+      # Storage
+      RunsOnBucketConfig = {
+        Value       = module.storage.config_bucket_name
+        Description = "S3 bucket for configuration"
+      }
+      RunsOnBucketCache = {
+        Value       = module.storage.cache_bucket_name
+        Description = "S3 bucket for cache"
+      }
+
+      # Compute
+      RunsOnInstanceRoleName = {
+        Value       = module.compute.ec2_instance_role_name
+        Description = "EC2 instance IAM role name"
+      }
+      RunsOnEC2InstanceLogGroupArn = {
+        Value       = module.compute.log_group_arn
+        Description = "CloudWatch log group ARN for EC2 instances"
+      }
+      RunsOnLaunchTemplateLinuxDefault = {
+        Value       = module.compute.launch_template_linux_default_id
+        Description = "Linux default launch template ID:Version"
+      }
+      RunsOnLaunchTemplateWindowsDefault = {
+        Value       = module.compute.launch_template_windows_default_id
+        Description = "Windows default launch template ID:Version"
+      }
+      RunsOnLaunchTemplateLinuxPrivate = {
+        Value       = module.compute.launch_template_linux_private_id
+        Description = "Linux private launch template ID:Version"
+      }
+      RunsOnLaunchTemplateWindowsPrivate = {
+        Value       = module.compute.launch_template_windows_private_id
+        Description = "Windows private launch template ID:Version"
+      }
+
+      # Networking
+      RunsOnVPCId = {
+        Value       = var.vpc_id
+        Description = "VPC ID"
+      }
+      RunsOnSecurityGroupId = {
+        Value       = join(",", local.effective_security_group_ids)
+        Description = "Security group IDs (comma-separated)"
+      }
+      RunsOnPublicSubnetIds = {
+        Value       = join(",", var.public_subnet_ids)
+        Description = "Public subnet IDs (comma-separated)"
+      }
+      RunsOnPrivateSubnetIds = {
+        Value       = join(",", var.private_subnet_ids)
+        Description = "Private subnet IDs (comma-separated)"
+      }
+      RunsOnPrivate = {
+        Value       = var.private_mode
+        Description = "Private networking mode"
+      }
+
+      # Queues
+      RunsOnQueue = {
+        Value       = module.core.sqs_queue_main_url
+        Description = "Main SQS queue URL"
+      }
+      RunsOnQueueJobs = {
+        Value       = module.core.sqs_queue_jobs_url
+        Description = "Jobs SQS queue URL"
+      }
+      RunsOnQueueGithub = {
+        Value       = module.core.sqs_queue_github_url
+        Description = "GitHub SQS queue URL"
+      }
+      RunsOnQueuePool = {
+        Value       = module.core.sqs_queue_pool_url
+        Description = "Pool SQS queue URL"
+      }
+      RunsOnQueueHousekeeping = {
+        Value       = module.core.sqs_queue_housekeeping_url
+        Description = "Housekeeping SQS queue URL"
+      }
+      RunsOnQueueTermination = {
+        Value       = module.core.sqs_queue_termination_url
+        Description = "Termination SQS queue URL"
+      }
+      RunsOnQueueEvents = {
+        Value       = module.core.sqs_queue_events_url
+        Description = "Events SQS queue URL"
+      }
+
+      # Database
+      RunsOnLocksTable = {
+        Value       = module.core.dynamodb_locks_table_name
+        Description = "DynamoDB locks table name"
+      }
+      RunsOnWorkflowJobsTable = {
+        Value       = module.core.dynamodb_workflow_jobs_table_name
+        Description = "DynamoDB workflow jobs table name"
+      }
+
+      # Alerting
+      RunsOnTopicArn = {
+        Value       = module.core.sns_topic_arn
+        Description = "SNS topic ARN for alerts"
+      }
+
+      # Versioning
+      RunsOnAppTag = {
+        Value       = var.app_tag
+        Description = "Application version tag"
+      }
+      RunsOnBootstrapTag = {
+        Value       = var.bootstrap_tag
+        Description = "Bootstrap script version tag"
+      }
+
+      # Optional Features
+      RunsOnEfsFileSystemId = {
+        Value       = var.enable_efs ? module.optional.efs_file_system_id : ""
+        Description = "EFS file system ID (if enabled)"
+      }
+
+      # Metadata
       ManagedBy = {
         Value       = "Terraform"
         Description = "Infrastructure management tool"
-      }
-    }
-
-    # CloudFormation requires at least one resource
-    # Use WaitConditionHandle as a no-op placeholder
-    Resources = {
-      MockResource = {
-        Type = "AWS::CloudFormation::WaitConditionHandle"
       }
     }
   })
@@ -65,6 +200,7 @@ module "storage" {
   environment           = var.environment
   cost_allocation_tag   = var.cost_allocation_tag
   cache_expiration_days = var.cache_expiration_days
+  force_destroy_buckets = var.force_destroy_buckets
 
   tags = var.tags
 }
@@ -146,6 +282,9 @@ module "optional" {
   # Feature flags
   enable_efs = var.enable_efs
   enable_ecr = var.enable_ecr
+
+  # Resource protection
+  prevent_destroy = var.prevent_destroy_optional_resources
 
   # Networking for EFS
   vpc_id             = var.vpc_id

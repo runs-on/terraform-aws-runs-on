@@ -46,3 +46,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "prevent_destroy" {
+  description = "Prevent destruction of EFS and ECR resources. Set to true for production environments."
+  type        = bool
+  default     = true
+}

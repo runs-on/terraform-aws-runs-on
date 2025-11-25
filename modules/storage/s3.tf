@@ -7,7 +7,7 @@
 
 resource "aws_s3_bucket" "logging" {
   bucket        = local.logging_bucket_name
-  force_destroy = true
+  force_destroy = var.force_destroy_buckets
 
   tags = merge(
     local.common_tags,
@@ -147,7 +147,7 @@ resource "aws_s3_bucket_policy" "logging" {
 
 resource "aws_s3_bucket" "config" {
   bucket        = local.config_bucket_name
-  force_destroy = true
+  force_destroy = var.force_destroy_buckets
 
   tags = merge(
     local.common_tags,
@@ -286,7 +286,7 @@ resource "aws_s3_bucket_policy" "config" {
 
 resource "aws_s3_bucket" "cache" {
   bucket        = local.cache_bucket_name
-  force_destroy = true
+  force_destroy = var.force_destroy_buckets
 
   tags = merge(
     local.common_tags,

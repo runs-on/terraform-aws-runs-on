@@ -5,8 +5,9 @@
 # EFS File System
 ###########################
 
-resource "aws_efs_file_system" "this" {
-  count = var.enable_efs ? 1 : 0
+# EFS with prevent_destroy enabled (for production)
+resource "aws_efs_file_system" "this_protected" {
+  count = var.enable_efs && var.prevent_destroy ? 1 : 0
 
   encrypted = true
 
@@ -21,6 +22,27 @@ resource "aws_efs_file_system" "this" {
   lifecycle {
     prevent_destroy = true
   }
+}
+
+# EFS without prevent_destroy (for non-production/testing)
+resource "aws_efs_file_system" "this_unprotected" {
+  count = var.enable_efs && !var.prevent_destroy ? 1 : 0
+
+  encrypted = true
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name        = "${var.stack_name}-efs"
+      Environment = var.environment
+    }
+  )
+}
+
+locals {
+  efs_file_system_id = var.enable_efs ? (
+    var.prevent_destroy ? aws_efs_file_system.this_protected[0].id : aws_efs_file_system.this_unprotected[0].id
+  ) : ""
 }
 
 ###########################
@@ -58,7 +80,7 @@ resource "aws_security_group" "efs" {
 resource "aws_efs_mount_target" "az1" {
   count = var.enable_efs ? 1 : 0
 
-  file_system_id  = aws_efs_file_system.this[0].id
+  file_system_id  = local.efs_file_system_id
   subnet_id       = var.public_subnet_ids[0]
   security_groups = [aws_security_group.efs[0].id]
 }
@@ -66,7 +88,7 @@ resource "aws_efs_mount_target" "az1" {
 resource "aws_efs_mount_target" "az2" {
   count = var.enable_efs && length(var.public_subnet_ids) > 1 ? 1 : 0
 
-  file_system_id  = aws_efs_file_system.this[0].id
+  file_system_id  = local.efs_file_system_id
   subnet_id       = var.public_subnet_ids[1]
   security_groups = [aws_security_group.efs[0].id]
 }
@@ -74,7 +96,7 @@ resource "aws_efs_mount_target" "az2" {
 resource "aws_efs_mount_target" "az3" {
   count = var.enable_efs && length(var.public_subnet_ids) > 2 ? 1 : 0
 
-  file_system_id  = aws_efs_file_system.this[0].id
+  file_system_id  = local.efs_file_system_id
   subnet_id       = var.public_subnet_ids[2]
   security_groups = [aws_security_group.efs[0].id]
 }

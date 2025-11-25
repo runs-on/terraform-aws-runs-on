@@ -39,3 +39,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "force_destroy_buckets" {
+  description = "Allow S3 buckets to be destroyed even when not empty. Set to false for production environments to prevent accidental data loss."
+  type        = bool
+  default     = false
+}

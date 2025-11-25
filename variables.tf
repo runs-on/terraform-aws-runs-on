@@ -29,14 +29,9 @@ variable "stack_name" {
 }
 
 variable "environment" {
-  description = "Environment name (e.g., production, staging, development)"
+  description = "Environment name used for resource tagging and RunsOn job filtering. RunsOn will only process jobs with an 'env' label matching this value. See https://runs-on.com/configuration/environments/ for details."
   type        = string
   default     = "production"
-
-  validation {
-    condition     = contains(["production", "staging", "development", "dev", "prod"], var.environment)
-    error_message = "Environment must be one of: production, staging, development, dev, prod."
-  }
 }
 
 variable "cost_allocation_tag" {
@@ -137,6 +132,12 @@ variable "cache_expiration_days" {
     condition     = var.cache_expiration_days >= 1 && var.cache_expiration_days <= 365
     error_message = "Cache expiration days must be between 1 and 365."
   }
+}
+
+variable "force_destroy_buckets" {
+  description = "Allow S3 buckets to be destroyed even when not empty. Set to false for production environments to prevent accidental data loss."
+  type        = bool
+  default     = false
 }
 
 ###########################
@@ -469,4 +470,10 @@ variable "enable_ecr" {
   description = "Enable ECR repository for ephemeral Docker image storage"
   type        = bool
   default     = false
+}
+
+variable "prevent_destroy_optional_resources" {
+  description = "Prevent destruction of EFS and ECR resources. Set to true for production environments to protect against accidental data loss."
+  type        = bool
+  default     = true
 }

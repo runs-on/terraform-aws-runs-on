@@ -2,26 +2,19 @@
 # Copy this file to terraform.tfvars and fill in your values
 
 # AWS Configuration
-aws_region = "us-east-1"
-stack_name = "runs-on-tofu-test" # Must be unique in your account/region
-environment = "production"
+aws_region   = "us-east-1"
+stack_name   = "runs-on" # Must be unique in your account/region
+environment  = "production"
 
 # VPC Configuration (adjust as needed)
 vpc_cidr                  = "10.0.0.0/16"
 public_subnet_cidrs       = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
 private_subnet_cidrs      = ["10.0.11.0/24", "10.0.12.0/24", "10.0.13.0/24"]
-enable_private_networking = false # Set to true to enable NAT gateway for private runners with static egress IPs
-single_nat_gateway        = true  # Set to false for HA (more expensive)
 
 # Required: RunsOn Configuration
 github_organization = "your-github-org"        # TODO: Replace with your GitHub org/username
 license_key         = "YOUR-LICENSE-KEY-HERE"  # TODO: Replace with your RunsOn license key
-email = "admin@example.com" # TODO: Replace with your email (optional)
+email               = "admin@example.com"      # TODO: Replace with your email (optional)
 
-# Optional: Features
-enable_efs = false # Set to true if you need shared storage across runners
-enable_ecr = false # Set to true if you need private Docker registry
-
-# Optional: SSH Access
 ssh_allowed    = true          # Allow SSH access to runners
 ssh_cidr_range = "0.0.0.0/0"  # Restrict to your IP range for better security

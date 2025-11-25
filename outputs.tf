@@ -241,15 +241,9 @@ output "getting_started" {
     Stack Name: ${var.stack_name}
     Region: ${data.aws_region.current.name}
 
-    Next Steps:
-    1. Configure your GitHub Actions workflows to use 'runs-on' labels
-    2. Monitor your runners via CloudWatch Log Group: ${module.compute.log_group_name}
-    3. Track costs using Resource Group: ${module.compute.resource_group_name}
-    4. Subscribe to alerts via SNS Topic: ${module.core.sns_topic_arn}
+    Get Started by clicking here -> https://${module.core.apprunner_service_url}
 
-    Service Endpoint: ${module.core.apprunner_service_url}
-
-    For more information, visit: https://runs-on.com/docs
+    Read more on https://runs-on.com/docs or visit https://runs-on.com/guides/troubleshoot/ to fix common issues.
   EOT
 }
 
