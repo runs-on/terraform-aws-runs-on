@@ -140,6 +140,12 @@ variable "force_destroy_buckets" {
   default     = false
 }
 
+variable "force_delete_ecr" {
+  description = "Allow ECR repository to be deleted even when it contains images. Set to true for testing environments."
+  type        = bool
+  default     = false
+}
+
 ###########################
 # Compute Configuration
 ###########################

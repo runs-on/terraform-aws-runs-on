@@ -104,19 +104,22 @@ func (c ScenarioConfig) ToVPCVars() map[string]interface{} {
 // ToModuleVars converts config to runs-on root module variables
 func (c ScenarioConfig) ToModuleVars(vpcID string, publicSubnets, privateSubnets []string) map[string]interface{} {
 	vars := map[string]interface{}{
-		"stack_name":                  fmt.Sprintf("test-%s", c.TestID),
-		"github_organization":         c.GithubOrg,
-		"license_key":                 c.LicenseKey,
-		"vpc_id":                      vpcID,
-		"public_subnet_ids":           publicSubnets,
-		"enable_efs":                  c.EnableEFS,
-		"enable_ecr":                  c.EnableECR,
-		"environment":                 "test",
-		"log_retention_days":          1,
-		"cache_expiration_days":       1,
-		"detailed_monitoring_enabled": false,
-		"app_cpu":                     1024,
-		"app_memory":                  2048,
+		"stack_name":                         fmt.Sprintf("test-%s", c.TestID),
+		"github_organization":                c.GithubOrg,
+		"license_key":                        c.LicenseKey,
+		"vpc_id":                             vpcID,
+		"public_subnet_ids":                  publicSubnets,
+		"enable_efs":                         c.EnableEFS,
+		"enable_ecr":                         c.EnableECR,
+		"environment":                        "test",
+		"log_retention_days":                 1,
+		"cache_expiration_days":              1,
+		"detailed_monitoring_enabled":        false,
+		"app_cpu":                            1024,
+		"app_memory":                         2048,
+		"force_destroy_buckets":              true,  // Enable force destroy for S3 test cleanup
+		"force_delete_ecr":                   true,  // Enable force delete for ECR test cleanup
+		"prevent_destroy_optional_resources": false, // Disable prevent_destroy for test cleanup
 	}
 
 	if len(privateSubnets) > 0 && c.EnableNAT {

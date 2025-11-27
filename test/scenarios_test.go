@@ -47,6 +47,7 @@ func TestScenarioBasic(t *testing.T) {
 	cacheBucket := terraform.Output(t, moduleOptions, "cache_bucket_name")
 	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
 	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
+	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
@@ -89,7 +90,7 @@ func TestScenarioBasic(t *testing.T) {
 	})
 
 	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, stackName)
+		ValidateCloudWatchLogRetention(t, logGroupName)
 	})
 
 	// ===== ADVANCED VALIDATIONS =====
@@ -144,6 +145,7 @@ func TestScenarioPrivateNetworking(t *testing.T) {
 	cacheBucket := terraform.Output(t, moduleOptions, "cache_bucket_name")
 	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
 	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
+	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
@@ -170,7 +172,7 @@ func TestScenarioPrivateNetworking(t *testing.T) {
 	})
 
 	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, stackName)
+		ValidateCloudWatchLogRetention(t, logGroupName)
 	})
 
 	// ===== ADVANCED VALIDATIONS =====
@@ -223,6 +225,7 @@ func TestScenarioEFSEnabled(t *testing.T) {
 	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
 	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
 	efsFileSystemID := terraform.Output(t, moduleOptions, "efs_file_system_id")
+	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
@@ -249,7 +252,7 @@ func TestScenarioEFSEnabled(t *testing.T) {
 	})
 
 	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, stackName)
+		ValidateCloudWatchLogRetention(t, logGroupName)
 	})
 
 	fmt.Printf("\n✅ EFS-enabled scenario successful!\n")
@@ -296,6 +299,7 @@ func TestScenarioECREnabled(t *testing.T) {
 	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
 	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
 	ecrURL := terraform.Output(t, moduleOptions, "ecr_repository_url")
+	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
@@ -323,7 +327,7 @@ func TestScenarioECREnabled(t *testing.T) {
 	})
 
 	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, stackName)
+		ValidateCloudWatchLogRetention(t, logGroupName)
 	})
 
 	fmt.Printf("\n✅ ECR-enabled scenario successful!\n")
@@ -377,6 +381,7 @@ func TestScenarioFullFeatured(t *testing.T) {
 	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
 	efsFileSystemID := terraform.Output(t, moduleOptions, "efs_file_system_id")
 	ecrURL := terraform.Output(t, moduleOptions, "ecr_repository_url")
+	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
@@ -415,7 +420,7 @@ func TestScenarioFullFeatured(t *testing.T) {
 	})
 
 	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, stackName)
+		ValidateCloudWatchLogRetention(t, logGroupName)
 	})
 
 	// ===== ADVANCED VALIDATIONS =====
