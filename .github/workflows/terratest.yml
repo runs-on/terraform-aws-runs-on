@@ -25,7 +25,7 @@ env:
 jobs:
   basic-scenario:
     name: Basic Scenario (no integration)
-    runs-on: ubuntu-latest
+    runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
     timeout-minutes: 45
 
     steps:

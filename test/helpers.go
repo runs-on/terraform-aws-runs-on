@@ -1,14 +1,12 @@
 package test
 
 import (
-	"bufio"
 	"context"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,13 +14,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/ssm"
 	"github.com/google/go-github/v57/github"
-	"github.com/gruntwork-io/terratest/modules/random"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
@@ -31,24 +27,6 @@ import (
 // GetTestID generates a unique test ID for resource naming
 func GetTestID() string {
 	return fmt.Sprintf("%d", time.Now().Unix())
-}
-
-// GetRandomStackName generates a random stack name for testing
-func GetRandomStackName(prefix string) string {
-	return fmt.Sprintf("%s-%s", prefix, random.UniqueId())
-}
-
-// GetRequiredEnv gets a required environment variable or fails the test
-func GetRequiredEnv(t *testing.T, key string, fallback string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		if fallback != "" {
-			t.Logf("WARNING: %s not set, using fallback value", key)
-			return fallback
-		}
-		t.Fatalf("Required environment variable %s is not set", key)
-	}
-	return value
 }
 
 // GetOptionalEnv gets an optional environment variable with a default
@@ -63,17 +41,6 @@ func GetOptionalEnv(key string, defaultValue string) string {
 // GetAWSRegion returns the AWS region for tests
 func GetAWSRegion() string {
 	return GetOptionalEnv("AWS_REGION", "us-east-1")
-}
-
-// GetTestTags returns common tags for test resources
-func GetTestTags(testName string) map[string]string {
-	return map[string]string{
-		"TestFramework": "terratest",
-		"TestName":      testName,
-		"TestID":        GetTestID(),
-		"ManagedBy":     "terratest",
-		"AutoCleanup":   "true",
-	}
 }
 
 // =============================================================================
@@ -210,24 +177,6 @@ func ValidateS3BucketPublicAccessBlocked(t *testing.T, bucketName string) {
 	assert.True(t, *config.BlockPublicPolicy, "Bucket %s should block public policy", bucketName)
 	assert.True(t, *config.IgnorePublicAcls, "Bucket %s should ignore public ACLs", bucketName)
 	assert.True(t, *config.RestrictPublicBuckets, "Bucket %s should restrict public buckets", bucketName)
-}
-
-// ValidateDynamoDBEncryption checks table has encryption at rest
-func ValidateDynamoDBEncryption(t *testing.T, tableName string) {
-	svc := dynamodb.New(GetAWSSession())
-	result, err := svc.DescribeTable(&dynamodb.DescribeTableInput{
-		TableName: aws.String(tableName),
-	})
-	require.NoError(t, err, "Failed to describe DynamoDB table %s", tableName)
-
-	// DynamoDB has default encryption (AWS owned key) when SSEDescription is nil
-	// This is acceptable - it means encryption is enabled with AWS managed keys
-	if result.Table.SSEDescription != nil {
-		status := *result.Table.SSEDescription.Status
-		assert.Contains(t, []string{"ENABLED", "ENABLING"}, status,
-			"DynamoDB table %s encryption status should be ENABLED, got %s", tableName, status)
-	}
-	t.Logf("DynamoDB table %s encryption verified (default AWS encryption)", tableName)
 }
 
 // ValidateIAMRoleNotOverlyPermissive checks role doesn't have dangerous policies
@@ -699,30 +648,6 @@ func ValidateS3AccessFromEC2(t *testing.T, instanceID, cacheBucket, configBucket
 	_, _ = s3Svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(otherRunnersKey)})
 }
 
-// ValidateInstanceHasNoPublicIP verifies that an EC2 instance has no public IP address.
-func ValidateInstanceHasNoPublicIP(t *testing.T, instanceID string) {
-	ec2Svc := ec2.New(GetAWSSession())
-
-	result, err := ec2Svc.DescribeInstances(&ec2.DescribeInstancesInput{
-		InstanceIds: []*string{aws.String(instanceID)},
-	})
-	require.NoError(t, err, "Failed to describe instance")
-	require.Len(t, result.Reservations, 1)
-	require.Len(t, result.Reservations[0].Instances, 1)
-
-	instance := result.Reservations[0].Instances[0]
-
-	// Check that public IP is nil or empty
-	if instance.PublicIpAddress != nil {
-		assert.Empty(t, *instance.PublicIpAddress, "Instance %s should not have a public IP, got: %s",
-			instanceID, *instance.PublicIpAddress)
-	}
-
-	// Also verify it has a private IP
-	require.NotNil(t, instance.PrivateIpAddress, "Instance %s should have a private IP", instanceID)
-	t.Logf("Instance %s has private IP %s and no public IP", instanceID, *instance.PrivateIpAddress)
-}
-
 // ValidateEC2CloudWatchLogs verifies that an EC2 instance is sending logs to CloudWatch.
 func ValidateEC2CloudWatchLogs(t *testing.T, instanceID, logGroupName string) {
 	cwlSvc := cloudwatchlogs.New(GetAWSSession())
@@ -745,12 +670,8 @@ func ValidateEC2CloudWatchLogs(t *testing.T, instanceID, logGroupName string) {
 }
 
 // =============================================================================
-// INTEGRATION TEST HELPERS (Interactive Job Execution)
+// INTEGRATION TEST HELPERS
 // =============================================================================
-
-// stdinReader is a shared reader for interactive prompts to avoid buffer issues
-// when multiple functions read from stdin sequentially.
-var stdinReader = bufio.NewReader(os.Stdin)
 
 // WaitForRunsOnRegistration waits for the RunsOn GitHub App to be registered
 // by polling for a successful workflow run that contains "RunsOn" in its logs.
@@ -873,116 +794,11 @@ func checkWorkflowLogsForRunsOn(t *testing.T, client *github.Client, owner, repo
 	return false
 }
 
-// TriggerWorkflow triggers a GitHub Actions workflow and returns the run ID.
-// If GITHUB_TOKEN is set, uses the API. Otherwise, prompts for manual trigger.
-// repo should be in "owner/repo" format.
-func TriggerWorkflow(t *testing.T, repo, workflowFile string) int64 {
-	token := os.Getenv("GITHUB_TOKEN")
-
-	if token != "" {
-		return triggerWorkflowViaAPI(t, repo, workflowFile, token)
-	}
-	return triggerWorkflowManually(t, repo, workflowFile)
-}
-
-// triggerWorkflowViaAPI uses the GitHub API to trigger a workflow_dispatch event.
-func triggerWorkflowViaAPI(t *testing.T, repo, workflowFile, token string) int64 {
-	parts := strings.Split(repo, "/")
-	require.Len(t, parts, 2, "Repo should be in 'owner/repo' format")
-	owner, repoName := parts[0], parts[1]
-
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
-
-	// Get current workflow runs to identify the new one
-	beforeRuns, _, err := client.Actions.ListWorkflowRunsByFileName(
-		ctx, owner, repoName, workflowFile,
-		&github.ListWorkflowRunsOptions{ListOptions: github.ListOptions{PerPage: 1}})
-	require.NoError(t, err, "Failed to list workflow runs")
-
-	var beforeRunID int64
-	if len(beforeRuns.WorkflowRuns) > 0 {
-		beforeRunID = *beforeRuns.WorkflowRuns[0].ID
-	}
-
-	// Trigger the workflow
-	t.Logf("Triggering workflow %s via API...", workflowFile)
-	_, err = client.Actions.CreateWorkflowDispatchEventByFileName(
-		ctx, owner, repoName, workflowFile,
-		github.CreateWorkflowDispatchEventRequest{Ref: "main"})
-	require.NoError(t, err, "Failed to trigger workflow dispatch")
-
-	// Wait for new run to appear
-	var newRunID int64
-	for i := 0; i < 20; i++ {
-		time.Sleep(3 * time.Second)
-		afterRuns, _, err := client.Actions.ListWorkflowRunsByFileName(
-			ctx, owner, repoName, workflowFile,
-			&github.ListWorkflowRunsOptions{ListOptions: github.ListOptions{PerPage: 1}})
-		if err != nil {
-			continue
-		}
-		if len(afterRuns.WorkflowRuns) > 0 && *afterRuns.WorkflowRuns[0].ID != beforeRunID {
-			newRunID = *afterRuns.WorkflowRuns[0].ID
-			break
-		}
-	}
-	require.NotZero(t, newRunID, "New workflow run should be created")
-	t.Logf("Workflow run created: %d", newRunID)
-	return newRunID
-}
-
-// triggerWorkflowManually prompts the user to trigger the workflow and enter the run ID.
-func triggerWorkflowManually(t *testing.T, repo, workflowFile string) int64 {
-	fmt.Printf("\n")
-	fmt.Printf("╔══════════════════════════════════════════════════════════════════╗\n")
-	fmt.Printf("║                    MANUAL WORKFLOW TRIGGER                        ║\n")
-	fmt.Printf("╠══════════════════════════════════════════════════════════════════╣\n")
-	fmt.Printf("║                                                                   ║\n")
-	fmt.Printf("║  1. Go to: https://github.com/%s/actions\n", repo)
-	fmt.Printf("║                                                                   ║\n")
-	fmt.Printf("║  2. Select the '%s' workflow\n", workflowFile)
-	fmt.Printf("║                                                                   ║\n")
-	fmt.Printf("║  3. Click 'Run workflow' -> 'Run workflow'                        ║\n")
-	fmt.Printf("║                                                                   ║\n")
-	fmt.Printf("║  4. Copy the run ID from the URL (the number after /runs/)        ║\n")
-	fmt.Printf("║                                                                   ║\n")
-	fmt.Printf("╚══════════════════════════════════════════════════════════════════╝\n")
-
-	for {
-		fmt.Printf("\nEnter the workflow run ID (or 's' to skip): ")
-		input, _ := stdinReader.ReadString('\n')
-		input = strings.TrimSpace(input)
-
-		if input == "s" {
-			t.Skip("Workflow trigger skipped by user")
-		}
-
-		if input == "" {
-			fmt.Printf("Please enter a valid run ID (the number from the URL after /runs/)\n")
-			continue
-		}
-
-		runID, err := strconv.ParseInt(input, 10, 64)
-		if err != nil {
-			fmt.Printf("Invalid run ID '%s'. Please enter a number.\n", input)
-			continue
-		}
-
-		t.Logf("Using manually provided workflow run ID: %d", runID)
-		return runID
-	}
-}
-
 // WaitForWorkflowCompletion polls the GitHub API until the workflow completes.
 // Returns the conclusion (success, failure, cancelled, etc.) or empty string on timeout.
 func WaitForWorkflowCompletion(t *testing.T, repo string, runID int64, timeout time.Duration) string {
 	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		return waitForWorkflowManually(t, repo, runID)
-	}
+	require.NotEmpty(t, token, "GITHUB_TOKEN is required")
 
 	parts := strings.Split(repo, "/")
 	require.Len(t, parts, 2, "Repo should be in 'owner/repo' format")
@@ -1016,29 +832,6 @@ func WaitForWorkflowCompletion(t *testing.T, repo string, runID int64, timeout t
 
 	t.Logf("Timeout waiting for workflow to complete")
 	return ""
-}
-
-// waitForWorkflowManually prompts the user to confirm when the workflow completes.
-func waitForWorkflowManually(t *testing.T, repo string, runID int64) string {
-	fmt.Printf("\n")
-	fmt.Printf("╔══════════════════════════════════════════════════════════════════╗\n")
-	fmt.Printf("║                    WAITING FOR WORKFLOW                           ║\n")
-	fmt.Printf("╠══════════════════════════════════════════════════════════════════╣\n")
-	fmt.Printf("║                                                                   ║\n")
-	fmt.Printf("║  Monitor: https://github.com/%s/actions/runs/%d\n", repo, runID)
-	fmt.Printf("║                                                                   ║\n")
-	fmt.Printf("╚══════════════════════════════════════════════════════════════════╝\n")
-	fmt.Printf("\nEnter the workflow conclusion (success/failure) or 's' to skip: ")
-
-	input, _ := stdinReader.ReadString('\n')
-	input = strings.TrimSpace(input)
-
-	if input == "s" {
-		t.Skip("Workflow completion check skipped by user")
-	}
-
-	t.Logf("User reported workflow conclusion: %s", input)
-	return input
 }
 
 // ValidateRunnerLaunched checks if an EC2 runner instance was launched for the stack

@@ -24,7 +24,7 @@ env:
 jobs:
   integration-basic:
     name: Integration Test - Basic Scenario
-    runs-on: ubuntu-latest
+    runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
     timeout-minutes: 90
 
     steps:
@@ -71,7 +71,7 @@ jobs:
           echo "3. Poll for a successful workflow run with RunsOn"
           echo "4. Validate the runner was launched"
           echo "=========================================="
-          
+
           go test -v -timeout 90m -run "TestScenarioBasic" ./...
         env:
           RUNS_ON_LICENSE_KEY: ${{ secrets.RUNS_ON_LICENSE_KEY }}
