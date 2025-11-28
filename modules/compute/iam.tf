@@ -38,11 +38,6 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_role_policy_attachment" "ec2_cloudwatch" {
-  role       = aws_iam_role.ec2_instance.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-}
-
 resource "aws_iam_role_policy_attachment" "ec2_ecr_public" {
   role       = aws_iam_role.ec2_instance.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicFullAccess"
@@ -59,8 +54,8 @@ resource "aws_iam_role_policy" "ec2_read_only" {
       {
         Effect = "Allow"
         Action = [
-          "ec2:DescribeInstances",
-          "ec2:DescribeTags"
+          "ec2:DescribeTags",
+          "ec2:DescribeAvailabilityZones"
         ]
         Resource = "*"
       }
@@ -78,13 +73,12 @@ resource "aws_iam_role_policy" "ec2_create_tags" {
       {
         Effect = "Allow"
         Action = [
-          "ec2:CreateTags",
-          "ec2:DeleteTags"
+          "ec2:CreateTags"
         ]
-        Resource = "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
+        Resource = "*"
         Condition = {
           StringEquals = {
-            "ec2:ResourceTag/${var.cost_allocation_tag}" = var.stack_name
+            "aws:ARN" = "$${ec2:SourceInstanceARN}"
           }
         }
       }
@@ -102,12 +96,11 @@ resource "aws_iam_role_policy" "ec2_create_tags_volumes" {
       {
         Effect = "Allow"
         Action = [
-          "ec2:CreateTags",
-          "ec2:DeleteTags"
+          "ec2:CreateTags"
         ]
         Resource = [
           "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:snapshot/*"
+          "arn:aws:ec2:${data.aws_region.current.name}:*:snapshot/*"
         ]
       }
     ]
@@ -150,15 +143,13 @@ resource "aws_iam_role_policy" "ec2_cloudwatch_metrics" {
       {
         Effect = "Allow"
         Action = [
-          "cloudwatch:PutMetricData",
-          "cloudwatch:GetMetricStatistics"
+          "cloudwatch:PutMetricData"
         ]
         Resource = "*"
         Condition = {
           StringEquals = {
             "cloudwatch:namespace" = [
-              "RunsOn",
-              "AWS/EC2",
+              "RunsOn/Runners",
               "CWAgent"
             ]
           }
@@ -178,9 +169,8 @@ resource "aws_iam_role_policy" "ec2_get_metrics" {
       {
         Effect = "Allow"
         Action = [
-          "cloudwatch:DescribeAlarms",
-          "cloudwatch:GetMetricStatistics",
-          "cloudwatch:ListMetrics"
+          "cloudwatch:GetMetricData",
+          "cloudwatch:GetMetricStatistics"
         ]
         Resource = "*"
       }
@@ -189,7 +179,7 @@ resource "aws_iam_role_policy" "ec2_get_metrics" {
 }
 
 resource "aws_iam_role_policy" "ec2_s3_access" {
-  name = "S3Access"
+  name = "EC2AccessS3BucketPolicy"
   role = aws_iam_role.ec2_instance.id
 
   policy = jsonencode({
@@ -200,36 +190,32 @@ resource "aws_iam_role_policy" "ec2_s3_access" {
         Action = [
           "s3:GetObject",
           "s3:PutObject",
-          "s3:DeleteObject",
           "s3:ListBucket",
           "s3:GetBucketLocation",
-          "s3:ListBucketMultipartUploads"
-        ]
-        Resource = [
-          var.config_bucket_arn,
-          "${var.config_bucket_arn}/*"
-        ]
-      },
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject",
-          "s3:ListBucket"
+          "s3:ListBucketMultipartUploads",
+          "s3:ListMultipartUploadParts"
         ]
         Resource = [
           var.cache_bucket_arn,
-          "${var.cache_bucket_arn}/runners/*",
-          "${var.cache_bucket_arn}/agents/*"
+          "${var.cache_bucket_arn}/cache/*"
         ]
       },
       {
         Effect = "Allow"
         Action = [
-          "s3:PutObject",
           "s3:GetObject"
         ]
         Resource = [
-          "${var.cache_bucket_arn}/cache/*"
+          "${var.cache_bucket_arn}/runners/$${aws:userid}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = [
+          "${var.config_bucket_arn}/agents/*"
         ]
       }
     ]
@@ -246,9 +232,8 @@ resource "aws_iam_role_policy" "ec2_snapshot_describe" {
       {
         Effect = "Allow"
         Action = [
-          "ec2:DescribeSnapshots",
           "ec2:DescribeVolumes",
-          "ebs:ListSnapshotBlocks"
+          "ec2:DescribeSnapshots"
         ]
         Resource = "*"
       }
@@ -266,13 +251,12 @@ resource "aws_iam_role_policy" "ec2_snapshot_create" {
       {
         Effect = "Allow"
         Action = [
-          "ec2:CreateSnapshot",
-          "ec2:CreateSnapshots",
-          "ebs:StartSnapshot"
+          "ec2:CreateVolume",
+          "ec2:CreateSnapshot"
         ]
         Resource = [
           "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:snapshot/*"
+          "arn:aws:ec2:${data.aws_region.current.name}::snapshot/*"
         ]
       }
     ]
@@ -289,18 +273,19 @@ resource "aws_iam_role_policy" "ec2_snapshot_lifecycle" {
       {
         Effect = "Allow"
         Action = [
-          "ec2:DeleteSnapshot",
-          "ec2:ModifySnapshotAttribute",
-          "ebs:CompleteSnapshot",
-          "ebs:PutSnapshotBlock"
+          "ec2:AttachVolume",
+          "ec2:DetachVolume",
+          "ec2:DeleteVolume",
+          "ec2:DeleteSnapshot"
         ]
         Resource = [
+          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:volume/*",
           "arn:aws:ec2:${data.aws_region.current.name}::snapshot/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:snapshot/*"
+          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
         ]
         Condition = {
           StringEquals = {
-            "ec2:ResourceTag/${var.cost_allocation_tag}" = var.stack_name
+            "aws:ResourceTag/runs-on-stack-name" = var.stack_name
           }
         }
       }
@@ -318,15 +303,14 @@ resource "aws_iam_role_policy" "ec2_detailed_monitoring" {
       {
         Effect = "Allow"
         Action = [
-          "ec2:MonitorInstances",
-          "ec2:UnmonitorInstances"
+          "ec2:MonitorInstances"
         ]
         Resource = [
           "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
         ]
         Condition = {
           StringEquals = {
-            "ec2:ResourceTag/${var.cost_allocation_tag}" = var.stack_name
+            "aws:ResourceTag/runs-on-stack-name" = var.stack_name
           }
         }
       }
@@ -349,11 +333,9 @@ resource "aws_iam_role_policy" "ec2_efs_access" {
         Action = [
           "elasticfilesystem:ClientMount",
           "elasticfilesystem:ClientWrite",
-          "elasticfilesystem:ClientRootAccess",
-          "elasticfilesystem:DescribeFileSystems",
           "elasticfilesystem:DescribeMountTargets",
-          "elasticfilesystem:DescribeAccessPoints",
-          "ec2:DescribeAvailabilityZones"
+          "ec2:DescribeSubnets",
+          "ec2:DescribeNetworkInterfaces"
         ]
         Resource = "*"
       }
@@ -374,26 +356,20 @@ resource "aws_iam_role_policy" "ec2_ecr_access" {
       {
         Effect = "Allow"
         Action = [
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer"
+          "ecr:GetAuthorizationToken"
         ]
         Resource = "*"
       },
       {
         Effect = "Allow"
         Action = [
-          "ecr:BatchGetImage",
           "ecr:BatchCheckLayerAvailability",
-          "ecr:CompleteLayerUpload",
           "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
           "ecr:InitiateLayerUpload",
-          "ecr:PutImage",
           "ecr:UploadLayerPart",
-          "ecr:DescribeRepositories",
-          "ecr:ListImages",
-          "ecr:DescribeImages",
-          "ecr:BatchDeleteImage"
+          "ecr:CompleteLayerUpload",
+          "ecr:PutImage"
         ]
         Resource = var.ephemeral_registry_arn
       }

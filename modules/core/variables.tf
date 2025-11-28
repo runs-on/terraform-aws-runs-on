@@ -144,13 +144,13 @@ variable "bootstrap_tag" {
 variable "app_cpu" {
   description = "CPU units for App Runner service"
   type        = number
-  default     = 1024
+  default     = 256
 }
 
 variable "app_memory" {
   description = "Memory in MB for App Runner service"
   type        = number
-  default     = 2048
+  default     = 512
 }
 
 variable "private_mode" {
@@ -168,13 +168,13 @@ variable "app_debug" {
 variable "ssh_allowed" {
   description = "Allow SSH access to runners"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "ec2_queue_size" {
   description = "EC2 queue size"
   type        = number
-  default     = 50
+  default     = 2
 }
 
 variable "ebs_encryption_key_id" {
@@ -186,7 +186,7 @@ variable "ebs_encryption_key_id" {
 variable "github_api_strategy" {
   description = "GitHub API strategy"
   type        = string
-  default     = "default"
+  default     = "normal"
 }
 
 variable "default_admins" {
@@ -198,37 +198,37 @@ variable "default_admins" {
 variable "runner_max_runtime" {
   description = "Maximum runtime in minutes for runners"
   type        = number
-  default     = 360
+  default     = 720
 }
 
 variable "runner_config_auto_extends_from" {
   description = "Runner config auto extends from"
   type        = string
-  default     = ""
+  default     = ".github-private"
 }
 
 variable "runner_default_disk_size" {
   description = "Default EBS volume size in GB"
   type        = number
-  default     = 50
+  default     = 40
 }
 
 variable "runner_default_volume_throughput" {
   description = "Default EBS volume throughput in MiB/s"
   type        = number
-  default     = 250
+  default     = 400
 }
 
 variable "runner_large_disk_size" {
   description = "Large EBS volume size in GB"
   type        = number
-  default     = 100
+  default     = 80
 }
 
 variable "runner_large_volume_throughput" {
   description = "Large EBS volume throughput in MiB/s"
   type        = number
-  default     = 500
+  default     = 750
 }
 
 variable "runner_custom_tags" {

@@ -8,7 +8,7 @@
 variable "app_alarm_daily_minutes" {
   description = "Daily budget in minutes for the App Runner service before triggering an alarm"
   type        = number
-  default     = 1440 # 24 hours
+  default     = 4000
 }
 
 variable "sqs_queue_oldest_message_threshold_seconds" {
@@ -140,6 +140,12 @@ variable "force_destroy_buckets" {
   default     = false
 }
 
+variable "force_delete_ecr" {
+  description = "Allow ECR repository to be deleted even when it contains images. Set to true for testing environments."
+  type        = bool
+  default     = false
+}
+
 ###########################
 # Compute Configuration
 ###########################
@@ -194,7 +200,7 @@ variable "ipv6_enabled" {
 variable "ebs_encryption_enabled" {
   description = "Enable encryption for EBS volumes on runner instances"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "ebs_encryption_key_id" {
@@ -327,7 +333,7 @@ variable "ssh_cidr_range" {
 variable "ec2_queue_size" {
   description = "Maximum number of EC2 instances in queue"
   type        = number
-  default     = 50
+  default     = 2
 
   validation {
     condition     = var.ec2_queue_size >= 1 && var.ec2_queue_size <= 1000
@@ -336,13 +342,13 @@ variable "ec2_queue_size" {
 }
 
 variable "github_api_strategy" {
-  description = "Strategy for GitHub API calls (default, aggressive, conservative)"
+  description = "Strategy for GitHub API calls (normal, conservative)"
   type        = string
-  default     = "default"
+  default     = "normal"
 
   validation {
-    condition     = contains(["default", "aggressive", "conservative"], var.github_api_strategy)
-    error_message = "GitHub API strategy must be one of: default, aggressive, conservative."
+    condition     = contains(["normal", "conservative"], var.github_api_strategy)
+    error_message = "GitHub API strategy must be one of: normal, conservative."
   }
 }
 

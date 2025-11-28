@@ -5,6 +5,11 @@
 # General Information
 ###########################
 
+output "stack_name" {
+  description = "The stack name used for this deployment"
+  value       = var.stack_name
+}
+
 output "aws_account_id" {
   description = "AWS Account ID where RunsOn is deployed"
   value       = data.aws_caller_identity.current.account_id

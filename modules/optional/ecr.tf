@@ -39,6 +39,7 @@ resource "aws_ecr_repository" "ephemeral_unprotected" {
 
   name                 = "${var.stack_name}-ephemeral-registry"
   image_tag_mutability = "MUTABLE"
+  force_delete         = var.force_delete_ecr
 
   image_scanning_configuration {
     scan_on_push = false

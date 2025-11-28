@@ -94,25 +94,25 @@ variable "detailed_monitoring_enabled" {
 variable "ipv6_enabled" {
   description = "Enable IPv6 for runners"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "ebs_encryption_enabled" {
   description = "Enable EBS volume encryption"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "runner_default_disk_size" {
   description = "Default EBS volume size in GB"
   type        = number
-  default     = 50
+  default     = 40
 }
 
 variable "runner_default_volume_throughput" {
   description = "Default EBS volume throughput in MiB/s"
   type        = number
-  default     = 250
+  default     = 400
 }
 
 variable "private_mode" {
