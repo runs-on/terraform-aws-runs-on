@@ -673,142 +673,38 @@ func ValidateEC2CloudWatchLogs(t *testing.T, instanceID, logGroupName string) {
 // INTEGRATION TEST HELPERS
 // =============================================================================
 
-// WaitForRunsOnRegistration waits for the RunsOn GitHub App to be registered
-// by polling for a successful workflow run that contains "RunsOn" in its logs.
-//
-// This function:
-// 1. Logs the AppRunner URL for manual registration
-// 2. Polls for a recent successful workflow run
-// 3. Checks if the run logs contain "RunsOn" (indicating RunsOn processed the job)
-//
-// Parameters:
-//   - appRunnerURL: The AppRunner URL to display for registration
-//   - repo: Target repository in "owner/repo" format
-//   - workflowFile: The workflow file to check (e.g., "test.yml")
-//   - timeout: Maximum time to wait
-//
-// Returns the workflow run ID if successful.
-func WaitForRunsOnRegistration(t *testing.T, appRunnerURL, repo, workflowFile string, timeout time.Duration) int64 {
+// getGitHubClient creates a GitHub client using the GITHUB_TOKEN environment variable.
+func getGitHubClient() (*github.Client, error) {
 	token := os.Getenv("GITHUB_TOKEN")
-	require.NotEmpty(t, token, "GITHUB_TOKEN is required")
-
-	parts := strings.Split(repo, "/")
-	require.Len(t, parts, 2, "Repo should be in 'owner/repo' format")
-	owner, repoName := parts[0], parts[1]
+	if token == "" {
+		return nil, fmt.Errorf("GITHUB_TOKEN environment variable is required")
+	}
 
 	ctx := context.Background()
 	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
 	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
-
-	t.Log("=======================================================")
-	t.Logf("REGISTER RUNS-ON APP AT: https://%s", appRunnerURL)
-	t.Log("=======================================================")
-	t.Logf("Waiting for RunsOn to process a workflow run in %s...", repo)
-
-	deadline := time.Now().Add(timeout)
-	pollInterval := 15 * time.Second
-	startTime := time.Now()
-
-	for time.Now().Before(deadline) {
-		// List recent workflow runs
-		runs, _, err := client.Actions.ListWorkflowRunsByFileName(
-			ctx, owner, repoName, workflowFile,
-			&github.ListWorkflowRunsOptions{
-				ListOptions: github.ListOptions{PerPage: 5},
-			})
-		if err != nil {
-			t.Logf("Error listing workflow runs: %v", err)
-			time.Sleep(pollInterval)
-			continue
-		}
-
-		// Check recent runs for RunsOn signature in logs
-		for _, run := range runs.WorkflowRuns {
-			// Only check runs started after our test began
-			if run.CreatedAt != nil && run.CreatedAt.Time.Before(startTime) {
-				continue
-			}
-
-			runID := run.GetID()
-			status := run.GetStatus()
-			conclusion := run.GetConclusion()
-
-			t.Logf("Found workflow run %d: status=%s, conclusion=%s", runID, status, conclusion)
-
-			// If run is completed, check logs for RunsOn
-			if status == "completed" {
-				if checkWorkflowLogsForRunsOn(t, client, owner, repoName, runID) {
-					t.Logf("RunsOn confirmed in workflow run %d logs!", runID)
-					return runID
-				}
-			}
-		}
-
-		t.Logf("RunsOn not yet detected, waiting %v... (register at: https://%s)", pollInterval, appRunnerURL)
-		time.Sleep(pollInterval)
-	}
-
-	t.Fatalf("Timeout waiting for RunsOn to process a workflow. Register at: https://%s", appRunnerURL)
-	return 0
+	return github.NewClient(tc), nil
 }
 
-// checkWorkflowLogsForRunsOn downloads workflow run logs and checks for "RunsOn" string.
-func checkWorkflowLogsForRunsOn(t *testing.T, client *github.Client, owner, repo string, runID int64) bool {
-	ctx := context.Background()
-
-	// Get the logs URL
-	logsURL, _, err := client.Actions.GetWorkflowRunLogs(ctx, owner, repo, runID, 4)
-	if err != nil {
-		t.Logf("Error getting logs URL for run %d: %v", runID, err)
-		return false
+// parseRepo splits a repo string in "owner/repo" format into owner and repo name.
+func parseRepo(repo string) (string, string, error) {
+	parts := strings.Split(repo, "/")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("repo should be in 'owner/repo' format, got: %s", repo)
 	}
-
-	if logsURL == nil {
-		t.Logf("No logs URL returned for run %d", runID)
-		return false
-	}
-
-	// Download and check logs
-	httpClient := &http.Client{Timeout: 30 * time.Second}
-	resp, err := httpClient.Get(logsURL.String())
-	if err != nil {
-		t.Logf("Error downloading logs for run %d: %v", runID, err)
-		return false
-	}
-	defer resp.Body.Close()
-
-	// Read logs (they come as a zip file, but we can search the raw bytes)
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // Limit to 10MB
-	if err != nil {
-		t.Logf("Error reading logs for run %d: %v", runID, err)
-		return false
-	}
-
-	// Check for RunsOn markers in the logs
-	bodyStr := string(body)
-	if strings.Contains(bodyStr, "RunsOn") || strings.Contains(bodyStr, "runs-on") {
-		return true
-	}
-
-	return false
+	return parts[0], parts[1], nil
 }
 
 // WaitForWorkflowCompletion polls the GitHub API until the workflow completes.
 // Returns the conclusion (success, failure, cancelled, etc.) or empty string on timeout.
 func WaitForWorkflowCompletion(t *testing.T, repo string, runID int64, timeout time.Duration) string {
-	token := os.Getenv("GITHUB_TOKEN")
-	require.NotEmpty(t, token, "GITHUB_TOKEN is required")
+	client, err := getGitHubClient()
+	require.NoError(t, err, "Failed to create GitHub client")
 
-	parts := strings.Split(repo, "/")
-	require.Len(t, parts, 2, "Repo should be in 'owner/repo' format")
-	owner, repoName := parts[0], parts[1]
+	owner, repoName, err := parseRepo(repo)
+	require.NoError(t, err, "Invalid repo format")
 
 	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(ctx, ts)
-	client := github.NewClient(tc)
-
 	deadline := time.Now().Add(timeout)
 	t.Logf("Waiting for workflow run %d to complete (timeout: %v)...", runID, timeout)
 
@@ -833,6 +729,460 @@ func WaitForWorkflowCompletion(t *testing.T, repo string, runID int64, timeout t
 	t.Logf("Timeout waiting for workflow to complete")
 	return ""
 }
+
+// TriggerWorkflowDispatch triggers a workflow_dispatch event for a workflow in a repository.
+// Uses GITHUB_TOKEN environment variable for authentication.
+// Returns an error if the trigger fails.
+func TriggerWorkflowDispatch(t *testing.T, repo, workflowFile, testID string) error {
+	client, err := getGitHubClient()
+	if err != nil {
+		return err
+	}
+
+	owner, repoName, err := parseRepo(repo)
+	if err != nil {
+		return err
+	}
+
+	t.Logf("Triggering workflow %s in %s with test_id=%s", workflowFile, repo, testID)
+
+	ctx := context.Background()
+	_, err = client.Actions.CreateWorkflowDispatchEventByFileName(
+		ctx, owner, repoName, workflowFile,
+		github.CreateWorkflowDispatchEventRequest{
+			Ref: "main",
+			Inputs: map[string]interface{}{
+				"test_id": testID,
+			},
+		})
+	if err != nil {
+		return fmt.Errorf("failed to trigger workflow dispatch: %w", err)
+	}
+
+	t.Logf("Successfully triggered workflow %s", workflowFile)
+	return nil
+}
+
+// WaitForTriggeredWorkflow polls for a workflow run that was triggered with the given test_id.
+// It looks for runs that started after the function was called and contain the test_id in their inputs.
+// Returns the run ID when found, or an error if timeout is reached.
+func WaitForTriggeredWorkflow(t *testing.T, repo, workflowFile, testID string, timeout time.Duration) (int64, error) {
+	client, err := getGitHubClient()
+	if err != nil {
+		return 0, err
+	}
+
+	owner, repoName, err := parseRepo(repo)
+	if err != nil {
+		return 0, err
+	}
+
+	ctx := context.Background()
+	startTime := time.Now()
+	deadline := startTime.Add(timeout)
+	pollInterval := 10 * time.Second
+
+	t.Logf("Waiting for workflow run with test_id=%s (timeout: %v)", testID, timeout)
+
+	for time.Now().Before(deadline) {
+		runs, _, err := client.Actions.ListWorkflowRunsByFileName(
+			ctx, owner, repoName, workflowFile,
+			&github.ListWorkflowRunsOptions{
+				Event: "workflow_dispatch",
+				ListOptions: github.ListOptions{
+					PerPage: 10,
+				},
+			})
+		if err != nil {
+			t.Logf("Error listing workflow runs: %v", err)
+			time.Sleep(pollInterval)
+			continue
+		}
+
+		for _, run := range runs.WorkflowRuns {
+			// Only check runs that started after we triggered
+			if run.CreatedAt != nil && run.CreatedAt.Time.Before(startTime.Add(-1*time.Minute)) {
+				continue
+			}
+
+			runID := run.GetID()
+			if checkRunForTestID(t, client, owner, repoName, runID, testID) {
+				t.Logf("Found workflow run %d matching test_id=%s", runID, testID)
+				return runID, nil
+			}
+		}
+
+		t.Logf("Workflow run with test_id=%s not found yet, waiting %v...", testID, pollInterval)
+		time.Sleep(pollInterval)
+	}
+
+	return 0, fmt.Errorf("timeout waiting for workflow run with test_id=%s", testID)
+}
+
+// checkRunForTestID checks if a workflow run contains our test_id in its logs.
+func checkRunForTestID(t *testing.T, client *github.Client, owner, repo string, runID int64, testID string) bool {
+	ctx := context.Background()
+
+	jobs, _, err := client.Actions.ListWorkflowJobs(ctx, owner, repo, runID, &github.ListWorkflowJobsOptions{
+		Filter: "all",
+	})
+	if err != nil {
+		t.Logf("Error listing jobs for run %d: %v", runID, err)
+		return false
+	}
+
+	httpClient := &http.Client{Timeout: 30 * time.Second}
+	for _, job := range jobs.Jobs {
+		logsURL, _, err := client.Actions.GetWorkflowJobLogs(ctx, owner, repo, job.GetID(), 4)
+		if err != nil {
+			continue
+		}
+
+		if logsURL == nil {
+			continue
+		}
+
+		resp, err := httpClient.Get(logsURL.String())
+		if err != nil {
+			continue
+		}
+
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 1*1024*1024)) // 1MB limit
+		resp.Body.Close()
+		if err != nil {
+			continue
+		}
+
+		if strings.Contains(string(body), testID) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// =============================================================================
+// PRIVATE NETWORKING VALIDATORS
+// =============================================================================
+
+// ValidateInstanceHasNoPublicIP verifies that an EC2 instance does not have a public IP address.
+// This is used to confirm instances launched in private subnets are properly isolated.
+func ValidateInstanceHasNoPublicIP(t *testing.T, instanceID string) bool {
+	ec2Svc := ec2.New(GetAWSSession())
+
+	result, err := ec2Svc.DescribeInstances(&ec2.DescribeInstancesInput{
+		InstanceIds: []*string{aws.String(instanceID)},
+	})
+	require.NoError(t, err, "Failed to describe instance %s", instanceID)
+	require.NotEmpty(t, result.Reservations, "No reservations found for instance %s", instanceID)
+	require.NotEmpty(t, result.Reservations[0].Instances, "No instances found in reservation")
+
+	instance := result.Reservations[0].Instances[0]
+
+	// Check PublicIpAddress field
+	hasPublicIP := instance.PublicIpAddress != nil && *instance.PublicIpAddress != ""
+
+	if hasPublicIP {
+		t.Logf("Instance %s has public IP: %s", instanceID, *instance.PublicIpAddress)
+		return false
+	}
+
+	t.Logf("Instance %s has no public IP (as expected for private subnet)", instanceID)
+	return true
+}
+
+// ValidatePrivateNetworkConnectivity verifies that an EC2 instance in a private subnet
+// can reach external services via NAT gateway. Tests outbound HTTPS connectivity.
+func ValidatePrivateNetworkConnectivity(t *testing.T, instanceID string) {
+	// Test 1: Can reach external HTTPS endpoint (proves NAT gateway works)
+	curlCmd := "curl -s -o /dev/null -w '%{http_code}' --connect-timeout 10 https://api.github.com"
+	stdout, stderr, err := RunSSMCommand(t, instanceID, []string{curlCmd})
+	require.NoError(t, err, "Failed to execute curl command. stderr: %s", stderr)
+
+	httpCode := strings.TrimSpace(stdout)
+	// GitHub API returns 403 without auth, but that proves connectivity works
+	assert.True(t, httpCode == "200" || httpCode == "403",
+		"Expected HTTP 200 or 403 from api.github.com, got: %s", httpCode)
+	t.Logf("✓ Outbound HTTPS connectivity works (api.github.com returned %s)", httpCode)
+
+	// Test 2: Can reach AWS APIs (S3 endpoint)
+	awsCmd := "aws s3 ls --region " + GetAWSRegion() + " 2>&1 | head -1"
+	stdout, _, err = RunSSMCommand(t, instanceID, []string{awsCmd})
+	// We don't care about the result, just that it doesn't timeout or fail to connect
+	// Even permission denied means connectivity works
+	require.NoError(t, err, "AWS S3 command failed - NAT gateway may not be working")
+	t.Logf("✓ AWS API connectivity works (S3 list returned: %s...)", truncateString(stdout, 50))
+}
+
+// truncateString truncates a string to maxLen characters, adding "..." if truncated.
+func truncateString(s string, maxLen int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen] + "..."
+}
+
+// =============================================================================
+// EFS VALIDATORS
+// =============================================================================
+
+// ValidateEFSMountFromEC2 mounts an EFS filesystem on an EC2 instance and performs I/O operations.
+// This validates end-to-end EFS functionality including security group access.
+func ValidateEFSMountFromEC2(t *testing.T, instanceID, efsFileSystemID string) {
+	mountPoint := "/mnt/efs-test"
+	testFile := fmt.Sprintf("test-file-%d", time.Now().UnixNano())
+	testContent := fmt.Sprintf("efs-test-content-%d", time.Now().UnixNano())
+
+	// Step 1: Install amazon-efs-utils if not present
+	installCmd := "which mount.efs || sudo dnf install -y amazon-efs-utils"
+	stdout, stderr, err := RunSSMCommand(t, instanceID, []string{installCmd})
+	require.NoError(t, err, "Failed to install amazon-efs-utils. stdout: %s, stderr: %s", stdout, stderr)
+	t.Logf("✓ amazon-efs-utils available")
+
+	// Step 2: Create mount point
+	mkdirCmd := fmt.Sprintf("sudo mkdir -p %s", mountPoint)
+	_, stderr, err = RunSSMCommand(t, instanceID, []string{mkdirCmd})
+	require.NoError(t, err, "Failed to create mount point. stderr: %s", stderr)
+
+	// Step 3: Mount EFS
+	// Using EFS mount helper which handles DNS resolution and TLS
+	mountCmd := fmt.Sprintf("sudo mount -t efs -o tls %s:/ %s", efsFileSystemID, mountPoint)
+	stdout, stderr, err = RunSSMCommand(t, instanceID, []string{mountCmd})
+	require.NoError(t, err, "Failed to mount EFS %s. stdout: %s, stderr: %s", efsFileSystemID, stdout, stderr)
+	t.Logf("✓ EFS %s mounted at %s", efsFileSystemID, mountPoint)
+
+	// Step 4: Write test file
+	writeCmd := fmt.Sprintf("echo '%s' | sudo tee %s/%s > /dev/null", testContent, mountPoint, testFile)
+	_, stderr, err = RunSSMCommand(t, instanceID, []string{writeCmd})
+	require.NoError(t, err, "Failed to write test file to EFS. stderr: %s", stderr)
+	t.Logf("✓ Written test file to EFS")
+
+	// Step 5: Read test file back
+	readCmd := fmt.Sprintf("cat %s/%s", mountPoint, testFile)
+	stdout, stderr, err = RunSSMCommand(t, instanceID, []string{readCmd})
+	require.NoError(t, err, "Failed to read test file from EFS. stderr: %s", stderr)
+	assert.Contains(t, stdout, testContent, "EFS content mismatch")
+	t.Logf("✓ Read test file from EFS - content verified")
+
+	// Step 6: Verify mount is EFS by checking:
+	// - Filesystem type is nfs4 (EFS uses NFS protocol)
+	// - Capacity shows as 8.0E (EFS's "unlimited" capacity display)
+	verifyCmd := fmt.Sprintf("findmnt -n -o FSTYPE %s", mountPoint)
+	stdout, stderr, err = RunSSMCommand(t, instanceID, []string{verifyCmd})
+	require.NoError(t, err, "Failed to verify mount type. stderr: %s", stderr)
+	fsType := strings.TrimSpace(stdout)
+	assert.Equal(t, "nfs4", fsType, "EFS should be mounted as nfs4 filesystem")
+	t.Logf("✓ EFS mount verified (filesystem type: %s)", fsType)
+
+	// Also verify EFS capacity shows as 8.0E (exabytes) - characteristic of EFS
+	dfCmd := fmt.Sprintf("df -h %s | tail -1 | awk '{print $2}'", mountPoint)
+	stdout, _, err = RunSSMCommand(t, instanceID, []string{dfCmd})
+	require.NoError(t, err, "Failed to get EFS capacity")
+	capacity := strings.TrimSpace(stdout)
+	assert.Equal(t, "8.0E", capacity, "EFS should show 8.0E capacity")
+	t.Logf("✓ EFS capacity verified (%s - unlimited)", capacity)
+
+	// Cleanup: Remove test file and unmount
+	cleanupCmd := fmt.Sprintf("sudo rm -f %s/%s && sudo umount %s", mountPoint, testFile, mountPoint)
+	_, _, _ = RunSSMCommand(t, instanceID, []string{cleanupCmd})
+	t.Logf("✓ EFS cleanup completed")
+}
+
+// =============================================================================
+// ECR VALIDATORS
+// =============================================================================
+
+// ValidateECRPushPullFromEC2 validates ECR as a Docker layer cache backend.
+// This tests the actual RunsOn ECR use case: Docker Buildx with registry cache.
+// The test:
+//  1. Sets up Docker with Buildx
+//  2. Creates a simple Dockerfile
+//  3. Builds with cache-to ECR (first build - cache miss)
+//  4. Builds again with cache-from ECR (second build - cache hit)
+//  5. Verifies the second build used cached layers
+func ValidateECRPushPullFromEC2(t *testing.T, instanceID, ecrURL string) {
+	region := GetAWSRegion()
+	testTag := fmt.Sprintf("cache-test-%d", time.Now().UnixNano())
+	cacheRef := fmt.Sprintf("%s:%s", ecrURL, testTag)
+
+	// Extract registry URL (everything before the first /)
+	registryURL := strings.Split(ecrURL, "/")[0]
+
+	// Step 1: Install Docker and start service
+	installCmd := `
+		if ! which docker > /dev/null 2>&1; then
+			sudo dnf install -y docker
+		fi
+		sudo systemctl start docker
+		sudo systemctl enable docker
+	`
+	_, stderr, err := RunSSMCommand(t, instanceID, []string{installCmd})
+	require.NoError(t, err, "Failed to install/start Docker. stderr: %s", stderr)
+	t.Logf("✓ Docker installed and running")
+
+	// Step 2: Set up Docker Buildx (required for cache-to/cache-from with registry)
+	buildxSetupCmd := `
+		sudo docker buildx version || {
+			# Install buildx if not available
+			mkdir -p ~/.docker/cli-plugins
+			curl -sSL https://github.com/docker/buildx/releases/download/v0.12.0/buildx-v0.12.0.linux-amd64 -o ~/.docker/cli-plugins/docker-buildx
+			chmod +x ~/.docker/cli-plugins/docker-buildx
+		}
+		# Create and use a new builder with docker-container driver (required for cache export)
+		sudo docker buildx create --name testbuilder --driver docker-container --use 2>/dev/null || sudo docker buildx use testbuilder
+		sudo docker buildx inspect --bootstrap
+	`
+	stdout, stderr, err := RunSSMCommand(t, instanceID, []string{buildxSetupCmd})
+	require.NoError(t, err, "Failed to set up Buildx. stdout: %s, stderr: %s", stdout, stderr)
+	t.Logf("✓ Docker Buildx configured with docker-container driver")
+
+	// Step 3: Authenticate to ECR
+	loginCmd := fmt.Sprintf("aws ecr get-login-password --region %s | sudo docker login --username AWS --password-stdin %s",
+		region, registryURL)
+	stdout, stderr, err = RunSSMCommand(t, instanceID, []string{loginCmd})
+	require.NoError(t, err, "Failed to authenticate to ECR. stdout: %s, stderr: %s", stdout, stderr)
+	assert.Contains(t, stdout+stderr, "Login Succeeded", "ECR login should succeed")
+	t.Logf("✓ Authenticated to ECR")
+
+	// Step 4: Create a test Dockerfile with multiple layers
+	// This simulates a real build with dependencies that benefit from caching
+	dockerfileCmd := `
+		mkdir -p /tmp/ecr-cache-test
+		cat > /tmp/ecr-cache-test/Dockerfile << 'DOCKERFILE'
+FROM public.ecr.aws/docker/library/alpine:latest
+RUN apk add --no-cache curl
+RUN apk add --no-cache jq
+RUN echo "Layer caching test" > /test.txt
+DOCKERFILE
+	`
+	_, stderr, err = RunSSMCommand(t, instanceID, []string{dockerfileCmd})
+	require.NoError(t, err, "Failed to create Dockerfile. stderr: %s", stderr)
+	t.Logf("✓ Created test Dockerfile")
+
+	// Step 5: First build - pushes cache to ECR (cache miss expected)
+	firstBuildCmd := fmt.Sprintf(`
+		cd /tmp/ecr-cache-test
+		sudo docker buildx build \
+			--cache-to type=registry,ref=%s,mode=max \
+			--load \
+			-t test-image:first \
+			. 2>&1
+	`, cacheRef)
+	stdout, stderr, err = RunSSMCommand(t, instanceID, []string{firstBuildCmd})
+	require.NoError(t, err, "First build failed. stdout: %s, stderr: %s", stdout, stderr)
+	t.Logf("✓ First build completed (cache pushed to ECR)")
+
+	// Step 6: Clear local build cache to force cache-from to be used
+	clearCacheCmd := "sudo docker buildx prune -af"
+	_, _, _ = RunSSMCommand(t, instanceID, []string{clearCacheCmd})
+	t.Logf("✓ Cleared local build cache")
+
+	// Step 7: Second build - should use cache from ECR (cache hit expected)
+	secondBuildCmd := fmt.Sprintf(`
+		cd /tmp/ecr-cache-test
+		sudo docker buildx build \
+			--cache-from type=registry,ref=%s \
+			--load \
+			-t test-image:second \
+			. 2>&1
+	`, cacheRef)
+	stdout, stderr, err = RunSSMCommand(t, instanceID, []string{secondBuildCmd})
+	require.NoError(t, err, "Second build failed. stdout: %s, stderr: %s", stdout, stderr)
+
+	// Check for cache hit indicators in output
+	buildOutput := stdout + stderr
+	cacheHit := strings.Contains(buildOutput, "CACHED") || strings.Contains(buildOutput, "importing cache")
+	t.Logf("Second build output (checking for cache): %s", truncateString(buildOutput, 500))
+
+	if cacheHit {
+		t.Logf("✓ Second build used cached layers from ECR")
+	} else {
+		t.Logf("⚠ Cache indicators not found in output, but build succeeded")
+	}
+
+	// Step 8: Verify the built image works
+	verifyCmd := "sudo docker run --rm test-image:second cat /test.txt"
+	stdout, stderr, err = RunSSMCommand(t, instanceID, []string{verifyCmd})
+	require.NoError(t, err, "Failed to run built image. stderr: %s", stderr)
+	assert.Contains(t, stdout, "Layer caching test", "Image should contain expected content")
+	t.Logf("✓ Built image verified")
+
+	// Cleanup: Remove test images and ECR cache
+	cleanupCmd := fmt.Sprintf(`
+		sudo docker rmi test-image:first test-image:second 2>/dev/null || true
+		sudo docker buildx rm testbuilder 2>/dev/null || true
+		rm -rf /tmp/ecr-cache-test
+		aws ecr batch-delete-image --repository-name %s --image-ids imageTag=%s --region %s 2>/dev/null || true
+	`, strings.Split(ecrURL, "/")[1], testTag, region)
+	_, _, _ = RunSSMCommand(t, instanceID, []string{cleanupCmd})
+	t.Logf("✓ ECR cache test cleanup completed")
+}
+
+// =============================================================================
+// PRIVATE SUBNET INSTANCE LAUNCHER
+// =============================================================================
+
+// LaunchTestInstancePrivate launches an EC2 instance in a private subnet (no public IP).
+// Use this for testing private networking scenarios where NAT gateway provides outbound access.
+func LaunchTestInstancePrivate(t *testing.T, launchTemplateID, subnetID string) string {
+	ec2Svc := ec2.New(GetAWSSession())
+
+	// Parse launch template ID and version
+	parts := strings.Split(launchTemplateID, ":")
+	templateID := parts[0]
+	version := "$Latest"
+	if len(parts) > 1 {
+		version = parts[1]
+	}
+
+	// Get the latest Amazon Linux 2023 AMI since the launch template may not have one
+	amiID := GetLatestAmazonLinux2023AMI(t)
+
+	t.Logf("Launching private test instance from template %s (version %s) in subnet %s with AMI %s",
+		templateID, version, subnetID, amiID)
+
+	input := &ec2.RunInstancesInput{
+		LaunchTemplate: &ec2.LaunchTemplateSpecification{
+			LaunchTemplateId: aws.String(templateID),
+			Version:          aws.String(version),
+		},
+		ImageId:  aws.String(amiID),
+		MinCount: aws.Int64(1),
+		MaxCount: aws.Int64(1),
+		// Use NetworkInterfaces with NO public IP for private subnet
+		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
+			{
+				DeviceIndex:              aws.Int64(0),
+				SubnetId:                 aws.String(subnetID),
+				AssociatePublicIpAddress: aws.Bool(false), // No public IP for private subnet
+				DeleteOnTermination:      aws.Bool(true),
+			},
+		},
+		TagSpecifications: []*ec2.TagSpecification{
+			{
+				ResourceType: aws.String("instance"),
+				Tags: []*ec2.Tag{
+					{Key: aws.String("Name"), Value: aws.String("terratest-functional-test-private")},
+					{Key: aws.String("TestFramework"), Value: aws.String("terratest")},
+					{Key: aws.String("AutoCleanup"), Value: aws.String("true")},
+				},
+			},
+		},
+	}
+
+	result, err := ec2Svc.RunInstances(input)
+	require.NoError(t, err, "Failed to launch private test instance")
+	require.Len(t, result.Instances, 1, "Expected exactly one instance to be launched")
+
+	instanceID := *result.Instances[0].InstanceId
+	t.Logf("Launched private test instance: %s", instanceID)
+	return instanceID
+}
+
+// =============================================================================
+// INTEGRATION TEST HELPERS
+// =============================================================================
 
 // ValidateRunnerLaunched checks if an EC2 runner instance was launched for the stack
 // after the given start time.

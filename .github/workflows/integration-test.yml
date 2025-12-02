@@ -2,19 +2,19 @@ name: Integration Test
 
 # This workflow runs end-to-end integration tests that require manual GitHub App registration.
 # It deploys infrastructure, waits for app registration, then validates workflow execution.
+#
+# Key features:
+# - Uses the same repository for testing (no external test repo needed)
+# - Uses GITHUB_TOKEN (no PAT required)
+# - Automatically triggers test workflow after App Runner is healthy
 
 on:
   workflow_dispatch:
-    inputs:
-      test_repo:
-        description: "Test repository (owner/repo format)"
-        required: true
-        type: string
-      test_workflow:
-        description: "Workflow file in test repo to trigger"
-        required: false
-        default: "test.yml"
-        type: string
+
+# Permissions needed for triggering workflows and reading content
+permissions:
+  actions: write
+  contents: read
 
 env:
   GO_VERSION: "1.24"
@@ -62,22 +62,22 @@ jobs:
           echo "=========================================="
           echo "INTEGRATION TEST - BASIC SCENARIO"
           echo "=========================================="
-          echo "Test Repo: ${{ github.event.inputs.test_repo }}"
-          echo "Test Workflow: ${{ github.event.inputs.test_workflow }}"
+          echo "Test Repo: ${{ github.repository }}"
+          echo "Test Workflow: runs-on-test-runner.yml"
           echo ""
           echo "This test will:"
           echo "1. Deploy RunsOn infrastructure"
           echo "2. Print the AppRunner URL for registration"
-          echo "3. Poll for a successful workflow run with RunsOn"
+          echo "3. Automatically trigger test workflow"
           echo "4. Validate the runner was launched"
           echo "=========================================="
 
           go test -v -timeout 90m -run "TestScenarioBasic" ./...
         env:
           RUNS_ON_LICENSE_KEY: ${{ secrets.RUNS_ON_LICENSE_KEY }}
-          RUNS_ON_TEST_REPO: ${{ github.event.inputs.test_repo }}
-          RUNS_ON_TEST_WORKFLOW: ${{ github.event.inputs.test_workflow }}
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          RUNS_ON_TEST_REPO: ${{ github.repository }}
+          RUNS_ON_TEST_WORKFLOW: runs-on-test-runner.yml
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Test Summary
         if: always()
@@ -85,5 +85,5 @@ jobs:
           echo "## Integration Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Scenario:** Basic" >> $GITHUB_STEP_SUMMARY
-          echo "**Test Repo:** ${{ github.event.inputs.test_repo }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Test Workflow:** ${{ github.event.inputs.test_workflow }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Repo:** ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Test Workflow:** runs-on-test-runner.yml" >> $GITHUB_STEP_SUMMARY

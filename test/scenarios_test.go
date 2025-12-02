@@ -135,24 +135,41 @@ func TestScenarioBasic(t *testing.T) {
 
 	// ===== INTEGRATION TESTS =====
 	// End-to-end job execution test
-	// Flow: Deploy infra -> User registers app -> Test polls for successful workflow with RunsOn
+	// Flow: Deploy infra -> User registers app -> Test triggers workflow -> Validates runner
 	t.Run("Integration/JobExecution", func(t *testing.T) {
 		testRepo := os.Getenv("RUNS_ON_TEST_REPO")
-		testWorkflow := os.Getenv("RUNS_ON_TEST_WORKFLOW")
-		t.Logf("RUNS_ON_TEST_REPO = %q", testRepo)
-		t.Logf("RUNS_ON_TEST_WORKFLOW = %q", testWorkflow)
 		if testRepo == "" {
 			t.Skip("RUNS_ON_TEST_REPO not set - skipping integration test")
 		}
-		if testWorkflow == "" {
-			testWorkflow = "test.yml"
-		}
+
+		testWorkflow := GetOptionalEnv("RUNS_ON_TEST_WORKFLOW", "runs-on-test-runner.yml")
+		testID := fmt.Sprintf("test-%s-%d", config.TestID, time.Now().UnixNano())
+
+		t.Logf("RUNS_ON_TEST_REPO = %q", testRepo)
+		t.Logf("RUNS_ON_TEST_WORKFLOW = %q", testWorkflow)
+		t.Logf("Test ID = %q", testID)
 
 		startTime := time.Now()
 
-		// Wait for RunsOn registration by polling for a workflow run with RunsOn in logs
-		// User must manually register at the AppRunner URL, then trigger a workflow
-		runID := WaitForRunsOnRegistration(t, appRunnerURL, testRepo, testWorkflow, 15*time.Minute)
+		// Display registration URL prominently - user must register the app manually
+		t.Log("=======================================================")
+		t.Logf("REGISTER RUNS-ON APP AT: https://%s", appRunnerURL)
+		t.Log("=======================================================")
+		t.Log("Waiting for App Runner to be healthy before triggering workflow...")
+
+		// Wait for App Runner to be healthy (indicates app is ready)
+		ValidateAppRunnerHealth(t, appRunnerURL, 20)
+
+		t.Log("App Runner is healthy. Triggering test workflow...")
+		t.Log("NOTE: If the RunsOn app is not registered, the workflow will queue indefinitely.")
+
+		// Trigger the test workflow via GitHub API
+		err := TriggerWorkflowDispatch(t, testRepo, testWorkflow, testID)
+		require.NoError(t, err, "Failed to trigger workflow")
+
+		// Wait for the triggered workflow to appear and have logs
+		runID, err := WaitForTriggeredWorkflow(t, testRepo, testWorkflow, testID, 15*time.Minute)
+		require.NoError(t, err, "Workflow run not found - is the RunsOn app registered?")
 
 		// Verify workflow completed successfully
 		conclusion := WaitForWorkflowCompletion(t, testRepo, runID, 10*time.Minute)
@@ -214,6 +231,7 @@ func TestScenarioPrivateNetworking(t *testing.T) {
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
+		assert.NotEmpty(t, stackName, "Stack name should not be empty")
 		assert.NotEmpty(t, appRunnerURL, "App Runner URL should not be empty")
 		assert.Contains(t, appRunnerURL, "awsapprunner.com")
 	})
@@ -243,6 +261,40 @@ func TestScenarioPrivateNetworking(t *testing.T) {
 	// ===== ADVANCED VALIDATIONS =====
 	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
 		ValidateAppRunnerHealth(t, appRunnerURL, 10)
+	})
+
+	// ===== FUNCTIONAL VALIDATIONS =====
+	// These tests launch an EC2 instance in a private subnet and verify:
+	// - Instance has no public IP (proper isolation)
+	// - Instance can reach external services via NAT gateway
+	// - Instance can access S3 buckets with correct IAM permissions
+	t.Run("Functional", func(t *testing.T) {
+		// Get private launch template ID
+		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_private_id")
+		require.NotEmpty(t, launchTemplateID, "Private launch template ID should not be empty")
+
+		// Launch instance in PRIVATE subnet (no public IP)
+		instanceID := LaunchTestInstancePrivate(t, launchTemplateID, privateSubnets[0])
+		defer TerminateTestInstance(t, instanceID)
+
+		// Wait for instance to be SSM-ready (requires NAT gateway for SSM access)
+		ready := WaitForInstanceReady(t, instanceID, 7*time.Minute)
+		require.True(t, ready, "Private instance failed to become SSM-ready - check NAT gateway")
+
+		t.Run("NoPublicIP", func(t *testing.T) {
+			hasNoPublicIP := ValidateInstanceHasNoPublicIP(t, instanceID)
+			assert.True(t, hasNoPublicIP, "Private subnet instance should not have public IP")
+		})
+
+		t.Run("OutboundConnectivity", func(t *testing.T) {
+			// Proves NAT gateway is working
+			ValidatePrivateNetworkConnectivity(t, instanceID)
+		})
+
+		t.Run("S3Access", func(t *testing.T) {
+			// Validates IAM permissions work from private subnet
+			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
+		})
 	})
 
 	fmt.Printf("\n✅ Private networking scenario successful!\n")
@@ -294,6 +346,7 @@ func TestScenarioEFSEnabled(t *testing.T) {
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
+		assert.NotEmpty(t, stackName, "Stack name should not be empty")
 		assert.NotEmpty(t, appRunnerURL, "App Runner URL should not be empty")
 		assert.NotEmpty(t, efsFileSystemID, "EFS ID should not be empty when EFS is enabled")
 	})
@@ -318,6 +371,38 @@ func TestScenarioEFSEnabled(t *testing.T) {
 
 	t.Run("Compliance/LogRetention", func(t *testing.T) {
 		ValidateCloudWatchLogRetention(t, logGroupName)
+	})
+
+	// ===== ADVANCED VALIDATIONS =====
+	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
+		ValidateAppRunnerHealth(t, appRunnerURL, 10)
+	})
+
+	// ===== FUNCTIONAL VALIDATIONS =====
+	// These tests launch an EC2 instance and verify:
+	// - Instance can access S3 buckets with correct IAM permissions
+	// - Instance can mount EFS and perform I/O operations
+	t.Run("Functional", func(t *testing.T) {
+		// Get launch template ID
+		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_default_id")
+		require.NotEmpty(t, launchTemplateID, "Launch template ID should not be empty")
+
+		// Launch instance in public subnet
+		instanceID := LaunchTestInstance(t, launchTemplateID, publicSubnets[0])
+		defer TerminateTestInstance(t, instanceID)
+
+		// Wait for instance to be SSM-ready
+		ready := WaitForInstanceReady(t, instanceID, 5*time.Minute)
+		require.True(t, ready, "Instance failed to become SSM-ready within timeout")
+
+		t.Run("S3Access", func(t *testing.T) {
+			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
+		})
+
+		t.Run("EFSMount", func(t *testing.T) {
+			// Validates EFS mount, write, read, and unmount
+			ValidateEFSMountFromEC2(t, instanceID, efsFileSystemID)
+		})
 	})
 
 	fmt.Printf("\n✅ EFS-enabled scenario successful!\n")
@@ -368,6 +453,7 @@ func TestScenarioECREnabled(t *testing.T) {
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
+		assert.NotEmpty(t, stackName, "Stack name should not be empty")
 		assert.NotEmpty(t, appRunnerURL, "App Runner URL should not be empty")
 		assert.NotEmpty(t, ecrURL, "ECR URL should not be empty when ECR is enabled")
 		assert.Contains(t, ecrURL, "ecr", "Should be ECR URL")
@@ -393,6 +479,38 @@ func TestScenarioECREnabled(t *testing.T) {
 
 	t.Run("Compliance/LogRetention", func(t *testing.T) {
 		ValidateCloudWatchLogRetention(t, logGroupName)
+	})
+
+	// ===== ADVANCED VALIDATIONS =====
+	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
+		ValidateAppRunnerHealth(t, appRunnerURL, 10)
+	})
+
+	// ===== FUNCTIONAL VALIDATIONS =====
+	// These tests launch an EC2 instance and verify:
+	// - Instance can access S3 buckets with correct IAM permissions
+	// - Instance can authenticate to ECR and push/pull images
+	t.Run("Functional", func(t *testing.T) {
+		// Get launch template ID
+		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_default_id")
+		require.NotEmpty(t, launchTemplateID, "Launch template ID should not be empty")
+
+		// Launch instance in public subnet
+		instanceID := LaunchTestInstance(t, launchTemplateID, publicSubnets[0])
+		defer TerminateTestInstance(t, instanceID)
+
+		// Wait for instance to be SSM-ready
+		ready := WaitForInstanceReady(t, instanceID, 5*time.Minute)
+		require.True(t, ready, "Instance failed to become SSM-ready within timeout")
+
+		t.Run("S3Access", func(t *testing.T) {
+			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
+		})
+
+		t.Run("ECRPushPull", func(t *testing.T) {
+			// Validates ECR authentication, push, and pull
+			ValidateECRPushPullFromEC2(t, instanceID, ecrURL)
+		})
 	})
 
 	fmt.Printf("\n✅ ECR-enabled scenario successful!\n")
@@ -491,6 +609,52 @@ func TestScenarioFullFeatured(t *testing.T) {
 	// ===== ADVANCED VALIDATIONS =====
 	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
 		ValidateAppRunnerHealth(t, appRunnerURL, 10)
+	})
+
+	// ===== FUNCTIONAL VALIDATIONS =====
+	// Full-featured scenario tests ALL functional capabilities from a private subnet:
+	// - Instance has no public IP (proper isolation)
+	// - Instance can reach external services via NAT gateway
+	// - Instance can access S3 buckets with correct IAM permissions
+	// - Instance can mount EFS and perform I/O operations
+	// - Instance can authenticate to ECR and push/pull images
+	t.Run("Functional", func(t *testing.T) {
+		// Get private launch template ID (test from private subnet for full coverage)
+		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_private_id")
+		require.NotEmpty(t, launchTemplateID, "Private launch template ID should not be empty")
+
+		// Launch instance in PRIVATE subnet
+		instanceID := LaunchTestInstancePrivate(t, launchTemplateID, privateSubnets[0])
+		defer TerminateTestInstance(t, instanceID)
+
+		// Wait for instance to be SSM-ready (requires NAT gateway)
+		ready := WaitForInstanceReady(t, instanceID, 7*time.Minute)
+		require.True(t, ready, "Private instance failed to become SSM-ready - check NAT gateway")
+
+		t.Run("NoPublicIP", func(t *testing.T) {
+			hasNoPublicIP := ValidateInstanceHasNoPublicIP(t, instanceID)
+			assert.True(t, hasNoPublicIP, "Private subnet instance should not have public IP")
+		})
+
+		t.Run("OutboundConnectivity", func(t *testing.T) {
+			// Proves NAT gateway is working
+			ValidatePrivateNetworkConnectivity(t, instanceID)
+		})
+
+		t.Run("S3Access", func(t *testing.T) {
+			// Validates IAM permissions work from private subnet
+			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
+		})
+
+		t.Run("EFSMount", func(t *testing.T) {
+			// Validates EFS mount, write, read, and unmount
+			ValidateEFSMountFromEC2(t, instanceID, efsFileSystemID)
+		})
+
+		t.Run("ECRPushPull", func(t *testing.T) {
+			// Validates ECR authentication, push, and pull
+			ValidateECRPushPullFromEC2(t, instanceID, ecrURL)
+		})
 	})
 
 	fmt.Printf("\n✅ Full-featured deployment successful!\n")
