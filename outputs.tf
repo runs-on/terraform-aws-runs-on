@@ -235,6 +235,25 @@ output "ecr_repository_name" {
 }
 
 ###########################
+# Monitoring Outputs
+###########################
+
+output "dashboard_url" {
+  description = "URL to the CloudWatch Dashboard (if enabled)"
+  value       = module.core.dashboard_url
+}
+
+output "dashboard_name" {
+  description = "Name of the CloudWatch Dashboard (if enabled)"
+  value       = module.core.dashboard_name
+}
+
+output "slack_webhook_lambda_arn" {
+  description = "ARN of the Slack webhook Lambda function (if Slack webhook URL provided)"
+  value       = module.core.slack_webhook_lambda_arn
+}
+
+###########################
 # Usage Information
 ###########################
 

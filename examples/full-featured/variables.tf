@@ -47,3 +47,17 @@ variable "email" {
   description = "Email address for cost and alert reports"
   type        = string
 }
+
+# Optional: Monitoring and Alerting
+variable "enable_dashboard" {
+  description = "Create a CloudWatch dashboard for monitoring RunsOn operations"
+  type        = bool
+  default     = false
+}
+
+variable "slack_webhook_url" {
+  description = "Slack incoming webhook URL for alert notifications (optional)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}

@@ -306,3 +306,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "enable_dashboard" {
+  description = "Create a CloudWatch dashboard for monitoring RunsOn operations"
+  type        = bool
+  default     = false
+}

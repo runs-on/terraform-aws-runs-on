@@ -73,5 +73,8 @@ module "runs_on" {
   # Feature: ECR Ephemeral Registry
   enable_ecr = true
 
+  # Feature: CloudWatch Dashboard for monitoring
+  enable_dashboard = true
+
   # All other settings use smart defaults from CloudFormation
 }

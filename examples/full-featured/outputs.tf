@@ -39,3 +39,8 @@ output "getting_started" {
   description = "Getting started instructions"
   value       = module.runs_on.getting_started
 }
+
+output "dashboard_url" {
+  description = "CloudWatch Dashboard URL"
+  value       = module.runs_on.dashboard_url
+}

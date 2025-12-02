@@ -110,3 +110,18 @@ output "sqs_alarm_main_arn" {
   description = "ARN of the SQS Main Queue oldest message alarm"
   value       = var.sqs_queue_oldest_message_threshold_seconds > 0 ? aws_cloudwatch_metric_alarm.sqs_main_oldest_message[0].arn : null
 }
+
+output "dashboard_url" {
+  description = "URL to the CloudWatch Dashboard"
+  value       = var.enable_dashboard ? "https://${data.aws_region.current.name}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.name}#dashboards:name=${var.stack_name}-Dashboard" : null
+}
+
+output "dashboard_name" {
+  description = "Name of the CloudWatch Dashboard"
+  value       = var.enable_dashboard ? aws_cloudwatch_dashboard.runs_on[0].dashboard_name : null
+}
+
+output "slack_webhook_lambda_arn" {
+  description = "ARN of the Slack webhook Lambda function"
+  value       = var.alert_slack_webhook_url != "" ? aws_lambda_function.slack_webhook[0].arn : null
+}

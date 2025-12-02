@@ -240,6 +240,9 @@ module "core" {
   alert_https_endpoint    = var.alert_https_endpoint
   alert_slack_webhook_url = var.alert_slack_webhook_url
 
+  # Monitoring
+  enable_dashboard = var.enable_dashboard
+
   # New Alarms (Parity)
   app_alarm_daily_minutes                    = var.app_alarm_daily_minutes
   sqs_queue_oldest_message_threshold_seconds = var.sqs_queue_oldest_message_threshold_seconds
