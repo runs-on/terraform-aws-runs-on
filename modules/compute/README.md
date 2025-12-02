@@ -1,50 +1,13 @@
 # Compute Module
 
-Creates EC2 launch templates and IAM roles for RunsOn runners.
+EC2 launch templates and IAM roles for RunsOn runners.
 
-## Features
+## What's Included
 
-- IAM role and instance profile for EC2 instances
-- Launch templates for Linux and Windows runners
-- Public and private networking variants
-- CloudWatch log group for runner logs
-- EBS encryption support
-- EFS and ECR integration (optional)
-- Resource group for cost tracking
-
-## Usage
-
-```hcl
-module "compute" {
-  source = "./modules/compute"
-
-  stack_name         = "runs-on-prod"
-  security_group_ids = ["sg-123"]
-
-  config_bucket_name = "my-config-bucket"
-  config_bucket_arn  = "arn:aws:s3:::my-config-bucket"
-  cache_bucket_name  = "my-cache-bucket"
-  cache_bucket_arn   = "arn:aws:s3:::my-cache-bucket"
-}
-```
-
-## Launch Templates
-
-Creates 4 launch templates:
-- **Linux Default** - Public networking, Ubuntu-based
-- **Windows Default** - Public networking, Windows Server
-- **Linux Private** - Private networking (optional)
-- **Windows Private** - Private networking (optional)
-
-## IAM Permissions
-
-EC2 instances get permissions for:
-- S3 access (config/cache buckets)
-- CloudWatch logs and metrics
-- EC2 snapshot management
-- SSM Session Manager
-- EFS mount (if enabled)
-- ECR pull/push (if enabled)
+- **Launch templates** - Linux and Windows, with public/private variants
+- **IAM role** - Permissions for S3, CloudWatch, SSM, EFS, and ECR
+- **CloudWatch log group** - Runner logs
+- **Resource group** - For cost tracking
 
 <!-- BEGIN_TF_DOCS -->
 
@@ -148,16 +111,3 @@ No modules.
 | <a name="output_resource_group_arn"></a> [resource\_group\_arn](#output\_resource\_group\_arn) | ARN of the EC2 resource group |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | Name of the EC2 resource group |
 <!-- END_TF_DOCS -->
-
-## User Data Scripts
-
-Bootstrap scripts are stored in:
-- `user-data-linux.sh` - Linux runner initialization
-- `user-data-windows.ps1` - Windows runner initialization
-
-These scripts:
-1. Set up environment variables
-2. Install AWS CLI
-3. Configure CloudWatch logging
-4. Mount EFS (if configured)
-5. Download and run RunsOn bootstrap

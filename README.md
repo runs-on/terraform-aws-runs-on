@@ -1,50 +1,45 @@
 # RunsOn Terraform Module
 
-Minimal, batteries-included Terraform/OpenTofu module for deploying [RunsOn](https://runs-on.com) infrastructure on AWS.
-
-## Features
-
-- **App Runner Service**: Orchestrates GitHub Actions runner provisioning and lifecycle
-- **Storage**: S3 buckets for configuration, cache, and logging with lifecycle policies
-- **Compute**: EC2 launch templates for Linux and Windows runners with IAM roles
-- **Queuing**: SQS queues for job processing, pool management, and event handling
-- **State Management**: DynamoDB tables for distributed locking and job tracking
-- **Monitoring**: SNS topics for alerts, CloudWatch logs, and optional cost reports
-- **Optional Components**: EFS file system and ECR repository support
+Deploy [RunsOn](https://runs-on.com) self-hosted GitHub Actions runners on AWS with Terraform/OpenTofu.
 
 ## Quick Start
 
 ```hcl
 module "runs_on" {
-  source  = "sjysngh/runs-on/aws"
-  version = "~> 1.0"
+  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git"
 
   github_organization = "my-org"
   license_key         = var.runs_on_license_key
-  
-  # Bring your own VPC
+
   vpc_id            = "vpc-123"
-  public_subnet_ids = ["subnet-abc", "subnet-def"]
+  public_subnet_ids = ["subnet-abc", "subnet-def", "subnet-ghi"]
 }
 ```
 
-For a complete example, see [examples/complete](./examples/complete).
+You provide the VPC and subnets. The module creates everything else: App Runner, S3 buckets, SQS queues, DynamoDB tables, IAM roles, and EC2 launch templates.
 
-## Architecture
+## Examples
 
-This module uses a **Bring Your Own VPC (BYOV)** approach. You provide the VPC and subnets, and the module creates:
+| Example | What it adds | Est. cost |
+|---------|--------------|-----------|
+| [basic](./examples/basic/) | Standard deployment | ~$30/mo |
+| [private-networking](./examples/private-networking/) | NAT Gateway for static IPs | ~$65/mo |
+| [efs-enabled](./examples/efs-enabled/) | Shared storage across runners | ~$35/mo |
+| [ecr-enabled](./examples/ecr-enabled/) | Docker BuildKit cache | ~$32/mo |
+| [full-featured](./examples/full-featured/) | All features | ~$175/mo |
 
-- Storage layer (S3 buckets)
-- Compute layer (Launch templates, IAM roles)
-- Orchestration layer (App Runner, SQS, DynamoDB, SNS)
-- Optional components (EFS, ECR)
+## Optional Features
 
-## Design Principles
+```hcl
+# Private networking (static egress IPs)
+private_subnet_ids = ["subnet-private-1", "subnet-private-2", "subnet-private-3"]
 
-- **Minimal**: Only what's needed to run RunsOn
-- **Batteries-included**: Works out of the box with sensible defaults
-- **BYOV**: Users provide VPC/subnets (no network module)
-- **Flexible**: Optional features can be enabled/disabled as needed
+# Shared storage across runners
+enable_efs = true
+
+# Docker layer caching
+enable_ecr = true
+```
 
 <!-- BEGIN_TF_DOCS -->
 

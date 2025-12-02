@@ -1,26 +1,14 @@
 # Storage Module
 
-Creates S3 buckets for RunsOn: config, cache, and logging.
+S3 buckets for RunsOn: config, cache, and access logs.
 
-## Features
+## What's Included
 
-- KMS encryption at rest
-- SSL/TLS enforced
-- Versioning enabled (except cache)
-- Lifecycle policies for cost optimization
-- Access logging
-- Public access blocked
+- **Config bucket** - Runner configuration files
+- **Cache bucket** - Build artifacts with 30-day expiration
+- **Logging bucket** - Access logs for the other buckets
 
-## Usage
-
-```hcl
-module "storage" {
-  source = "./modules/storage"
-
-  stack_name            = "runs-on-prod"
-  cache_expiration_days = 30
-}
-```
+All buckets have encryption, versioning, and public access blocked.
 
 <!-- BEGIN_TF_DOCS -->
 
@@ -92,9 +80,3 @@ No modules.
 | <a name="output_logging_bucket_id"></a> [logging\_bucket\_id](#output\_logging\_bucket\_id) | ID of the S3 bucket for access logs |
 | <a name="output_logging_bucket_name"></a> [logging\_bucket\_name](#output\_logging\_bucket\_name) | Name of the S3 bucket for access logs |
 <!-- END_TF_DOCS -->
-
-## Bucket Naming
-
-Buckets are named: `{stack_name}-{type}-{account_id}`
-
-Example: `runs-on-prod-config-123456789012`

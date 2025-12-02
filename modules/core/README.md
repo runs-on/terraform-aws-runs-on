@@ -1,80 +1,14 @@
 # Core Module
 
-Core orchestration module for RunsOn - manages App Runner service, SQS queues, DynamoDB tables, SNS topics, and EventBridge rules.
+App Runner service, queues, and state management for RunsOn.
 
-## Features
+## What's Included
 
-- App Runner service for RunsOn orchestration
-- SQS queues for job processing (7 queues)
-- DynamoDB tables for locks and workflow job tracking
-- SNS topic for alerts and notifications
-- EventBridge rules for Spot interruption handling
-- Scheduler for automated cost reports
-- VPC connector for private networking (optional)
-- Slack/Email/HTTPS alert subscriptions (optional)
-
-## Usage
-
-```hcl
-module "core" {
-  source = "./modules/core"
-
-  stack_name         = "runs-on-prod"
-  environment        = "production"
-  
-  github_organization = "my-org"
-  license_key        = var.license_key
-
-  # Networking
-  vpc_id             = "vpc-123"
-  public_subnet_ids  = ["subnet-abc", "subnet-def"]
-  security_group_ids = ["sg-123"]
-
-  # From storage module
-  config_bucket_name = module.storage.config_bucket_name
-  config_bucket_arn  = module.storage.config_bucket_arn
-  cache_bucket_name  = module.storage.cache_bucket_name
-  cache_bucket_arn   = module.storage.cache_bucket_arn
-
-  # From compute module
-  ec2_instance_role_name           = module.compute.ec2_instance_role_name
-  ec2_instance_role_arn            = module.compute.ec2_instance_role_arn
-  ec2_instance_profile_arn         = module.compute.ec2_instance_profile_arn
-  launch_template_linux_default_id = module.compute.launch_template_linux_default_id
-  launch_template_windows_default_id = module.compute.launch_template_windows_default_id
-
-  # Optional: Alerts
-  alert_email = "devops@company.com"
-}
-```
-
-## Components
-
-### App Runner Service
-- Orchestrates GitHub Actions runner provisioning
-- Processes queue messages
-- Manages runner lifecycle
-- Auto-scaling configuration
-
-### SQS Queues (7 total)
-- **Main Queue**: Primary job processing (FIFO)
-- **Jobs Queue**: Workflow job scheduling (FIFO)
-- **GitHub Queue**: GitHub registration tasks (FIFO)
-- **Pool Queue**: Pool management
-- **Housekeeping Queue**: Maintenance tasks
-- **Termination Queue**: Runner termination
-- **Events Queue**: AWS events (Spot interruptions, scheduled tasks)
-
-### DynamoDB Tables
-- **Locks Table**: Distributed locking
-- **Workflow Jobs Table**: Job tracking with GSI for queries
-
-### SNS Topics
-- **Alerts Topic**: Notifications for errors, warnings, cost reports
-
-### EventBridge Rules
-- **Spot Interruption**: Captures EC2 Spot warnings
-- **Cost Reports**: Scheduled daily reports (optional)
+- **App Runner** - Runs the RunsOn orchestrator
+- **SQS queues** - Job processing, GitHub events, termination handling
+- **DynamoDB tables** - Distributed locking and job tracking
+- **SNS topic** - Alerts and notifications
+- **EventBridge rules** - Spot interruption handling, cost reports
 
 <!-- BEGIN_TF_DOCS -->
 
@@ -210,14 +144,3 @@ No modules.
 | <a name="output_sqs_queue_pool_url"></a> [sqs\_queue\_pool\_url](#output\_sqs\_queue\_pool\_url) | URL of the pool SQS queue |
 | <a name="output_sqs_queue_termination_url"></a> [sqs\_queue\_termination\_url](#output\_sqs\_queue\_termination\_url) | URL of the termination SQS queue |
 <!-- END_TF_DOCS -->
-
-## Files
-
-- `main.tf` - Orchestration (terraform, data, locals)
-- `apprunner.tf` - App Runner service and IAM
-- `sqs.tf` - SQS queues and policies
-- `dynamodb.tf` - DynamoDB tables
-- `sns.tf` - SNS topics and subscriptions
-- `eventbridge.tf` - EventBridge rules and scheduler
-- `variables.tf` - Input variables
-- `outputs.tf` - Output values

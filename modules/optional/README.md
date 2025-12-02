@@ -1,13 +1,13 @@
-# RunsOn Optional Module
+# Optional Module
 
-Optional infrastructure components for the RunsOn platform (EFS and ECR).
+Optional infrastructure for RunsOn: EFS and ECR.
 
-## Features
+## What's Included
 
-- **EFS File System**: Shared storage for runners (conditionally created)
-- **ECR Repository**: Ephemeral container registry (conditionally created)
+- **EFS** - Shared filesystem across runners (mounted at `/mnt/efs`)
+- **ECR** - Private container registry for Docker BuildKit cache
 
-These resources are optional and can be enabled/disabled via the root module variables.
+Both are disabled by default. Enable via `enable_efs` and `enable_ecr` in the root module.
 
 <!-- BEGIN_TF_DOCS -->
 
