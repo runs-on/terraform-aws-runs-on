@@ -61,3 +61,10 @@ variable "slack_webhook_url" {
   default     = ""
   sensitive   = true
 }
+
+# Resource Protection
+variable "prevent_destroy_optional_resources" {
+  description = "Prevent accidental deletion of EFS and ECR resources"
+  type        = bool
+  default     = true
+}

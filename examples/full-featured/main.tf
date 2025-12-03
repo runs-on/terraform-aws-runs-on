@@ -76,5 +76,8 @@ module "runs_on" {
   # Feature: CloudWatch Dashboard for monitoring
   enable_dashboard = true
 
+  # Resource protection
+  prevent_destroy_optional_resources = var.prevent_destroy_optional_resources
+
   # All other settings use smart defaults from CloudFormation
 }
