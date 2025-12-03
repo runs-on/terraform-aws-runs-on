@@ -1,6 +1,6 @@
 module github.com/sjysngh/runs-on-tf/test
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/aws/aws-sdk-go v1.44.122

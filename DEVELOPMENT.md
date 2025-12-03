@@ -7,14 +7,19 @@ Install development tools (macOS):
 make install-tools
 ```
 
-Or manually install: `opentofu`, `tflint`, `tfsec`, `checkov`, `terraform-docs`
+Or manually install: `opentofu`, `tflint`, `tfsec`, `terraform-docs`
+
+For tests, install [mise](https://mise.jdx.dev/) to manage Go version:
+```bash
+cd test && mise install
+```
 
 ## Development Workflow
 
 ### Quick Checks
 ```bash
-make quick       # fmt-check + validate + lint (~20 sec)
-make pre-commit  # quick + security scans
+make quick       # fmt-check + validate + lint
+make pre-commit  # quick + security scan
 ```
 
 ### Individual Commands
@@ -22,13 +27,8 @@ make pre-commit  # quick + security scans
 make fmt         # Format all .tf files
 make validate    # Validate OpenTofu syntax
 make lint        # Run TFLint
-make security    # Run checkov + tfsec
+make security    # Run tfsec
 make docs        # Regenerate module READMEs
-```
-
-### Watch Mode
-```bash
-make watch       # Auto-run quick checks on file changes (requires watchexec)
 ```
 
 ## Testing
@@ -50,24 +50,32 @@ Tests use [Terratest](https://terratest.gruntwork.io/) and deploy real AWS infra
 ### Running Tests
 
 ```bash
-cd test
+# Run basic scenario (default)
+make test
 
-# Run a specific scenario
-go test -v -timeout 45m -run "TestScenarioBasic" ./...
+# Run specific scenarios
+make test-basic    # Standard deployment
+make test-efs      # With EFS shared storage
+make test-ecr      # With ECR registry
+make test-private  # With NAT gateway (expensive)
+make test-full     # All features (expensive)
 
-# Skip expensive tests (NAT gateway, etc.)
-go test -v -short ./...
+# Run all scenarios
+make test-all
+
+# Skip expensive scenarios
+make test-short
 ```
 
 ### Test Scenarios
 
-| Test | Description | Cost |
-|------|-------------|------|
-| `TestScenarioBasic` | Standard deployment | Low |
-| `TestScenarioEFSEnabled` | With EFS shared storage | Low |
-| `TestScenarioECREnabled` | With ECR registry | Low |
-| `TestScenarioPrivateNetworking` | With NAT gateway | High (NAT) |
-| `TestScenarioFullFeatured` | All features enabled | High (NAT + EFS + ECR) |
+| Command | Test | Cost |
+|---------|------|------|
+| `make test-basic` | `TestScenarioBasic` | Low |
+| `make test-efs` | `TestScenarioEFSEnabled` | Low |
+| `make test-ecr` | `TestScenarioECREnabled` | Low |
+| `make test-private` | `TestScenarioPrivateNetworking` | High (NAT) |
+| `make test-full` | `TestScenarioFullFeatured` | High (NAT + EFS + ECR) |
 
 ### Test Structure
 
@@ -86,14 +94,6 @@ Each scenario test:
 Key files in `test/`:
 - `scenarios_test.go` - Test scenarios
 - `helpers.go` - AWS SDK helpers, validation functions, SSM command execution
-
-Validation functions available:
-- `ValidateS3BucketEncryption()` - Verify KMS encryption
-- `ValidateS3BucketPublicAccessBlocked()` - Verify public access is blocked
-- `ValidateIAMRoleNotOverlyPermissive()` - Check for dangerous policies
-- `ValidateS3AccessFromEC2()` - Verify IAM permissions from an EC2 instance
-- `ValidateEFSMountFromEC2()` - Mount and test EFS
-- `ValidateECRPushPullFromEC2()` - Test Docker buildx cache with ECR
 
 ## Cleanup
 
