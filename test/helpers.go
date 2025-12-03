@@ -11,14 +11,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
-	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/aws/aws-sdk-go/service/iam"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/ssm"
-	"github.com/google/go-github/v57/github"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
+	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
+	"github.com/aws/aws-sdk-go-v2/service/iam"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/ssm"
+	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
+	"github.com/google/go-github/v68/github"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
@@ -130,11 +132,20 @@ func (c ScenarioConfig) ToModuleVars(vpcID string, publicSubnets, privateSubnets
 // AWS SDK HELPERS
 // =============================================================================
 
-// GetAWSSession creates a reusable AWS session
-func GetAWSSession() *session.Session {
-	return session.Must(session.NewSession(&aws.Config{
-		Region: aws.String(GetAWSRegion()),
-	}))
+// GetAWSConfig creates a reusable AWS config for SDK v2
+func GetAWSConfig(ctx context.Context) (aws.Config, error) {
+	return config.LoadDefaultConfig(ctx,
+		config.WithRegion(GetAWSRegion()),
+	)
+}
+
+// MustGetAWSConfig creates a reusable AWS config, panicking on error
+func MustGetAWSConfig(ctx context.Context) aws.Config {
+	cfg, err := GetAWSConfig(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load AWS config: %v", err))
+	}
+	return cfg
 }
 
 // =============================================================================
@@ -143,20 +154,26 @@ func GetAWSSession() *session.Session {
 
 // ValidateS3BucketEncryption checks bucket has SSE-KMS encryption
 func ValidateS3BucketEncryption(t *testing.T, bucketName string) {
-	svc := s3.New(GetAWSSession())
-	result, err := svc.GetBucketEncryption(&s3.GetBucketEncryptionInput{
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := s3.NewFromConfig(cfg)
+
+	result, err := client.GetBucketEncryption(ctx, &s3.GetBucketEncryptionInput{
 		Bucket: aws.String(bucketName),
 	})
 	require.NoError(t, err, "Failed to get bucket encryption for %s", bucketName)
 	require.NotEmpty(t, result.ServerSideEncryptionConfiguration.Rules, "Bucket %s has no encryption rules", bucketName)
-	algo := *result.ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm
+	algo := string(result.ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm)
 	assert.Equal(t, "aws:kms", algo, "Bucket %s should use KMS encryption, got %s", bucketName, algo)
 }
 
 // ValidateS3BucketLogging checks bucket has access logging enabled
 func ValidateS3BucketLogging(t *testing.T, bucketName, expectedTargetBucket string) {
-	svc := s3.New(GetAWSSession())
-	result, err := svc.GetBucketLogging(&s3.GetBucketLoggingInput{
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := s3.NewFromConfig(cfg)
+
+	result, err := client.GetBucketLogging(ctx, &s3.GetBucketLoggingInput{
 		Bucket: aws.String(bucketName),
 	})
 	require.NoError(t, err, "Failed to get bucket logging for %s", bucketName)
@@ -167,25 +184,30 @@ func ValidateS3BucketLogging(t *testing.T, bucketName, expectedTargetBucket stri
 
 // ValidateS3BucketPublicAccessBlocked checks bucket has public access blocked
 func ValidateS3BucketPublicAccessBlocked(t *testing.T, bucketName string) {
-	svc := s3.New(GetAWSSession())
-	result, err := svc.GetPublicAccessBlock(&s3.GetPublicAccessBlockInput{
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := s3.NewFromConfig(cfg)
+
+	result, err := client.GetPublicAccessBlock(ctx, &s3.GetPublicAccessBlockInput{
 		Bucket: aws.String(bucketName),
 	})
 	require.NoError(t, err, "Failed to get public access block for %s", bucketName)
 
-	config := result.PublicAccessBlockConfiguration
-	assert.True(t, *config.BlockPublicAcls, "Bucket %s should block public ACLs", bucketName)
-	assert.True(t, *config.BlockPublicPolicy, "Bucket %s should block public policy", bucketName)
-	assert.True(t, *config.IgnorePublicAcls, "Bucket %s should ignore public ACLs", bucketName)
-	assert.True(t, *config.RestrictPublicBuckets, "Bucket %s should restrict public buckets", bucketName)
+	pabConfig := result.PublicAccessBlockConfiguration
+	assert.True(t, aws.ToBool(pabConfig.BlockPublicAcls), "Bucket %s should block public ACLs", bucketName)
+	assert.True(t, aws.ToBool(pabConfig.BlockPublicPolicy), "Bucket %s should block public policy", bucketName)
+	assert.True(t, aws.ToBool(pabConfig.IgnorePublicAcls), "Bucket %s should ignore public ACLs", bucketName)
+	assert.True(t, aws.ToBool(pabConfig.RestrictPublicBuckets), "Bucket %s should restrict public buckets", bucketName)
 }
 
 // ValidateIAMRoleNotOverlyPermissive checks role doesn't have dangerous policies
 func ValidateIAMRoleNotOverlyPermissive(t *testing.T, roleName string) {
-	svc := iam.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := iam.NewFromConfig(cfg)
 
 	// Check attached managed policies
-	attachedPolicies, err := svc.ListAttachedRolePolicies(&iam.ListAttachedRolePoliciesInput{
+	attachedPolicies, err := client.ListAttachedRolePolicies(ctx, &iam.ListAttachedRolePoliciesInput{
 		RoleName: aws.String(roleName),
 	})
 	require.NoError(t, err, "Failed to list attached policies for role %s", roleName)
@@ -211,24 +233,27 @@ func ValidateIAMRoleNotOverlyPermissive(t *testing.T, roleName string) {
 
 // ValidateS3BucketVersioning checks versioning status
 func ValidateS3BucketVersioning(t *testing.T, bucketName string, expectedStatus string) {
-	svc := s3.New(GetAWSSession())
-	result, err := svc.GetBucketVersioning(&s3.GetBucketVersioningInput{
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := s3.NewFromConfig(cfg)
+
+	result, err := client.GetBucketVersioning(ctx, &s3.GetBucketVersioningInput{
 		Bucket: aws.String(bucketName),
 	})
 	require.NoError(t, err, "Failed to get bucket versioning for %s", bucketName)
 
-	status := ""
-	if result.Status != nil {
-		status = *result.Status
-	}
+	status := string(result.Status)
 	assert.Equal(t, expectedStatus, status,
 		"Bucket %s versioning should be %s, got %s", bucketName, expectedStatus, status)
 }
 
 // ValidateCloudWatchLogRetention checks log group has retention set
 func ValidateCloudWatchLogRetention(t *testing.T, logGroupPrefix string) {
-	svc := cloudwatchlogs.New(GetAWSSession())
-	result, err := svc.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := cloudwatchlogs.NewFromConfig(cfg)
+
+	result, err := client.DescribeLogGroups(ctx, &cloudwatchlogs.DescribeLogGroupsInput{
 		LogGroupNamePrefix: aws.String(logGroupPrefix),
 	})
 	require.NoError(t, err, "Failed to describe log groups with prefix %s", logGroupPrefix)
@@ -286,22 +311,24 @@ func ValidateAppRunnerHealth(t *testing.T, serviceURL string, maxRetries int) {
 
 // GetLatestAmazonLinux2023AMI returns the latest Amazon Linux 2023 AMI ID for the current region.
 func GetLatestAmazonLinux2023AMI(t *testing.T) string {
-	ec2Svc := ec2.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := ec2.NewFromConfig(cfg)
 
-	result, err := ec2Svc.DescribeImages(&ec2.DescribeImagesInput{
-		Owners: []*string{aws.String("amazon")},
-		Filters: []*ec2.Filter{
+	result, err := client.DescribeImages(ctx, &ec2.DescribeImagesInput{
+		Owners: []string{"amazon"},
+		Filters: []ec2types.Filter{
 			{
 				Name:   aws.String("name"),
-				Values: []*string{aws.String("al2023-ami-2023*-x86_64")},
+				Values: []string{"al2023-ami-2023*-x86_64"},
 			},
 			{
 				Name:   aws.String("state"),
-				Values: []*string{aws.String("available")},
+				Values: []string{"available"},
 			},
 			{
 				Name:   aws.String("architecture"),
-				Values: []*string{aws.String("x86_64")},
+				Values: []string{"x86_64"},
 			},
 		},
 	})
@@ -309,8 +336,9 @@ func GetLatestAmazonLinux2023AMI(t *testing.T) string {
 	require.NotEmpty(t, result.Images, "No Amazon Linux 2023 AMIs found")
 
 	// Find the most recent AMI
-	var latestAMI *ec2.Image
-	for _, img := range result.Images {
+	var latestAMI *ec2types.Image
+	for i := range result.Images {
+		img := &result.Images[i]
 		if latestAMI == nil || *img.CreationDate > *latestAMI.CreationDate {
 			latestAMI = img
 		}
@@ -324,7 +352,9 @@ func GetLatestAmazonLinux2023AMI(t *testing.T) string {
 // launchTemplateID should be in format "lt-xxx:version" or just "lt-xxx".
 // Returns the instance ID.
 func LaunchTestInstance(t *testing.T, launchTemplateID, subnetID string) string {
-	ec2Svc := ec2.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := ec2.NewFromConfig(cfg)
 
 	// Parse launch template ID and version
 	parts := strings.Split(launchTemplateID, ":")
@@ -341,26 +371,26 @@ func LaunchTestInstance(t *testing.T, launchTemplateID, subnetID string) string 
 		templateID, version, subnetID, amiID)
 
 	input := &ec2.RunInstancesInput{
-		LaunchTemplate: &ec2.LaunchTemplateSpecification{
+		LaunchTemplate: &ec2types.LaunchTemplateSpecification{
 			LaunchTemplateId: aws.String(templateID),
 			Version:          aws.String(version),
 		},
 		ImageId:  aws.String(amiID), // Override the AMI since launch template may not have one
-		MinCount: aws.Int64(1),
-		MaxCount: aws.Int64(1),
+		MinCount: aws.Int32(1),
+		MaxCount: aws.Int32(1),
 		// Use NetworkInterfaces instead of SubnetId since launch template may have network interface config
-		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
+		NetworkInterfaces: []ec2types.InstanceNetworkInterfaceSpecification{
 			{
-				DeviceIndex:              aws.Int64(0),
+				DeviceIndex:              aws.Int32(0),
 				SubnetId:                 aws.String(subnetID),
 				AssociatePublicIpAddress: aws.Bool(true), // Need public IP for SSM access in public subnet
 				DeleteOnTermination:      aws.Bool(true),
 			},
 		},
-		TagSpecifications: []*ec2.TagSpecification{
+		TagSpecifications: []ec2types.TagSpecification{
 			{
-				ResourceType: aws.String("instance"),
-				Tags: []*ec2.Tag{
+				ResourceType: ec2types.ResourceTypeInstance,
+				Tags: []ec2types.Tag{
 					{Key: aws.String("Name"), Value: aws.String("terratest-functional-test")},
 					{Key: aws.String("TestFramework"), Value: aws.String("terratest")},
 					{Key: aws.String("AutoCleanup"), Value: aws.String("true")},
@@ -369,7 +399,7 @@ func LaunchTestInstance(t *testing.T, launchTemplateID, subnetID string) string 
 		},
 	}
 
-	result, err := ec2Svc.RunInstances(input)
+	result, err := client.RunInstances(ctx, input)
 	require.NoError(t, err, "Failed to launch test instance")
 	require.Len(t, result.Instances, 1, "Expected exactly one instance to be launched")
 
@@ -384,11 +414,13 @@ func TerminateTestInstance(t *testing.T, instanceID string) {
 		return
 	}
 
-	ec2Svc := ec2.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := ec2.NewFromConfig(cfg)
 	t.Logf("Terminating test instance: %s", instanceID)
 
-	_, err := ec2Svc.TerminateInstances(&ec2.TerminateInstancesInput{
-		InstanceIds: []*string{aws.String(instanceID)},
+	_, err := client.TerminateInstances(ctx, &ec2.TerminateInstancesInput{
+		InstanceIds: []string{instanceID},
 	})
 	if err != nil {
 		t.Logf("Warning: Failed to terminate instance %s: %v", instanceID, err)
@@ -398,16 +430,18 @@ func TerminateTestInstance(t *testing.T, instanceID string) {
 // WaitForInstanceReady waits for an EC2 instance to be running and SSM-ready.
 // Returns true if the instance is ready, false if timeout is reached.
 func WaitForInstanceReady(t *testing.T, instanceID string, timeout time.Duration) bool {
-	ec2Svc := ec2.New(GetAWSSession())
-	ssmSvc := ssm.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	ec2Client := ec2.NewFromConfig(cfg)
+	ssmClient := ssm.NewFromConfig(cfg)
 	deadline := time.Now().Add(timeout)
 
 	t.Logf("Waiting for instance %s to be running and SSM-ready (timeout: %v)", instanceID, timeout)
 
 	// First, wait for instance to be running
 	for time.Now().Before(deadline) {
-		result, err := ec2Svc.DescribeInstances(&ec2.DescribeInstancesInput{
-			InstanceIds: []*string{aws.String(instanceID)},
+		result, err := ec2Client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+			InstanceIds: []string{instanceID},
 		})
 		if err != nil {
 			t.Logf("Error describing instance: %v", err)
@@ -416,8 +450,8 @@ func WaitForInstanceReady(t *testing.T, instanceID string, timeout time.Duration
 		}
 
 		if len(result.Reservations) > 0 && len(result.Reservations[0].Instances) > 0 {
-			state := *result.Reservations[0].Instances[0].State.Name
-			if state == "running" {
+			state := result.Reservations[0].Instances[0].State.Name
+			if state == ec2types.InstanceStateNameRunning {
 				t.Logf("Instance %s is running, checking SSM readiness...", instanceID)
 				break
 			}
@@ -428,11 +462,11 @@ func WaitForInstanceReady(t *testing.T, instanceID string, timeout time.Duration
 
 	// Then, wait for SSM agent to be ready
 	for time.Now().Before(deadline) {
-		result, err := ssmSvc.DescribeInstanceInformation(&ssm.DescribeInstanceInformationInput{
-			Filters: []*ssm.InstanceInformationStringFilter{
+		result, err := ssmClient.DescribeInstanceInformation(ctx, &ssm.DescribeInstanceInformationInput{
+			Filters: []ssmtypes.InstanceInformationStringFilter{
 				{
 					Key:    aws.String("InstanceIds"),
-					Values: []*string{aws.String(instanceID)},
+					Values: []string{instanceID},
 				},
 			},
 		})
@@ -443,8 +477,8 @@ func WaitForInstanceReady(t *testing.T, instanceID string, timeout time.Duration
 		}
 
 		if len(result.InstanceInformationList) > 0 {
-			pingStatus := *result.InstanceInformationList[0].PingStatus
-			if pingStatus == "Online" {
+			pingStatus := result.InstanceInformationList[0].PingStatus
+			if pingStatus == ssmtypes.PingStatusOnline {
 				t.Logf("Instance %s is SSM-ready (ping status: Online)", instanceID)
 				return true
 			}
@@ -462,17 +496,19 @@ func WaitForInstanceReady(t *testing.T, instanceID string, timeout time.Duration
 // RunSSMCommand executes a shell command on an EC2 instance via SSM and returns the output.
 // Returns stdout, stderr, and any error.
 func RunSSMCommand(t *testing.T, instanceID string, commands []string) (string, string, error) {
-	ssmSvc := ssm.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := ssm.NewFromConfig(cfg)
 
 	t.Logf("Running SSM command on instance %s: %v", instanceID, commands)
 
-	sendResult, err := ssmSvc.SendCommand(&ssm.SendCommandInput{
-		InstanceIds:  []*string{aws.String(instanceID)},
+	sendResult, err := client.SendCommand(ctx, &ssm.SendCommandInput{
+		InstanceIds:  []string{instanceID},
 		DocumentName: aws.String("AWS-RunShellScript"),
-		Parameters: map[string][]*string{
-			"commands": aws.StringSlice(commands),
+		Parameters: map[string][]string{
+			"commands": commands,
 		},
-		TimeoutSeconds: aws.Int64(120),
+		TimeoutSeconds: aws.Int32(120),
 	})
 	if err != nil {
 		return "", "", fmt.Errorf("failed to send SSM command: %w", err)
@@ -485,7 +521,7 @@ func RunSSMCommand(t *testing.T, instanceID string, commands []string) (string, 
 	for i := 0; i < 60; i++ {
 		time.Sleep(3 * time.Second)
 
-		result, err := ssmSvc.GetCommandInvocation(&ssm.GetCommandInvocationInput{
+		result, err := client.GetCommandInvocation(ctx, &ssm.GetCommandInvocationInput{
 			CommandId:  aws.String(commandID),
 			InstanceId: aws.String(instanceID),
 		})
@@ -497,29 +533,17 @@ func RunSSMCommand(t *testing.T, instanceID string, commands []string) (string, 
 			return "", "", fmt.Errorf("failed to get command invocation: %w", err)
 		}
 
-		status := *result.Status
+		status := result.Status
 		t.Logf("SSM command status: %s", status)
 
 		switch status {
-		case "Success":
-			stdout := ""
-			stderr := ""
-			if result.StandardOutputContent != nil {
-				stdout = *result.StandardOutputContent
-			}
-			if result.StandardErrorContent != nil {
-				stderr = *result.StandardErrorContent
-			}
+		case ssmtypes.CommandInvocationStatusSuccess:
+			stdout := aws.ToString(result.StandardOutputContent)
+			stderr := aws.ToString(result.StandardErrorContent)
 			return stdout, stderr, nil
-		case "Failed", "Cancelled", "TimedOut":
-			stdout := ""
-			stderr := ""
-			if result.StandardOutputContent != nil {
-				stdout = *result.StandardOutputContent
-			}
-			if result.StandardErrorContent != nil {
-				stderr = *result.StandardErrorContent
-			}
+		case ssmtypes.CommandInvocationStatusFailed, ssmtypes.CommandInvocationStatusCancelled, ssmtypes.CommandInvocationStatusTimedOut:
+			stdout := aws.ToString(result.StandardOutputContent)
+			stderr := aws.ToString(result.StandardErrorContent)
 			return stdout, stderr, fmt.Errorf("SSM command %s: %s", status, stderr)
 		}
 	}
@@ -553,7 +577,10 @@ func isAccessDenied(output string) bool {
 //   - CANNOT write to runners/* in cache bucket
 //   - CANNOT read from runners/{other-userid}/* in cache bucket
 func ValidateS3AccessFromEC2(t *testing.T, instanceID, cacheBucket, configBucket string) {
-	s3Svc := s3.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	s3Client := s3.NewFromConfig(cfg)
+
 	testFile := fmt.Sprintf("functional-test-%d", time.Now().UnixNano())
 	testContent := fmt.Sprintf("test-content-%d", time.Now().UnixNano())
 
@@ -581,12 +608,12 @@ func ValidateS3AccessFromEC2(t *testing.T, instanceID, cacheBucket, configBucket
 	t.Logf("✓ CAN read from cache/*")
 
 	// Cleanup cache test file
-	_, _ = s3Svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(cacheKey)})
+	_, _ = s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(cacheKey)})
 
 	// === Test 3: CAN read from runners/{own-userid}/* ===
 	ownRunnersKey := fmt.Sprintf("runners/%s/%s", userId, testFile)
 	ownRunnersContent := "runners-test-content"
-	_, err = s3Svc.PutObject(&s3.PutObjectInput{
+	_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(cacheBucket),
 		Key:    aws.String(ownRunnersKey),
 		Body:   strings.NewReader(ownRunnersContent),
@@ -600,12 +627,12 @@ func ValidateS3AccessFromEC2(t *testing.T, instanceID, cacheBucket, configBucket
 	t.Logf("✓ CAN read from runners/{own-userid}/*")
 
 	// Cleanup
-	_, _ = s3Svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(ownRunnersKey)})
+	_, _ = s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(ownRunnersKey)})
 
 	// === Test 4: CAN read from agents/* in config bucket ===
 	agentsKey := fmt.Sprintf("agents/%s", testFile)
 	agentsContent := "agents-test-content"
-	_, err = s3Svc.PutObject(&s3.PutObjectInput{
+	_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(configBucket),
 		Key:    aws.String(agentsKey),
 		Body:   strings.NewReader(agentsContent),
@@ -619,7 +646,7 @@ func ValidateS3AccessFromEC2(t *testing.T, instanceID, cacheBucket, configBucket
 	t.Logf("✓ CAN read from agents/* (config bucket)")
 
 	// Cleanup
-	_, _ = s3Svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(configBucket), Key: aws.String(agentsKey)})
+	_, _ = s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(configBucket), Key: aws.String(agentsKey)})
 
 	// === Test 5: CANNOT write to runners/* ===
 	runnersWriteKey := fmt.Sprintf("runners/%s", testFile)
@@ -632,7 +659,7 @@ func ValidateS3AccessFromEC2(t *testing.T, instanceID, cacheBucket, configBucket
 
 	// === Test 6: CANNOT read from runners/{other-userid}/* ===
 	otherRunnersKey := fmt.Sprintf("runners/other-fake-userid/%s", testFile)
-	_, err = s3Svc.PutObject(&s3.PutObjectInput{
+	_, err = s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(cacheBucket),
 		Key:    aws.String(otherRunnersKey),
 		Body:   strings.NewReader("other-user-content"),
@@ -646,12 +673,14 @@ func ValidateS3AccessFromEC2(t *testing.T, instanceID, cacheBucket, configBucket
 	t.Logf("✓ CANNOT read from runners/{other-userid}/*")
 
 	// Cleanup
-	_, _ = s3Svc.DeleteObject(&s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(otherRunnersKey)})
+	_, _ = s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(otherRunnersKey)})
 }
 
 // ValidateEC2CloudWatchLogs verifies that an EC2 instance is sending logs to CloudWatch.
 func ValidateEC2CloudWatchLogs(t *testing.T, instanceID, logGroupName string) {
-	cwlSvc := cloudwatchlogs.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := cloudwatchlogs.NewFromConfig(cfg)
 
 	// First, generate some log activity on the instance
 	logCmd := fmt.Sprintf("logger -t terratest 'Functional test log entry from %s'", instanceID)
@@ -661,7 +690,7 @@ func ValidateEC2CloudWatchLogs(t *testing.T, instanceID, logGroupName string) {
 	time.Sleep(10 * time.Second)
 
 	// Check if the log group exists
-	result, err := cwlSvc.DescribeLogGroups(&cloudwatchlogs.DescribeLogGroupsInput{
+	result, err := client.DescribeLogGroups(ctx, &cloudwatchlogs.DescribeLogGroupsInput{
 		LogGroupNamePrefix: aws.String(logGroupName),
 	})
 	require.NoError(t, err, "Failed to describe log groups")
@@ -869,10 +898,12 @@ func checkRunForTestID(t *testing.T, client *github.Client, owner, repo string, 
 // ValidateInstanceHasNoPublicIP verifies that an EC2 instance does not have a public IP address.
 // This is used to confirm instances launched in private subnets are properly isolated.
 func ValidateInstanceHasNoPublicIP(t *testing.T, instanceID string) bool {
-	ec2Svc := ec2.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := ec2.NewFromConfig(cfg)
 
-	result, err := ec2Svc.DescribeInstances(&ec2.DescribeInstancesInput{
-		InstanceIds: []*string{aws.String(instanceID)},
+	result, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		InstanceIds: []string{instanceID},
 	})
 	require.NoError(t, err, "Failed to describe instance %s", instanceID)
 	require.NotEmpty(t, result.Reservations, "No reservations found for instance %s", instanceID)
@@ -1127,7 +1158,9 @@ DOCKERFILE
 // LaunchTestInstancePrivate launches an EC2 instance in a private subnet (no public IP).
 // Use this for testing private networking scenarios where NAT gateway provides outbound access.
 func LaunchTestInstancePrivate(t *testing.T, launchTemplateID, subnetID string) string {
-	ec2Svc := ec2.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := ec2.NewFromConfig(cfg)
 
 	// Parse launch template ID and version
 	parts := strings.Split(launchTemplateID, ":")
@@ -1144,26 +1177,26 @@ func LaunchTestInstancePrivate(t *testing.T, launchTemplateID, subnetID string) 
 		templateID, version, subnetID, amiID)
 
 	input := &ec2.RunInstancesInput{
-		LaunchTemplate: &ec2.LaunchTemplateSpecification{
+		LaunchTemplate: &ec2types.LaunchTemplateSpecification{
 			LaunchTemplateId: aws.String(templateID),
 			Version:          aws.String(version),
 		},
 		ImageId:  aws.String(amiID),
-		MinCount: aws.Int64(1),
-		MaxCount: aws.Int64(1),
+		MinCount: aws.Int32(1),
+		MaxCount: aws.Int32(1),
 		// Use NetworkInterfaces with NO public IP for private subnet
-		NetworkInterfaces: []*ec2.InstanceNetworkInterfaceSpecification{
+		NetworkInterfaces: []ec2types.InstanceNetworkInterfaceSpecification{
 			{
-				DeviceIndex:              aws.Int64(0),
+				DeviceIndex:              aws.Int32(0),
 				SubnetId:                 aws.String(subnetID),
 				AssociatePublicIpAddress: aws.Bool(false), // No public IP for private subnet
 				DeleteOnTermination:      aws.Bool(true),
 			},
 		},
-		TagSpecifications: []*ec2.TagSpecification{
+		TagSpecifications: []ec2types.TagSpecification{
 			{
-				ResourceType: aws.String("instance"),
-				Tags: []*ec2.Tag{
+				ResourceType: ec2types.ResourceTypeInstance,
+				Tags: []ec2types.Tag{
 					{Key: aws.String("Name"), Value: aws.String("terratest-functional-test-private")},
 					{Key: aws.String("TestFramework"), Value: aws.String("terratest")},
 					{Key: aws.String("AutoCleanup"), Value: aws.String("true")},
@@ -1172,7 +1205,7 @@ func LaunchTestInstancePrivate(t *testing.T, launchTemplateID, subnetID string) 
 		},
 	}
 
-	result, err := ec2Svc.RunInstances(input)
+	result, err := client.RunInstances(ctx, input)
 	require.NoError(t, err, "Failed to launch private test instance")
 	require.Len(t, result.Instances, 1, "Expected exactly one instance to be launched")
 
@@ -1188,18 +1221,20 @@ func LaunchTestInstancePrivate(t *testing.T, launchTemplateID, subnetID string) 
 // ValidateRunnerLaunched checks if an EC2 runner instance was launched for the stack
 // after the given start time.
 func ValidateRunnerLaunched(t *testing.T, stackName string, since time.Time) bool {
-	ec2Svc := ec2.New(GetAWSSession())
+	ctx := context.Background()
+	cfg := MustGetAWSConfig(ctx)
+	client := ec2.NewFromConfig(cfg)
 
 	// Look for instances with the runs-on-stack-name tag launched after 'since'
-	result, err := ec2Svc.DescribeInstances(&ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{
+	result, err := client.DescribeInstances(ctx, &ec2.DescribeInstancesInput{
+		Filters: []ec2types.Filter{
 			{
 				Name:   aws.String("tag:runs-on-stack-name"),
-				Values: []*string{aws.String(stackName)},
+				Values: []string{stackName},
 			},
 			{
 				Name:   aws.String("instance-state-name"),
-				Values: []*string{aws.String("running"), aws.String("terminated"), aws.String("stopped")},
+				Values: []string{"running", "terminated", "stopped"},
 			},
 		},
 	})

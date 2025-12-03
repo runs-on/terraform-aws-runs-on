@@ -1,2 +1,15 @@
 [tools]
 go = "1.25"
+opentofu = "1.9"
+awscli = "2"
+
+[env]
+AWS_REGION = "us-east-1"
+
+# Required for tests (set via environment or .env file)
+# RUNS_ON_LICENSE_KEY = ""
+
+# Optional: For integration tests
+# GITHUB_ORG = ""
+# RUNS_ON_TEST_REPO = ""
+# GITHUB_TOKEN = ""

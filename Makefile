@@ -103,5 +103,3 @@ install-tools: ## Install development tools (macOS)
 		echo "Linux: Please install OpenTofu from https://opentofu.org/docs/intro/install/"; \
 		echo "Then install tflint, tfsec, and terraform-docs manually."; \
 	fi
-
-.DEFAULT_GOAL := help

@@ -248,11 +248,6 @@ output "dashboard_name" {
   value       = module.core.dashboard_name
 }
 
-output "slack_webhook_lambda_arn" {
-  description = "ARN of the Slack webhook Lambda function (if Slack webhook URL provided)"
-  value       = module.core.slack_webhook_lambda_arn
-}
-
 ###########################
 # Usage Information
 ###########################
