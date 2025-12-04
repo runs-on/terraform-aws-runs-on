@@ -84,7 +84,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # Describe actions on "*" (CF L2822-2838)
+      # Describe actions on "*"
       {
         Effect = "Allow"
         Action = [
@@ -106,7 +106,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = "*"
       },
-      # iam:CreateServiceLinkedRole (CF L2839-2845)
+      # iam:CreateServiceLinkedRole
       {
         Effect = "Allow"
         Action = [
@@ -119,7 +119,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           }
         }
       },
-      # cloudformation:DescribeStacks (CF L2846-2849)
+      # cloudformation:DescribeStacks
       {
         Effect = "Allow"
         Action = [
@@ -127,7 +127,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = "arn:aws:cloudformation:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:stack/${var.stack_name}/*"
       },
-      # ec2:CreateFleet, DeleteFleets (CF L2850-2854)
+      # ec2:CreateFleet, DeleteFleets
       {
         Effect = "Allow"
         Action = [
@@ -136,7 +136,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = "*"
       },
-      # ec2:CreateTags, RunInstances (CF L2855-2861)
+      # ec2:CreateTags, RunInstances
       {
         Effect = "Allow"
         Action = [
@@ -148,7 +148,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
         ]
       },
-      # iam:PassRole, GetRole on EC2InstanceRole (CF L2862-2866)
+      # iam:PassRole, GetRole on EC2InstanceRole
       {
         Effect = "Allow"
         Action = [
@@ -157,7 +157,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = var.ec2_instance_role_arn
       },
-      # SSM parameters scoped to stack (CF L2867-2875)
+      # SSM parameters scoped to stack
       {
         Effect = "Allow"
         Action = [
@@ -169,7 +169,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.stack_name}/*"
       },
-      # ec2:TerminateInstances, StopInstances, StartInstances with tag condition (CF L2876-2883)
+      # ec2:TerminateInstances, StopInstances, StartInstances with tag condition
       {
         Effect = "Allow"
         Action = [
@@ -184,7 +184,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           }
         }
       },
-      # ec2:DeleteVolume, DeleteSnapshot with tag condition (CF L2884-2891)
+      # ec2:DeleteVolume, DeleteSnapshot with tag condition
       {
         Effect = "Allow"
         Action = [
@@ -198,7 +198,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           }
         }
       },
-      # S3 config bucket: GetObject, PutObject, ListBucket (CF L2892-2899)
+      # S3 config bucket: GetObject, PutObject, ListBucket
       {
         Effect = "Allow"
         Action = [
@@ -211,7 +211,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "${var.config_bucket_arn}/*"
         ]
       },
-      # S3 config bucket: DeleteObject on runs-on/db/* only (CF L2900-2904)
+      # S3 config bucket: DeleteObject on runs-on/db/* only
       {
         Effect = "Allow"
         Action = [
@@ -219,7 +219,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = "${var.config_bucket_arn}/runs-on/db/*"
       },
-      # S3 cache bucket: PutObject only (CF L2905-2911)
+      # S3 cache bucket: PutObject only
       {
         Effect = "Allow"
         Action = [
@@ -231,7 +231,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "${var.cache_bucket_arn}/agents/*"
         ]
       },
-      # SNS Publish (CF L2912-2915)
+      # SNS Publish
       {
         Effect = "Allow"
         Action = [
@@ -239,7 +239,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = aws_sns_topic.alerts.arn
       },
-      # SQS permissions (CF L2916-2928) - no GetQueueUrl
+      # SQS permissions
       {
         Effect = "Allow"
         Action = [
@@ -258,7 +258,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           aws_sqs_queue.github.arn
         ]
       },
-      # DynamoDB locks table (CF L2929-2935)
+      # DynamoDB locks table
       {
         Effect = "Allow"
         Action = [
@@ -269,7 +269,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = aws_dynamodb_table.locks.arn
       },
-      # DynamoDB workflow_jobs table (CF L2936-2945)
+      # DynamoDB workflow_jobs table
       {
         Effect = "Allow"
         Action = [
@@ -285,7 +285,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "${aws_dynamodb_table.workflow_jobs.arn}/index/*"
         ]
       },
-      # CloudWatch logs (CF L2946-2953)
+      # CloudWatch logs
       {
         Effect = "Allow"
         Action = [

@@ -68,7 +68,6 @@ resource "aws_cloudwatch_metric_alarm" "sqs_main_oldest_message" {
 }
 
 # Note: Similar alarms can be created for other queues (jobs, termination, etc.)
-# following the same pattern if required for full parity.
 
 ###########################
 # CloudWatch Dashboard (Optional)

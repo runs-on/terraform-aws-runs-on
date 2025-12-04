@@ -232,7 +232,7 @@ module "core" {
 
   tags = var.tags
 
-  # Ensure CF stack exists and NAT gateway is ready before App Runner starts
+  # Ensure CloudFormation stack exists and NAT gateway is ready before App Runner starts
   depends_on = [
     aws_cloudformation_stack.runs_on_mock,
     time_sleep.wait_for_nat
