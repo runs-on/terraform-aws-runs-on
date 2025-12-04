@@ -1,4 +1,20 @@
 ###########################
+# Data Sources
+###########################
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+###########################
+# Local Variables
+###########################
+
+locals {
+  region     = data.aws_region.current.region
+  account_id = data.aws_caller_identity.current.account_id
+}
+
+###########################
 # CloudFormation Stack for CLI Compatibility
 # Exposes all outputs that the RunsOn CLI expects from a CloudFormation deployment
 ###########################
@@ -67,6 +83,10 @@ module "storage" {
 
 module "compute" {
   source = "./modules/compute"
+
+  # AWS context
+  region     = local.region
+  account_id = local.account_id
 
   stack_name          = var.stack_name
   environment         = var.environment
@@ -149,6 +169,10 @@ module "optional" {
 
 module "core" {
   source = "./modules/core"
+
+  # AWS context
+  region     = local.region
+  account_id = local.account_id
 
   stack_name          = var.stack_name
   environment         = var.environment

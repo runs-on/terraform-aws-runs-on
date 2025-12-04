@@ -12,10 +12,6 @@ terraform {
   }
 }
 
-# Data sources
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
 # Local variables
 locals {
   common_tags = merge(
@@ -37,7 +33,7 @@ locals {
   # Non-sensitive environment variables for App Runner (before filtering)
   # Sensitive vars (license_key, server_password, etc.) are in sensitive_env_secrets
   all_env_vars = {
-    RUNS_ON_AWS_ACCOUNT_ID                   = data.aws_caller_identity.current.account_id
+    RUNS_ON_AWS_ACCOUNT_ID                   = var.account_id
     RUNS_ON_ENV                              = var.environment
     RUNS_ON_COST_ALLOCATION_TAG              = var.cost_allocation_tag
     RUNS_ON_STACK_NAME                       = var.stack_name
@@ -55,7 +51,7 @@ locals {
     RUNS_ON_INSTANCE_PROFILE_ARN             = var.ec2_instance_profile_arn
     RUNS_ON_INSTANCE_ROLE_NAME               = var.ec2_instance_role_name
     RUNS_ON_TOPIC_ARN                        = aws_sns_topic.alerts.arn
-    RUNS_ON_REGION                           = data.aws_region.current.name
+    RUNS_ON_REGION                           = var.region
     RUNS_ON_SSH_ALLOWED                      = var.ssh_allowed ? "true" : "false"
     RUNS_ON_APP_EC2_QUEUE_SIZE               = tostring(var.ec2_queue_size)
     RUNS_ON_EBS_ENCRYPTION_KEY               = var.ebs_encryption_key_id

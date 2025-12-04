@@ -82,7 +82,7 @@ resource "aws_launch_template" "linux_default" {
     ephemeral_registry_uri = var.ephemeral_registry_uri
     config_bucket          = var.config_bucket_name
     cache_bucket           = var.cache_bucket_name
-    region                 = data.aws_region.current.name
+    region                 = var.region
     log_group              = local.log_group_name
     app_debug              = var.app_debug ? "true" : "false"
     runner_max_runtime     = var.runner_max_runtime
@@ -176,7 +176,7 @@ resource "aws_launch_template" "windows_default" {
     ephemeral_registry_uri = var.ephemeral_registry_uri
     config_bucket          = var.config_bucket_name
     cache_bucket           = var.cache_bucket_name
-    region                 = data.aws_region.current.name
+    region                 = var.region
     log_group              = local.log_group_name
     app_debug              = var.app_debug ? "true" : "false"
     runner_max_runtime     = var.runner_max_runtime
@@ -270,7 +270,7 @@ resource "aws_launch_template" "linux_private" {
     ephemeral_registry_uri = var.ephemeral_registry_uri
     config_bucket          = var.config_bucket_name
     cache_bucket           = var.cache_bucket_name
-    region                 = data.aws_region.current.name
+    region                 = var.region
     log_group              = local.log_group_name
     app_debug              = var.app_debug ? "true" : "false"
     runner_max_runtime     = var.runner_max_runtime
@@ -364,7 +364,7 @@ resource "aws_launch_template" "windows_private" {
     ephemeral_registry_uri = var.ephemeral_registry_uri
     config_bucket          = var.config_bucket_name
     cache_bucket           = var.cache_bucket_name
-    region                 = data.aws_region.current.name
+    region                 = var.region
     log_group              = local.log_group_name
     app_debug              = var.app_debug ? "true" : "false"
     runner_max_runtime     = var.runner_max_runtime

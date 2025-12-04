@@ -12,10 +12,6 @@ terraform {
   }
 }
 
-# Data sources
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
-
 # Local variables
 locals {
   log_group_name = "${var.stack_name}/ec2/instances"

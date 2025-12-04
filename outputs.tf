@@ -12,12 +12,12 @@ output "stack_name" {
 
 output "aws_account_id" {
   description = "AWS Account ID where RunsOn is deployed"
-  value       = data.aws_caller_identity.current.account_id
+  value       = local.account_id
 }
 
 output "aws_region" {
   description = "AWS region where RunsOn is deployed"
-  value       = data.aws_region.current.name
+  value       = local.region
 }
 
 ###########################
@@ -258,7 +258,7 @@ output "getting_started" {
     RunsOn Infrastructure Deployed Successfully!
 
     Stack Name: ${var.stack_name}
-    Region: ${data.aws_region.current.name}
+    Region: ${local.region}
 
     Get Started by clicking here -> https://${module.core.apprunner_service_url}
 
@@ -266,9 +266,4 @@ output "getting_started" {
   EOT
 }
 
-###########################
-# Data Sources
-###########################
 
-data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}

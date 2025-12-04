@@ -125,7 +125,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         Action = [
           "cloudformation:DescribeStacks"
         ]
-        Resource = "arn:aws:cloudformation:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:stack/${var.stack_name}/*"
+        Resource = "arn:aws:cloudformation:${var.region}:${var.account_id}:stack/${var.stack_name}/*"
       },
       # ec2:CreateFleet, DeleteFleets
       {
@@ -144,8 +144,8 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "ec2:RunInstances"
         ]
         Resource = [
-          "arn:aws:ec2:${data.aws_region.current.name}::image/*",
-          "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+          "arn:aws:ec2:${var.region}::image/*",
+          "arn:aws:ec2:${var.region}:${var.account_id}:*"
         ]
       },
       # iam:PassRole, GetRole on EC2InstanceRole
@@ -167,7 +167,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "ssm:DeleteParameter",
           "ssm:DeleteParameters"
         ]
-        Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/${var.stack_name}/*"
+        Resource = "arn:aws:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/*"
       },
       # ec2:TerminateInstances, StopInstances, StartInstances with tag condition
       {
@@ -177,7 +177,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "ec2:StopInstances",
           "ec2:StartInstances"
         ]
-        Resource = "arn:aws:ec2:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:instance/*"
+        Resource = "arn:aws:ec2:${var.region}:${var.account_id}:instance/*"
         Condition = {
           StringEquals = {
             "aws:ResourceTag/runs-on-stack-name" = var.stack_name
@@ -293,7 +293,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "logs:PutLogEvents",
           "logs:DescribeLogStreams"
         ]
-        Resource = "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/apprunner/RunsOnService-*"
+        Resource = "arn:aws:logs:${var.region}:${var.account_id}:log-group:/aws/apprunner/RunsOnService-*"
       }
     ]
   })

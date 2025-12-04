@@ -113,7 +113,7 @@ output "sqs_alarm_main_arn" {
 
 output "dashboard_url" {
   description = "URL to the CloudWatch Dashboard"
-  value       = var.enable_dashboard ? "https://${data.aws_region.current.name}.console.aws.amazon.com/cloudwatch/home?region=${data.aws_region.current.name}#dashboards:name=${var.stack_name}-Dashboard" : null
+  value       = var.enable_dashboard ? "https://${var.region}.console.aws.amazon.com/cloudwatch/home?region=${var.region}#dashboards:name=${var.stack_name}-Dashboard" : null
 }
 
 output "dashboard_name" {
