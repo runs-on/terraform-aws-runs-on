@@ -22,13 +22,13 @@ variable "vpc_cidr" {
 variable "public_subnet_cidrs" {
   description = "CIDR blocks for public subnets"
   type        = list(string)
-  default     = ["10.21.1.0/24", "10.21.2.0/24", "10.21.3.0/24"]
+  default     = ["10.21.0.0/20", "10.21.16.0/20", "10.21.32.0/20"]
 }
 
 variable "private_subnet_cidrs" {
   description = "CIDR blocks for private subnets"
   type        = list(string)
-  default     = ["10.21.10.0/24", "10.21.11.0/24", "10.21.12.0/24"]
+  default     = ["10.21.128.0/20", "10.21.144.0/20", "10.21.160.0/20"]
 }
 
 # Required RunsOn Variables
