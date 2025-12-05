@@ -64,13 +64,13 @@ module "runs-on" {
 The module assumes you have your own VPC already configured.
 
 > [!TIP]
-> **Cost Estimates:**
-> - **RunsOn base:** ~$3/mo (App Runner)
-> - **NAT Gateway:** ~$32/mo per gateway + data transfer charges (required for private networking)
-> - **VPC Endpoints:** ~$7/mo per interface endpoint + data transfer charges (S3 gateway endpoint is free)
-> - **EFS:** ~$0.30/GB-month for storage
-> - **ECR:** ~$0.10/GB-month for storage
-> - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
+**Cost Estimates:**
+ - **RunsOn base:** ~$3/mo (App Runner)
+ - **NAT Gateway:** ~$32/mo per gateway + data transfer charges (required for private networking)
+ - **VPC Endpoints:** ~$7/mo per interface endpoint + data transfer charges (S3 gateway endpoint is free)
+ - **EFS:** ~$0.30/GB-month for storage
+ - **ECR:** ~$0.10/GB-month for storage
+ - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
 
 # Architecture
 
