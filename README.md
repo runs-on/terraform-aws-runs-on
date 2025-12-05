@@ -46,8 +46,9 @@ module "vpc" {
 }
 
 # RunsOn Module - Deploys RunsOn infrastructure with smart defaults
-module "runs_on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git"
+module "runs-on" {
+  source  = "runs-on/runs-on/aws"
+  version = "v2.10.0-r1"
 
   # Required: GitHub and License
   github_organization = "my-org"
@@ -62,23 +63,25 @@ module "runs_on" {
 ```
 The module assumes you have your own VPC already configured.
 
-## Examples
+> [!TIP]
+> **Cost Estimates:**
+> - **RunsOn base:** ~$3/mo (App Runner)
+> - **NAT Gateway:** ~$32/mo per gateway + data transfer charges (required for private networking)
+> - **VPC Endpoints:** ~$7/mo per interface endpoint (S3 gateway endpoint is free)
+> - **EFS:** ~$0.30/GB-month for storage
+> - **ECR:** ~$0.10/GB-month for storage
+> - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
 
-| Example | What it adds | Est. cost |
-|---------|--------------|-----------|
-| [basic](./examples/basic/) | Standard deployment | ~$30/mo |
-| [private-networking](./examples/private-networking/) | NAT Gateway for static IPs | ~$65/mo |
-| [efs-enabled](./examples/efs-enabled/) | Shared storage across runners | ~$35/mo |
-| [ecr-enabled](./examples/ecr-enabled/) | Docker BuildKit cache | ~$32/mo |
-| [full-featured](./examples/full-featured/) | All features | ~$175/mo |
+# Examples
 
 ### Basic
 
 Standard deployment with smart defaults:
 
 ```hcl
-module "runs_on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git"
+module "runs-on" {
+  source  = "runs-on/runs-on/aws"
+  version = "v2.10.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -94,8 +97,9 @@ module "runs_on" {
 Enable private networking for static egress IPs (requires NAT Gateway):
 
 ```hcl
-module "runs_on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git"
+module "runs-on" {
+  source  = "runs-on/runs-on/aws"
+  version = "v2.10.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -119,8 +123,9 @@ module "runs_on" {
 Enable shared persistent storage across all runners for storing and sharing large files/artifacts:
 
 ```hcl
-module "runs_on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git"
+module "runs-on" {
+  source  = "runs-on/runs-on/aws"
+  version = "v2.10.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -139,8 +144,9 @@ module "runs_on" {
 Enable image cache across workflow jobs, including Docker build cache:
 
 ```hcl
-module "runs_on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git"
+module "runs-on" {
+  source  = "runs-on/runs-on/aws"
+  version = "v2.10.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -156,19 +162,55 @@ module "runs_on" {
 
 ### Full Featured
 
-All features enabled together:
+All features enabled together, with VPC endpoints for improved security and reduced data transfer costs:
 
 ```hcl
-module "runs_on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git"
+# VPC with endpoints for private connectivity
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "~> 5.0"
+
+  name = "runs-on-vpc"
+  cidr = "10.0.0.0/16"
+
+  azs             = ["us-east-1a", "us-east-1b", "us-east-1c"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
+
+  enable_nat_gateway = true
+  single_nat_gateway = true # 'false' for High Availibility
+
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  # VPC Endpoints 
+  # Enable only if you're using private networking in RunsOn for full intra-VPC traffic to AWS APIs (avoids NAT Gateway data transfer costs).
+  
+  # S3 gateway endpoint is free and recommended
+  enable_s3_endpoint = true
+  
+  # ECR endpoints are useful if you push/pull lots of images (enable_ecr = true)
+  enable_ecr_api_endpoint     = false # For ECR API calls
+  enable_ecr_dkr_endpoint     = false # For ECR image pulls
+
+  # Interface endpoints below cost ~$7/mo each. 
+  enable_ec2_endpoint         = false # For EC2 API calls
+  enable_logs_endpoint        = false # For CloudWatch Logs
+  enable_ssm_endpoint         = false # For SSM access
+  enable_ssmmessages_endpoint = false # For SSM Session Manager
+}
+
+module "runs-on" {
+  source  = "runs-on/runs-on/aws"
+  version = "v2.10.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
   email               = "alerts@example.com"
 
-  vpc_id             = "vpc-xxxxxxxx"
-  public_subnet_ids  = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
-  private_subnet_ids = ["subnet-priv1", "subnet-priv2", "subnet-priv3"]
+  vpc_id             = module.vpc.vpc_id
+  public_subnet_ids  = module.vpc.public_subnets
+  private_subnet_ids = module.vpc.private_subnets
 
   # Private networking (opt-in mode)
   private_mode = "true"
