@@ -72,6 +72,56 @@ The module assumes you have your own VPC already configured.
 > - **ECR:** ~$0.10/GB-month for storage
 > - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
 
+# Architecture
+
+```mermaid
+flowchart TB
+    subgraph AWS["Your AWS Infrastructure"]
+        subgraph Core["Core Infrastructure (Basic)"]
+            direction TB
+            AppRunner["App Runner<br/><i>RunsOn Service</i>"]
+            SQS["SQS Queues<br/><i>Job Processing</i>"]
+            DynamoDB["DynamoDB<br/><i>State & Locks</i>"]
+            S3["S3 Buckets<br/><i>Config & Cache</i>"]
+            EC2["EC2 Launch Templates<br/><i>Linux & Windows</i>"]
+            IAM["IAM Roles<br/><i>Permissions</i>"]
+            SNS["SNS Topics<br/><i>Alerts</i>"]
+        end
+
+        subgraph Optional["Optional Plug-ins"]
+            direction TB
+            EFS["EFS<br/><i>Shared Storage</i>"]
+            ECR["ECR<br/><i>Image Cache</i>"]
+            Private["Private Networking<br/><i>NAT Gateway</i>"]
+            Dashboard["CloudWatch Dashboard<br/><i>Monitoring</i>"]
+        end
+
+        VPC["VPC & Subnets"]
+    end
+
+    GitHub["GitHub"]
+    Alerts["Slack / Email"]
+
+    GitHub -->|webhook| AppRunner
+    AppRunner --> SQS
+    AppRunner --> DynamoDB
+    AppRunner --> S3
+    AppRunner -->|launches| EC2
+    EC2 --> IAM
+    SNS -.-> Alerts
+
+    VPC -.->|network| Core
+
+    EFS -.->|enable_efs| EC2
+    ECR -.->|enable_ecr| EC2
+    Private -.->|private_mode| EC2
+    Dashboard -.->|enable_dashboard| AppRunner
+
+    style AWS fill:transparent,stroke:#888
+    style Core fill:transparent,stroke:#0969da
+    style Optional fill:transparent,stroke:#d29922
+```
+
 # Examples
 
 ### Basic
