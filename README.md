@@ -104,10 +104,10 @@ flowchart TB
         VPC["VPC & Subnets"]
     end
 
-    GitHub["GitHub"]
+    GitHub["GitHub"]:::github
     Alerts["Slack / Email"]
 
-    GitHub -->|webhook| AppRunner
+    GitHub <-->|API & webhooks| AppRunner
     AppRunner --> SQS
     AppRunner --> DynamoDB
     AppRunner --> S3
@@ -128,6 +128,7 @@ flowchart TB
     style Core fill:#0969da22,stroke:#0969da
     style Optional fill:#d2992222,stroke:#d29922
     style Monitoring fill:#23863622,stroke:#238636
+    classDef github fill:#8b5cf6,stroke:#7c3aed,color:#fff,stroke-width:2px
 ```
 
 # Examples
