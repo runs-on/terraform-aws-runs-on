@@ -815,6 +815,13 @@ func WaitForTriggeredWorkflow(t *testing.T, repo, workflowFile, testID string, t
 	t.Logf("Waiting for workflow run with test_id=%s (timeout: %v)", testID, timeout)
 
 	for time.Now().Before(deadline) {
+		// Check for abort signal
+		abortFile := "/tmp/runson-test-abort"
+		if _, err := os.Stat(abortFile); err == nil {
+			os.Remove(abortFile)
+			return 0, fmt.Errorf("test aborted by user (detected %s)", abortFile)
+		}
+
 		runs, _, err := client.Actions.ListWorkflowRunsByFileName(
 			ctx, owner, repoName, workflowFile,
 			&github.ListWorkflowRunsOptions{
@@ -889,6 +896,190 @@ func checkRunForTestID(t *testing.T, client *github.Client, owner, repo string, 
 	}
 
 	return false
+}
+
+// =============================================================================
+// OBSERVER MODE HELPERS
+// =============================================================================
+
+// WatchForWorkflowRun watches for workflow_dispatch runs of a specific workflow file.
+// User registers the app and triggers the workflow manually; test detects and monitors.
+//
+// Detection strategy:
+//  1. Poll ListWorkflowRunsByFileName for specific workflow file
+//  2. Filter for workflow_dispatch events started after startTime
+//  3. Return when a matching run is found
+//
+// Returns the run ID when found, or error on timeout.
+// Supports graceful abort via /tmp/runson-{testID}-abort file.
+func WatchForWorkflowRun(t *testing.T, repo, workflowFile, testID string, startTime time.Time, timeout time.Duration) (int64, error) {
+	client, err := getGitHubClient()
+	if err != nil {
+		return 0, fmt.Errorf("failed to create GitHub client: %w", err)
+	}
+
+	owner, repoName, err := parseRepo(repo)
+	if err != nil {
+		return 0, fmt.Errorf("invalid repo format: %w", err)
+	}
+
+	ctx := context.Background()
+	deadline := time.Now().Add(timeout)
+	pollInterval := 15 * time.Second
+	abortFile := fmt.Sprintf("/tmp/runson-%s-abort", testID)
+
+	t.Logf("Watching for workflow_dispatch runs of %s (timeout: %v)", workflowFile, timeout)
+	t.Logf("To abort gracefully: touch %s", abortFile)
+
+	for time.Now().Before(deadline) {
+		// Check for abort signal
+		if _, err := os.Stat(abortFile); err == nil {
+			os.Remove(abortFile)
+			return 0, fmt.Errorf("test aborted by user (detected %s)", abortFile)
+		}
+
+		runs, _, err := client.Actions.ListWorkflowRunsByFileName(
+			ctx, owner, repoName, workflowFile,
+			&github.ListWorkflowRunsOptions{
+				Event: "workflow_dispatch",
+				ListOptions: github.ListOptions{
+					PerPage: 10,
+				},
+			})
+		if err != nil {
+			t.Logf("Error listing workflow runs: %v (retrying...)", err)
+			time.Sleep(pollInterval)
+			continue
+		}
+
+		for _, run := range runs.WorkflowRuns {
+			// Only check runs that started after our test began
+			if run.CreatedAt != nil && run.CreatedAt.Time.After(startTime.Add(-1*time.Minute)) {
+				runID := run.GetID()
+				status := run.GetStatus()
+				t.Logf("Found workflow run %d (status: %s, created: %s)",
+					runID, status, run.CreatedAt.Time.Format(time.RFC3339))
+				return runID, nil
+			}
+		}
+
+		remaining := time.Until(deadline)
+		t.Logf("No matching workflow runs yet, watching... (%v remaining)", remaining.Round(time.Second))
+		time.Sleep(pollInterval)
+	}
+
+	return 0, fmt.Errorf("timeout waiting for workflow run of %s", workflowFile)
+}
+
+// MonitorWorkflowJobStates monitors job states and detects stuck "queued" jobs.
+// Returns nil when any job reaches "in_progress" or "completed" (runner picked it up).
+// Returns error if all jobs stay "queued" longer than queuedTimeout.
+func MonitorWorkflowJobStates(t *testing.T, repo string, runID int64, queuedTimeout time.Duration) error {
+	client, err := getGitHubClient()
+	if err != nil {
+		return fmt.Errorf("failed to create GitHub client: %w", err)
+	}
+
+	owner, repoName, err := parseRepo(repo)
+	if err != nil {
+		return fmt.Errorf("invalid repo format: %w", err)
+	}
+
+	ctx := context.Background()
+	deadline := time.Now().Add(queuedTimeout)
+	pollInterval := 10 * time.Second
+
+	t.Logf("Monitoring workflow run %d for job state transitions...", runID)
+	t.Logf("Will fail if jobs stay 'queued' longer than %v (indicates no runner available)", queuedTimeout)
+
+	for time.Now().Before(deadline) {
+		jobs, _, err := client.Actions.ListWorkflowJobs(ctx, owner, repoName, runID, &github.ListWorkflowJobsOptions{
+			Filter: "all",
+		})
+		if err != nil {
+			t.Logf("Error listing jobs: %v (retrying...)", err)
+			time.Sleep(pollInterval)
+			continue
+		}
+
+		if len(jobs.Jobs) == 0 {
+			t.Logf("No jobs found yet, waiting...")
+			time.Sleep(pollInterval)
+			continue
+		}
+
+		// Check job states
+		jobStates := make(map[string]int)
+		for _, job := range jobs.Jobs {
+			status := job.GetStatus()
+			jobStates[status]++
+
+			// Success: any job is in_progress or completed means runner picked it up
+			if status == "in_progress" || status == "completed" {
+				runnerName := ""
+				if job.RunnerName != nil {
+					runnerName = *job.RunnerName
+				}
+				t.Logf("Job '%s' is %s (runner: %s) - runner is working!",
+					job.GetName(), status, runnerName)
+				return nil
+			}
+		}
+
+		elapsed := time.Since(deadline.Add(-queuedTimeout))
+		t.Logf("Job states: %v (queued for %v)", jobStates, elapsed.Round(time.Second))
+		time.Sleep(pollInterval)
+	}
+
+	return fmt.Errorf("jobs stuck in 'queued' state for %v - likely no runner available (is the RunsOn app registered?)", queuedTimeout)
+}
+
+// isRunsOnJob checks if a workflow job was picked up by a RunsOn runner.
+func isRunsOnJob(job *github.WorkflowJob) bool {
+	// Check runner name
+	if job.RunnerName != nil && strings.Contains(*job.RunnerName, "runs-on") {
+		return true
+	}
+	// Check labels
+	for _, label := range job.Labels {
+		if strings.HasPrefix(label, "runs-on=") {
+			return true
+		}
+	}
+	return false
+}
+
+// WatchAndWaitForWorkflow is the main entry point for observer mode integration tests.
+// It watches for a workflow run, monitors job states for early detection of issues,
+// then waits for workflow completion.
+//
+// Returns the workflow conclusion ("success", "failure", etc.) or error.
+func WatchAndWaitForWorkflow(t *testing.T, repo, workflowFile, stackName string, startTime time.Time, watchTimeout, completionTimeout, queuedTimeout time.Duration) (string, error) {
+	// Step 1: Watch for workflow run to appear
+	t.Log("Step 1: Watching for workflow run...")
+	runID, err := WatchForWorkflowRun(t, repo, workflowFile, stackName, startTime, watchTimeout)
+	if err != nil {
+		return "", fmt.Errorf("failed to find workflow run: %w", err)
+	}
+	t.Logf("Found workflow run %d", runID)
+
+	// Step 2: Monitor job states for early detection of stuck jobs
+	t.Log("Step 2: Monitoring job states for runner pickup...")
+	err = MonitorWorkflowJobStates(t, repo, runID, queuedTimeout)
+	if err != nil {
+		return "", fmt.Errorf("job monitoring failed: %w", err)
+	}
+	t.Log("Runner has picked up the job!")
+
+	// Step 3: Wait for workflow completion
+	t.Log("Step 3: Waiting for workflow completion...")
+	conclusion := WaitForWorkflowCompletion(t, repo, runID, completionTimeout)
+	if conclusion == "" {
+		return "", fmt.Errorf("workflow did not complete within %v", completionTimeout)
+	}
+
+	t.Logf("Workflow completed with conclusion: %s", conclusion)
+	return conclusion, nil
 }
 
 // =============================================================================

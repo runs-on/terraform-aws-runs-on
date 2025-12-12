@@ -18,6 +18,7 @@ func TestScenarioBasic(t *testing.T) {
 	config := DefaultScenarioConfig()
 	config.EnableEFS = false
 	config.EnableECR = false
+	config.EnableNAT = false
 
 	// Deploy VPC first
 	vpcOptions := &terraform.Options{
@@ -32,12 +33,13 @@ func TestScenarioBasic(t *testing.T) {
 	// Get VPC outputs
 	vpcID := terraform.Output(t, vpcOptions, "vpc_id")
 	publicSubnets := terraform.OutputList(t, vpcOptions, "public_subnets")
+	privateSubnets := terraform.OutputList(t, vpcOptions, "private_subnets")
 
 	// Deploy runs-on module (root module)
 	moduleOptions := &terraform.Options{
 		TerraformDir:    "../",
 		TerraformBinary: "tofu",
-		Vars:            config.ToModuleVars(vpcID, publicSubnets, nil),
+		Vars:            config.ToModuleVars(vpcID, publicSubnets, privateSubnets),
 		NoColor:         true,
 	}
 	defer terraform.Destroy(t, moduleOptions)
@@ -50,7 +52,7 @@ func TestScenarioBasic(t *testing.T) {
 	cacheBucket := terraform.Output(t, moduleOptions, "cache_bucket_name")
 	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
 	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
-	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
+	logGroupName := terraform.Output(t, moduleOptions, "ec2_instance_log_group_name")
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {
@@ -134,44 +136,57 @@ func TestScenarioBasic(t *testing.T) {
 	})
 
 	// ===== INTEGRATION TESTS =====
-	// End-to-end job execution test
-	// Flow: Deploy infra -> User registers app -> Test triggers workflow -> Validates runner
+	// Manual trigger mode: User triggers workflow with test_id provided by the test.
+	// Test watches for that specific run using the test_id for correlation.
+	// Skips automatically if required env vars not set.
 	t.Run("Integration/JobExecution", func(t *testing.T) {
+		// Requires GITHUB_TOKEN for GitHub API calls
+		if os.Getenv("GITHUB_TOKEN") == "" {
+			t.Skip("GITHUB_TOKEN not set")
+		}
+
+		// Get test repo - prefer RUNS_ON_TEST_REPO, fallback to GITHUB_REPOSITORY
+		// Skips automatically if neither is set (implicit opt-in)
 		testRepo := os.Getenv("RUNS_ON_TEST_REPO")
 		if testRepo == "" {
-			t.Skip("RUNS_ON_TEST_REPO not set - skipping integration test")
+			testRepo = os.Getenv("GITHUB_REPOSITORY")
+		}
+		if testRepo == "" {
+			t.Skip("RUNS_ON_TEST_REPO or GITHUB_REPOSITORY not set")
 		}
 
 		testWorkflow := GetOptionalEnv("RUNS_ON_TEST_WORKFLOW", "runs-on-test-runner.yml")
-		testID := fmt.Sprintf("test-%s-%d", config.TestID, time.Now().UnixNano())
-
-		t.Logf("RUNS_ON_TEST_REPO = %q", testRepo)
-		t.Logf("RUNS_ON_TEST_WORKFLOW = %q", testWorkflow)
-		t.Logf("Test ID = %q", testID)
-
+		testID := fmt.Sprintf("%d", time.Now().UnixNano())
 		startTime := time.Now()
 
-		// Display registration URL prominently - user must register the app manually
-		t.Log("=======================================================")
-		t.Logf("REGISTER RUNS-ON APP AT: https://%s", appRunnerURL)
-		t.Log("=======================================================")
-		t.Log("Waiting for App Runner to be healthy before triggering workflow...")
-
-		// Wait for App Runner to be healthy (indicates app is ready)
+		// Wait for App Runner health
 		ValidateAppRunnerHealth(t, appRunnerURL, 20)
 
-		t.Log("App Runner is healthy. Triggering test workflow...")
-		t.Log("NOTE: If the RunsOn app is not registered, the workflow will queue indefinitely.")
+		// Display instructions
+		t.Log("=======================================================")
+		t.Log("INTEGRATION TEST - OBSERVER MODE")
+		t.Log("=======================================================")
+		t.Logf("App Runner URL: https://%s", appRunnerURL)
+		t.Logf("Test Repo: %s", testRepo)
+		t.Logf("Workflow: %s", testWorkflow)
+		t.Log("")
+		t.Log("Steps:")
+		t.Log("  1. Register RunsOn app at the URL above")
+		t.Log("  2. Trigger a workflow_dispatch run for the workflow above")
+		t.Log("  3. Test will detect the run and monitor to completion")
+		t.Log("")
+		t.Logf("To abort: touch /tmp/runson-%s-abort", testID)
+		t.Log("=======================================================")
 
-		// Trigger the test workflow via GitHub API
-		err := TriggerWorkflowDispatch(t, testRepo, testWorkflow, testID)
-		require.NoError(t, err, "Failed to trigger workflow")
+		// Watch for workflow run (user triggers it manually)
+		runID, err := WatchForWorkflowRun(t, testRepo, testWorkflow, testID, startTime, 15*time.Minute)
+		require.NoError(t, err, "Workflow run not found")
 
-		// Wait for the triggered workflow to appear and have logs
-		runID, err := WaitForTriggeredWorkflow(t, testRepo, testWorkflow, testID, 15*time.Minute)
-		require.NoError(t, err, "Workflow run not found - is the RunsOn app registered?")
+		// Monitor job states for early stuck-queue detection
+		err = MonitorWorkflowJobStates(t, testRepo, runID, 3*time.Minute)
+		require.NoError(t, err, "Job stuck in queue - is the RunsOn app registered?")
 
-		// Verify workflow completed successfully
+		// Wait for completion
 		conclusion := WaitForWorkflowCompletion(t, testRepo, runID, 10*time.Minute)
 		assert.Equal(t, "success", conclusion, "Workflow should succeed")
 
@@ -183,339 +198,6 @@ func TestScenarioBasic(t *testing.T) {
 	fmt.Printf("\n✅ Basic scenario deployment successful!\n")
 	fmt.Printf("   Stack: %s\n", stackName)
 	fmt.Printf("   App Runner: %s\n", appRunnerURL)
-}
-
-// TestScenarioPrivateNetworking tests private networking scenario
-// NOTE: Requires NAT gateway - expensive test!
-func TestScenarioPrivateNetworking(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping expensive test (requires NAT gateway)")
-	}
-
-	config := DefaultScenarioConfig()
-	config.EnableNAT = true
-
-	// Deploy VPC with NAT
-	vpcOptions := &terraform.Options{
-		TerraformDir:    "./fixtures/vpc",
-		TerraformBinary: "tofu",
-		Vars:            config.ToVPCVars(),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, vpcOptions)
-	terraform.InitAndApply(t, vpcOptions)
-
-	// Get VPC outputs
-	vpcID := terraform.Output(t, vpcOptions, "vpc_id")
-	publicSubnets := terraform.OutputList(t, vpcOptions, "public_subnets")
-	privateSubnets := terraform.OutputList(t, vpcOptions, "private_subnets")
-
-	// Deploy runs-on module with private networking
-	moduleOptions := &terraform.Options{
-		TerraformDir:    "../",
-		TerraformBinary: "tofu",
-		Vars:            config.ToModuleVars(vpcID, publicSubnets, privateSubnets),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, moduleOptions)
-	terraform.InitAndApply(t, moduleOptions)
-
-	// Get outputs
-	stackName := terraform.Output(t, moduleOptions, "stack_name")
-	appRunnerURL := terraform.Output(t, moduleOptions, "apprunner_service_url")
-	configBucket := terraform.Output(t, moduleOptions, "config_bucket_name")
-	cacheBucket := terraform.Output(t, moduleOptions, "cache_bucket_name")
-	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
-	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
-	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
-
-	// ===== OUTPUT VALIDATIONS =====
-	t.Run("Outputs", func(t *testing.T) {
-		assert.NotEmpty(t, stackName, "Stack name should not be empty")
-		assert.NotEmpty(t, appRunnerURL, "App Runner URL should not be empty")
-		assert.Contains(t, appRunnerURL, "awsapprunner.com")
-	})
-
-	// ===== SECURITY VALIDATIONS =====
-	t.Run("Security/S3Encryption", func(t *testing.T) {
-		ValidateS3BucketEncryption(t, configBucket)
-		ValidateS3BucketEncryption(t, cacheBucket)
-		ValidateS3BucketEncryption(t, loggingBucket)
-	})
-
-	t.Run("Security/IAMMinimalPermissions", func(t *testing.T) {
-		ValidateIAMRoleNotOverlyPermissive(t, ec2RoleName)
-	})
-
-	// ===== COMPLIANCE VALIDATIONS =====
-	t.Run("Compliance/S3Versioning", func(t *testing.T) {
-		ValidateS3BucketVersioning(t, configBucket, "Enabled")
-		ValidateS3BucketVersioning(t, cacheBucket, "Suspended")
-		ValidateS3BucketVersioning(t, loggingBucket, "Enabled")
-	})
-
-	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, logGroupName)
-	})
-
-	// ===== ADVANCED VALIDATIONS =====
-	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
-		ValidateAppRunnerHealth(t, appRunnerURL, 10)
-	})
-
-	// ===== FUNCTIONAL VALIDATIONS =====
-	// These tests launch an EC2 instance in a private subnet and verify:
-	// - Instance has no public IP (proper isolation)
-	// - Instance can reach external services via NAT gateway
-	// - Instance can access S3 buckets with correct IAM permissions
-	t.Run("Functional", func(t *testing.T) {
-		// Get private launch template ID
-		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_private_id")
-		require.NotEmpty(t, launchTemplateID, "Private launch template ID should not be empty")
-
-		// Launch instance in PRIVATE subnet (no public IP)
-		instanceID := LaunchTestInstancePrivate(t, launchTemplateID, privateSubnets[0])
-		defer TerminateTestInstance(t, instanceID)
-
-		// Wait for instance to be SSM-ready (requires NAT gateway for SSM access)
-		ready := WaitForInstanceReady(t, instanceID, 7*time.Minute)
-		require.True(t, ready, "Private instance failed to become SSM-ready - check NAT gateway")
-
-		t.Run("NoPublicIP", func(t *testing.T) {
-			hasNoPublicIP := ValidateInstanceHasNoPublicIP(t, instanceID)
-			assert.True(t, hasNoPublicIP, "Private subnet instance should not have public IP")
-		})
-
-		t.Run("OutboundConnectivity", func(t *testing.T) {
-			// Proves NAT gateway is working
-			ValidatePrivateNetworkConnectivity(t, instanceID)
-		})
-
-		t.Run("S3Access", func(t *testing.T) {
-			// Validates IAM permissions work from private subnet
-			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
-		})
-	})
-
-	fmt.Printf("\n✅ Private networking scenario successful!\n")
-	fmt.Printf("   Stack: %s\n", stackName)
-}
-
-// TestScenarioEFSEnabled tests EFS-enabled scenario
-func TestScenarioEFSEnabled(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping EFS test in short mode")
-	}
-
-	config := DefaultScenarioConfig()
-	config.EnableEFS = true
-
-	// Deploy VPC
-	vpcOptions := &terraform.Options{
-		TerraformDir:    "./fixtures/vpc",
-		TerraformBinary: "tofu",
-		Vars:            config.ToVPCVars(),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, vpcOptions)
-	terraform.InitAndApply(t, vpcOptions)
-
-	// Get VPC outputs
-	vpcID := terraform.Output(t, vpcOptions, "vpc_id")
-	publicSubnets := terraform.OutputList(t, vpcOptions, "public_subnets")
-
-	// Deploy runs-on module with EFS enabled
-	moduleOptions := &terraform.Options{
-		TerraformDir:    "../",
-		TerraformBinary: "tofu",
-		Vars:            config.ToModuleVars(vpcID, publicSubnets, nil),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, moduleOptions)
-	terraform.InitAndApply(t, moduleOptions)
-
-	// Get outputs
-	stackName := terraform.Output(t, moduleOptions, "stack_name")
-	appRunnerURL := terraform.Output(t, moduleOptions, "apprunner_service_url")
-	configBucket := terraform.Output(t, moduleOptions, "config_bucket_name")
-	cacheBucket := terraform.Output(t, moduleOptions, "cache_bucket_name")
-	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
-	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
-	efsFileSystemID := terraform.Output(t, moduleOptions, "efs_file_system_id")
-	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
-
-	// ===== OUTPUT VALIDATIONS =====
-	t.Run("Outputs", func(t *testing.T) {
-		assert.NotEmpty(t, stackName, "Stack name should not be empty")
-		assert.NotEmpty(t, appRunnerURL, "App Runner URL should not be empty")
-		assert.NotEmpty(t, efsFileSystemID, "EFS ID should not be empty when EFS is enabled")
-	})
-
-	// ===== SECURITY VALIDATIONS =====
-	t.Run("Security/S3Encryption", func(t *testing.T) {
-		ValidateS3BucketEncryption(t, configBucket)
-		ValidateS3BucketEncryption(t, cacheBucket)
-		ValidateS3BucketEncryption(t, loggingBucket)
-	})
-
-	t.Run("Security/IAMMinimalPermissions", func(t *testing.T) {
-		ValidateIAMRoleNotOverlyPermissive(t, ec2RoleName)
-	})
-
-	// ===== COMPLIANCE VALIDATIONS =====
-	t.Run("Compliance/S3Versioning", func(t *testing.T) {
-		ValidateS3BucketVersioning(t, configBucket, "Enabled")
-		ValidateS3BucketVersioning(t, cacheBucket, "Suspended")
-		ValidateS3BucketVersioning(t, loggingBucket, "Enabled")
-	})
-
-	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, logGroupName)
-	})
-
-	// ===== ADVANCED VALIDATIONS =====
-	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
-		ValidateAppRunnerHealth(t, appRunnerURL, 10)
-	})
-
-	// ===== FUNCTIONAL VALIDATIONS =====
-	// These tests launch an EC2 instance and verify:
-	// - Instance can access S3 buckets with correct IAM permissions
-	// - Instance can mount EFS and perform I/O operations
-	t.Run("Functional", func(t *testing.T) {
-		// Get launch template ID
-		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_default_id")
-		require.NotEmpty(t, launchTemplateID, "Launch template ID should not be empty")
-
-		// Launch instance in public subnet
-		instanceID := LaunchTestInstance(t, launchTemplateID, publicSubnets[0])
-		defer TerminateTestInstance(t, instanceID)
-
-		// Wait for instance to be SSM-ready
-		ready := WaitForInstanceReady(t, instanceID, 5*time.Minute)
-		require.True(t, ready, "Instance failed to become SSM-ready within timeout")
-
-		t.Run("S3Access", func(t *testing.T) {
-			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
-		})
-
-		t.Run("EFSMount", func(t *testing.T) {
-			// Validates EFS mount, write, read, and unmount
-			ValidateEFSMountFromEC2(t, instanceID, efsFileSystemID)
-		})
-	})
-
-	fmt.Printf("\n✅ EFS-enabled scenario successful!\n")
-	fmt.Printf("   Stack: %s\n", stackName)
-	fmt.Printf("   EFS: %s\n", efsFileSystemID)
-}
-
-// TestScenarioECREnabled tests ECR-enabled scenario
-func TestScenarioECREnabled(t *testing.T) {
-	t.Parallel()
-
-	config := DefaultScenarioConfig()
-	config.EnableECR = true
-
-	// Deploy VPC
-	vpcOptions := &terraform.Options{
-		TerraformDir:    "./fixtures/vpc",
-		TerraformBinary: "tofu",
-		Vars:            config.ToVPCVars(),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, vpcOptions)
-	terraform.InitAndApply(t, vpcOptions)
-
-	// Get VPC outputs
-	vpcID := terraform.Output(t, vpcOptions, "vpc_id")
-	publicSubnets := terraform.OutputList(t, vpcOptions, "public_subnets")
-
-	// Deploy runs-on module with ECR enabled
-	moduleOptions := &terraform.Options{
-		TerraformDir:    "../",
-		TerraformBinary: "tofu",
-		Vars:            config.ToModuleVars(vpcID, publicSubnets, nil),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, moduleOptions)
-	terraform.InitAndApply(t, moduleOptions)
-
-	// Get outputs
-	stackName := terraform.Output(t, moduleOptions, "stack_name")
-	appRunnerURL := terraform.Output(t, moduleOptions, "apprunner_service_url")
-	configBucket := terraform.Output(t, moduleOptions, "config_bucket_name")
-	cacheBucket := terraform.Output(t, moduleOptions, "cache_bucket_name")
-	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
-	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
-	ecrURL := terraform.Output(t, moduleOptions, "ecr_repository_url")
-	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
-
-	// ===== OUTPUT VALIDATIONS =====
-	t.Run("Outputs", func(t *testing.T) {
-		assert.NotEmpty(t, stackName, "Stack name should not be empty")
-		assert.NotEmpty(t, appRunnerURL, "App Runner URL should not be empty")
-		assert.NotEmpty(t, ecrURL, "ECR URL should not be empty when ECR is enabled")
-		assert.Contains(t, ecrURL, "ecr", "Should be ECR URL")
-	})
-
-	// ===== SECURITY VALIDATIONS =====
-	t.Run("Security/S3Encryption", func(t *testing.T) {
-		ValidateS3BucketEncryption(t, configBucket)
-		ValidateS3BucketEncryption(t, cacheBucket)
-		ValidateS3BucketEncryption(t, loggingBucket)
-	})
-
-	t.Run("Security/IAMMinimalPermissions", func(t *testing.T) {
-		ValidateIAMRoleNotOverlyPermissive(t, ec2RoleName)
-	})
-
-	// ===== COMPLIANCE VALIDATIONS =====
-	t.Run("Compliance/S3Versioning", func(t *testing.T) {
-		ValidateS3BucketVersioning(t, configBucket, "Enabled")
-		ValidateS3BucketVersioning(t, cacheBucket, "Suspended")
-		ValidateS3BucketVersioning(t, loggingBucket, "Enabled")
-	})
-
-	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, logGroupName)
-	})
-
-	// ===== ADVANCED VALIDATIONS =====
-	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
-		ValidateAppRunnerHealth(t, appRunnerURL, 10)
-	})
-
-	// ===== FUNCTIONAL VALIDATIONS =====
-	// These tests launch an EC2 instance and verify:
-	// - Instance can access S3 buckets with correct IAM permissions
-	// - Instance can authenticate to ECR and push/pull images
-	t.Run("Functional", func(t *testing.T) {
-		// Get launch template ID
-		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_default_id")
-		require.NotEmpty(t, launchTemplateID, "Launch template ID should not be empty")
-
-		// Launch instance in public subnet
-		instanceID := LaunchTestInstance(t, launchTemplateID, publicSubnets[0])
-		defer TerminateTestInstance(t, instanceID)
-
-		// Wait for instance to be SSM-ready
-		ready := WaitForInstanceReady(t, instanceID, 5*time.Minute)
-		require.True(t, ready, "Instance failed to become SSM-ready within timeout")
-
-		t.Run("S3Access", func(t *testing.T) {
-			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
-		})
-
-		t.Run("ECRPushPull", func(t *testing.T) {
-			// Validates ECR authentication, push, and pull
-			ValidateECRPushPullFromEC2(t, instanceID, ecrURL)
-		})
-	})
-
-	fmt.Printf("\n✅ ECR-enabled scenario successful!\n")
-	fmt.Printf("   Stack: %s\n", stackName)
-	fmt.Printf("   ECR: %s\n", ecrURL)
 }
 
 // TestScenarioFullFeatured tests full-featured scenario with all options
@@ -564,7 +246,7 @@ func TestScenarioFullFeatured(t *testing.T) {
 	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
 	efsFileSystemID := terraform.Output(t, moduleOptions, "efs_file_system_id")
 	ecrURL := terraform.Output(t, moduleOptions, "ecr_repository_url")
-	logGroupName := terraform.Output(t, moduleOptions, "log_group_name")
+	logGroupName := terraform.Output(t, moduleOptions, "ec2_instance_log_group_name")
 
 	// ===== OUTPUT VALIDATIONS =====
 	t.Run("Outputs", func(t *testing.T) {

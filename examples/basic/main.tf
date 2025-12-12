@@ -67,6 +67,4 @@ module "runs_on" {
 
   # Optional: Security groups (if not provided, module creates them automatically)
   # security_group_ids = ["sg-xxxxx"]
-
-  # All other variables use smart defaults matching CloudFormation
 }

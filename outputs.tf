@@ -24,14 +24,19 @@ output "aws_region" {
 # Storage Outputs
 ###########################
 
-output "config_bucket_arn" {
-  description = "ARN of the S3 configuration bucket"
-  value       = module.storage.config_bucket_arn
+output "config_bucket_name" {
+  description = "Name of the S3 configuration bucket"
+  value       = module.storage.config_bucket_name
 }
 
-output "cache_bucket_arn" {
-  description = "ARN of the S3 cache bucket"
-  value       = module.storage.cache_bucket_arn
+output "cache_bucket_name" {
+  description = "Name of the S3 cache bucket"
+  value       = module.storage.cache_bucket_name
+}
+
+output "logging_bucket_name" {
+  description = "Name of the S3 logging bucket"
+  value       = module.storage.logging_bucket_name
 }
 
 ###########################
