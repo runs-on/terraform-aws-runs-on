@@ -215,12 +215,20 @@ output "dashboard_name" {
 
 output "getting_started" {
   description = "Quick start guide for using this RunsOn deployment"
-  value       = <<-EOT
+  value = <<-EOT
     RunsOn Infrastructure Deployed Successfully!
 
     Stack Name: ${var.stack_name}
     Region: ${local.region}
+    Environment: ${var.environment}
+${var.environment != "production" ? <<-WARNING
 
+    ⚠️  WARNING: Non-production environment detected!
+    Your GitHub workflows must include 'env:${var.environment}' in the runs-on label.
+    Example: runs-on: runs-on=$family/env:${var.environment}
+    See: https://runs-on.com/configuration/job-labels/#env
+WARNING
+: ""}
     Get Started by clicking here -> https://${module.core.apprunner_service_url}
 
     Read more on https://runs-on.com/docs or visit https://runs-on.com/guides/troubleshoot/ to fix common issues.

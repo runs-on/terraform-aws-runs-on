@@ -63,6 +63,26 @@ module "runs-on" {
 ```
 The module assumes you have your own VPC already configured.
 
+## Versioning
+
+This module follows a versioning scheme that maps to the main RunsOn application version:
+
+```
+v{MAJOR}.{MINOR}.{PATCH}-r{RELEASE}
+```
+
+- **`v{MAJOR}.{MINOR}.{PATCH}`** - Matches the RunsOn application version (e.g., `v2.11.0`)
+- **`-r{RELEASE}`** - Incremental release number for Terraform module changes (e.g., `-r1`, `-r2`)
+
+**Examples:**
+- `v2.10.0-r1` - First Terraform release for RunsOn v2.10.0
+- `v2.10.0-r2` - Second Terraform release (module fixes/improvements, same RunsOn version)
+- `v2.11.0-r1` - First Terraform release for RunsOn v2.11.0
+
+When upgrading, check:
+1. The RunsOn version changelog at [runs-on.com/changelog](https://runs-on.com/changelog)
+2. The Terraform module release notes in this repository
+
 > [!TIP]
 Cost Estimates:
 > - **RunsOn base:** ~$3/mo (App Runner)
