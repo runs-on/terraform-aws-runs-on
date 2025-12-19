@@ -114,7 +114,7 @@ resource "aws_sqs_queue" "github" {
   content_based_deduplication = true
   message_retention_seconds   = 86400
   receive_wait_time_seconds   = 10
-  visibility_timeout_seconds  = 60
+  visibility_timeout_seconds  = 120 # GitHub API calls + S3 uploads
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.github_dead_letter.arn
