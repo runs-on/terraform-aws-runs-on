@@ -285,3 +285,27 @@ variable "enable_dashboard" {
   description = "Create a CloudWatch dashboard for monitoring RunsOn operations"
   type        = bool
 }
+
+variable "enable_waf" {
+  description = "Enable AWS WAF for App Runner service"
+  type        = bool
+  default     = false
+}
+
+variable "waf_allowed_ip_ranges" {
+  description = "List of IPv4 CIDR blocks to allow through WAF"
+  type        = list(string)
+  default     = []
+}
+
+variable "waf_allowed_ip_ranges_ipv6" {
+  description = "List of IPv6 CIDR blocks to allow through WAF"
+  type        = list(string)
+  default     = []
+}
+
+variable "waf_use_github_ip_ranges" {
+  description = "Automatically include GitHub's webhook IP ranges in the WAF allow list"
+  type        = bool
+  default     = true
+}
