@@ -210,6 +210,20 @@ output "dashboard_name" {
 }
 
 ###########################
+# WAF Outputs
+###########################
+
+output "waf_web_acl_arn" {
+  description = "ARN of the WAF Web ACL (if enabled)"
+  value       = var.enable_waf ? module.core.waf_web_acl_arn : null
+}
+
+output "waf_web_acl_id" {
+  description = "ID of the WAF Web ACL (if enabled)"
+  value       = var.enable_waf ? module.core.waf_web_acl_id : null
+}
+
+###########################
 # Usage Information
 ###########################
 

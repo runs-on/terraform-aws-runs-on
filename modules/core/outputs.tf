@@ -125,3 +125,13 @@ output "slack_webhook_lambda_arn" {
   description = "ARN of the Slack webhook Lambda function"
   value       = var.alert_slack_webhook_url != "" ? aws_lambda_function.slack_webhook[0].arn : null
 }
+
+output "waf_web_acl_arn" {
+  description = "ARN of the WAF Web ACL"
+  value       = var.enable_waf ? aws_wafv2_web_acl.this[0].arn : null
+}
+
+output "waf_web_acl_id" {
+  description = "ID of the WAF Web ACL"
+  value       = var.enable_waf ? aws_wafv2_web_acl.this[0].id : null
+}

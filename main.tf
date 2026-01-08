@@ -228,6 +228,12 @@ module "core" {
   app_alarm_daily_minutes                    = var.app_alarm_daily_minutes
   sqs_queue_oldest_message_threshold_seconds = var.sqs_queue_oldest_message_threshold_seconds
 
+  # WAF configuration
+  enable_waf                 = var.enable_waf
+  waf_allowed_ip_ranges      = var.waf_allowed_ip_ranges
+  waf_allowed_ip_ranges_ipv6 = var.waf_allowed_ip_ranges_ipv6
+  waf_use_github_ip_ranges   = var.waf_use_github_ip_ranges
+
   tags = local.common_tags
 
   # Ensure NAT gateway is ready before App Runner starts
