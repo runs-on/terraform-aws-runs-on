@@ -12,7 +12,7 @@ data "github_ip_ranges" "this" {
 locals {
   # Combine GitHub hooks IPs with custom allowed ranges (IPv4)
   waf_allowed_cidrs_ipv4 = var.enable_waf ? concat(
-    var.waf_use_github_ip_ranges ? data.github_ip_ranges.this[0].hooks : [],
+    var.waf_use_github_ip_ranges ? data.github_ip_ranges.this[0].hooks_ipv4 : [],
     var.waf_allowed_ip_ranges
   ) : []
 
@@ -28,7 +28,7 @@ locals {
 ###########################
 
 resource "aws_wafv2_ip_set" "allowed_ips_ipv4" {
-  count              = var.enable_waf && length(local.waf_allowed_cidrs_ipv4) > 0 ? 1 : 0
+  count              = var.enable_waf && (var.waf_use_github_ip_ranges || length(var.waf_allowed_ip_ranges) > 0) ? 1 : 0
   name               = "${var.stack_name}-allowed-ips-ipv4"
   scope              = "REGIONAL"
   ip_address_version = "IPV4"
@@ -44,7 +44,7 @@ resource "aws_wafv2_ip_set" "allowed_ips_ipv4" {
 }
 
 resource "aws_wafv2_ip_set" "allowed_ips_ipv6" {
-  count              = var.enable_waf && length(local.waf_allowed_cidrs_ipv6) > 0 ? 1 : 0
+  count              = var.enable_waf && (var.waf_use_github_ip_ranges || length(var.waf_allowed_ip_ranges_ipv6) > 0) ? 1 : 0
   name               = "${var.stack_name}-allowed-ips-ipv6"
   scope              = "REGIONAL"
   ip_address_version = "IPV6"
@@ -67,7 +67,7 @@ resource "aws_wafv2_web_acl" "this" {
   count       = var.enable_waf ? 1 : 0
   name        = "${var.stack_name}-waf"
   scope       = "REGIONAL"
-  description = "WAF for RunsOn App Runner - restricts access to allowed IP ranges (GitHub webhooks)"
+  description = "WAF for RunsOn App Runner - restricts access to GitHub webhook IP ranges"
 
   default_action {
     block {}
@@ -75,7 +75,7 @@ resource "aws_wafv2_web_acl" "this" {
 
   # Rule for IPv4 addresses
   dynamic "rule" {
-    for_each = length(local.waf_allowed_cidrs_ipv4) > 0 ? [1] : []
+    for_each = (var.waf_use_github_ip_ranges || length(var.waf_allowed_ip_ranges) > 0) ? [1] : []
     content {
       name     = "AllowedIPsIPv4"
       priority = 1
@@ -100,7 +100,7 @@ resource "aws_wafv2_web_acl" "this" {
 
   # Rule for IPv6 addresses
   dynamic "rule" {
-    for_each = length(local.waf_allowed_cidrs_ipv6) > 0 ? [1] : []
+    for_each = (var.waf_use_github_ip_ranges || length(var.waf_allowed_ip_ranges_ipv6) > 0) ? [1] : []
     content {
       name     = "AllowedIPsIPv6"
       priority = 2
