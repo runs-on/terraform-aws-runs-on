@@ -42,7 +42,7 @@ variable "github_organization" {
 }
 
 variable "license_key" {
-  description = "RunsOn license key"
+  description = "RunsOn license key obtained from runs-on.com"
   type        = string
   sensitive   = true
 }
@@ -173,17 +173,17 @@ variable "ec2_queue_size" {
 }
 
 variable "ebs_encryption_key_id" {
-  description = "KMS key ID for EBS encryption"
+  description = "KMS key ID for EBS encryption (leave empty for AWS managed key)"
   type        = string
 }
 
 variable "github_api_strategy" {
-  description = "GitHub API strategy"
+  description = "Strategy for GitHub API calls (normal, conservative)"
   type        = string
 }
 
 variable "default_admins" {
-  description = "Default admins"
+  description = "Comma-separated list of default admin usernames"
   type        = string
 }
 
@@ -193,7 +193,7 @@ variable "runner_max_runtime" {
 }
 
 variable "runner_config_auto_extends_from" {
-  description = "Runner config auto extends from"
+  description = "Repository to auto-extend runner config from (e.g., '.github-private')"
   type        = string
 }
 
@@ -228,13 +228,13 @@ variable "enable_cost_reports" {
 }
 
 variable "server_password" {
-  description = "Server password"
+  description = "Password for RunsOn server admin interface"
   type        = string
   sensitive   = true
 }
 
 variable "spot_circuit_breaker" {
-  description = "Spot circuit breaker configuration"
+  description = "Spot circuit breaker config (e.g., '2/15/30' = 2 failures in 15min, block for 30min)"
   type        = string
 }
 
@@ -256,7 +256,7 @@ variable "otel_exporter_headers" {
 }
 
 variable "logger_level" {
-  description = "Logger level"
+  description = "Log level: debug, info, warn, or error"
   type        = string
 }
 

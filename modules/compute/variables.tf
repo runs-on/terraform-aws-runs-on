@@ -2,12 +2,12 @@
 # Input variables for the compute module
 
 variable "region" {
-  description = "AWS region"
+  description = "AWS region where resources are deployed"
   type        = string
 }
 
 variable "account_id" {
-  description = "AWS account ID"
+  description = "AWS account ID for resource ARN construction"
   type        = string
 }
 
