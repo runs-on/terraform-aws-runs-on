@@ -14,13 +14,11 @@ variable "stack_name" {
 variable "cost_allocation_tag" {
   description = "Name of the tag key used for cost allocation"
   type        = string
-  default     = "CostCenter"
 }
 
 variable "cache_expiration_days" {
   description = "Number of days to retain cache artifacts before expiration"
   type        = number
-  default     = 30
 
   validation {
     condition     = var.cache_expiration_days >= 1 && var.cache_expiration_days <= 365
@@ -31,17 +29,14 @@ variable "cache_expiration_days" {
 variable "environment" {
   description = "Environment name (e.g., prod, dev, staging)"
   type        = string
-  default     = "production"
 }
 
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)
-  default     = {}
 }
 
 variable "force_destroy_buckets" {
   description = "Allow S3 buckets to be destroyed even when not empty. Set to false for production environments to prevent accidental data loss."
   type        = bool
-  default     = false
 }
