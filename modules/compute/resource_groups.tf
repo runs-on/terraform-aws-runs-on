@@ -20,8 +20,7 @@ resource "aws_resourcegroups_group" "ec2_instances" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-ec2-instances"
-      Environment = var.environment
+      Name = "${var.stack_name}-ec2-instances"
     }
   )
 }

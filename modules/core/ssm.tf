@@ -16,8 +16,7 @@ resource "aws_ssm_parameter" "license_key" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-license-key"
-      Environment = var.environment
+      Name = "${var.stack_name}-license-key"
     }
   )
 }
@@ -32,8 +31,7 @@ resource "aws_ssm_parameter" "server_password" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-server-password"
-      Environment = var.environment
+      Name = "${var.stack_name}-server-password"
     }
   )
 }
@@ -48,8 +46,7 @@ resource "aws_ssm_parameter" "integration_step_security_api_key" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-step-security-api-key"
-      Environment = var.environment
+      Name = "${var.stack_name}-step-security-api-key"
     }
   )
 }
@@ -64,8 +61,7 @@ resource "aws_ssm_parameter" "otel_exporter_headers" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-otel-exporter-headers"
-      Environment = var.environment
+      Name = "${var.stack_name}-otel-exporter-headers"
     }
   )
 }

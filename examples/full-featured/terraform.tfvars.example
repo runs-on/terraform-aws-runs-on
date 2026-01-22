@@ -17,7 +17,6 @@ ssh_allowed    = false  # Set true to enable SSH to runners
 ssh_cidr_range = "0.0.0.0/0"  # Restrict to your office IP
 
 tags = {
-  Environment = "production"
   ManagedBy   = "terraform"
   Project     = "runs-on"
   Features    = "all-enabled"

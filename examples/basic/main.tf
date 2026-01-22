@@ -42,7 +42,6 @@ module "vpc" {
   enable_dns_support   = true
 
   tags = {
-    Environment = "production"
     ManagedBy   = "OpenTofu"
     Project     = "RunsOn"
   }

@@ -17,7 +17,6 @@ provider "aws" {
       TestID        = var.test_id
       ManagedBy     = "terratest"
       AutoCleanup   = "true"
-      Environment   = "test"
     }
   }
 }

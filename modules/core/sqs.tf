@@ -13,8 +13,7 @@ resource "aws_sqs_queue" "main_dead_letter" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-main-dlq"
-      Environment = var.environment
+      Name = "${var.stack_name}-main-dlq"
     }
   )
 }
@@ -27,8 +26,7 @@ resource "aws_sqs_queue" "jobs_dead_letter" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-jobs-dlq"
-      Environment = var.environment
+      Name = "${var.stack_name}-jobs-dlq"
     }
   )
 }
@@ -41,8 +39,7 @@ resource "aws_sqs_queue" "github_dead_letter" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-github-dlq"
-      Environment = var.environment
+      Name = "${var.stack_name}-github-dlq"
     }
   )
 }
@@ -54,8 +51,7 @@ resource "aws_sqs_queue" "pool_dead_letter" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-pool-dlq"
-      Environment = var.environment
+      Name = "${var.stack_name}-pool-dlq"
     }
   )
 }
@@ -80,8 +76,7 @@ resource "aws_sqs_queue" "main" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-main"
-      Environment = var.environment
+      Name = "${var.stack_name}-main"
     }
   )
 }
@@ -102,8 +97,7 @@ resource "aws_sqs_queue" "jobs" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-jobs"
-      Environment = var.environment
+      Name = "${var.stack_name}-jobs"
     }
   )
 }
@@ -124,8 +118,7 @@ resource "aws_sqs_queue" "github" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-github"
-      Environment = var.environment
+      Name = "${var.stack_name}-github"
     }
   )
 }
@@ -144,8 +137,7 @@ resource "aws_sqs_queue" "pool" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-pool"
-      Environment = var.environment
+      Name = "${var.stack_name}-pool"
     }
   )
 }
@@ -159,8 +151,7 @@ resource "aws_sqs_queue" "housekeeping" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-housekeeping"
-      Environment = var.environment
+      Name = "${var.stack_name}-housekeeping"
     }
   )
 }
@@ -174,8 +165,7 @@ resource "aws_sqs_queue" "termination" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-termination"
-      Environment = var.environment
+      Name = "${var.stack_name}-termination"
     }
   )
 }
@@ -189,8 +179,7 @@ resource "aws_sqs_queue" "events" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-events"
-      Environment = var.environment
+      Name = "${var.stack_name}-events"
     }
   )
 }

@@ -16,9 +16,7 @@ terraform {
 locals {
   common_tags = merge(
     var.tags,
-    {
-      Module = "runs-on-core"
-    }
+    {}
   )
 
   # Queue names

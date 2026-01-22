@@ -23,8 +23,7 @@ resource "aws_ecr_repository" "ephemeral_protected" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-ephemeral-registry"
-      Environment = var.environment
+      Name = "${var.stack_name}-ephemeral-registry"
     }
   )
 
@@ -52,8 +51,7 @@ resource "aws_ecr_repository" "ephemeral_unprotected" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-ephemeral-registry"
-      Environment = var.environment
+      Name = "${var.stack_name}-ephemeral-registry"
     }
   )
 }

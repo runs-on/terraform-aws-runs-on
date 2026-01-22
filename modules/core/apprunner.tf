@@ -15,7 +15,6 @@ resource "aws_apprunner_auto_scaling_configuration_version" "this" {
     local.common_tags,
     {
       Name        = "${var.stack_name}-autoscaling"
-      Environment = var.environment
     }
   )
 }
@@ -35,7 +34,6 @@ resource "aws_apprunner_vpc_connector" "this" {
     local.common_tags,
     {
       Name        = "${var.stack_name}-vpc-connector"
-      Environment = var.environment
     }
   )
 }
@@ -66,7 +64,6 @@ resource "aws_iam_role" "apprunner" {
     local.common_tags,
     {
       Name        = "${var.stack_name}-apprunner-role"
-      Environment = var.environment
     }
   )
 }
@@ -350,7 +347,6 @@ resource "aws_apprunner_service" "this" {
     local.common_tags,
     {
       Name               = var.stack_name
-      Environment        = var.environment
       "runs-on-resource" = "apprunner-service" # Used for resource discovery
     }
   )

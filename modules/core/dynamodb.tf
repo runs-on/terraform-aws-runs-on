@@ -23,8 +23,7 @@ resource "aws_dynamodb_table" "locks" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-locks"
-      Environment = var.environment
+      Name = "${var.stack_name}-locks"
     }
   )
 }
@@ -91,8 +90,7 @@ resource "aws_dynamodb_table" "workflow_jobs" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-workflow-jobs"
-      Environment = var.environment
+      Name = "${var.stack_name}-workflow-jobs"
     }
   )
 }

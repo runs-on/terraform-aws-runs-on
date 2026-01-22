@@ -26,9 +26,8 @@ resource "aws_cloudwatch_metric_alarm" "app_daily_budget" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-app-daily-budget"
-      Environment = var.environment
-      AlarmType   = "budget"
+      Name      = "${var.stack_name}-app-daily-budget"
+      AlarmType = "budget"
     }
   )
 }
@@ -60,9 +59,8 @@ resource "aws_cloudwatch_metric_alarm" "sqs_main_oldest_message" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-sqs-main-oldest-message"
-      Environment = var.environment
-      AlarmType   = "sqs-monitoring"
+      Name      = "${var.stack_name}-sqs-main-oldest-message"
+      AlarmType = "sqs-monitoring"
     }
   )
 }

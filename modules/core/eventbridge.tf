@@ -20,8 +20,7 @@ resource "aws_cloudwatch_event_rule" "spot_interruption" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-spot-interruption"
-      Environment = var.environment
+      Name = "${var.stack_name}-spot-interruption"
     }
   )
 }
@@ -138,8 +137,7 @@ resource "aws_iam_role" "scheduler" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-scheduler-role"
-      Environment = var.environment
+      Name = "${var.stack_name}-scheduler-role"
     }
   )
 }

@@ -57,7 +57,6 @@ module "vpc" {
   enable_ssmmessages_endpoint = false # For SSM Session Manager
 
   tags = {
-    Environment = "production"
     ManagedBy   = "OpenTofu"
     Project     = "RunsOn"
   }

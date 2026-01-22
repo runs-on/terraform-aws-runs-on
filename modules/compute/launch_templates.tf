@@ -91,8 +91,7 @@ resource "aws_launch_template" "linux_default" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-linux-default"
-      Environment = var.environment
+      Name = "${var.stack_name}-linux-default"
     }
   )
 }
@@ -183,8 +182,7 @@ resource "aws_launch_template" "windows_default" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-windows-default"
-      Environment = var.environment
+      Name = "${var.stack_name}-windows-default"
     }
   )
 }
@@ -275,8 +273,7 @@ resource "aws_launch_template" "linux_private" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-linux-private"
-      Environment = var.environment
+      Name = "${var.stack_name}-linux-private"
     }
   )
 }
@@ -367,8 +364,7 @@ resource "aws_launch_template" "windows_private" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-windows-private"
-      Environment = var.environment
+      Name = "${var.stack_name}-windows-private"
     }
   )
 }
