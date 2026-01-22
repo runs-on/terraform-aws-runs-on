@@ -21,4 +21,8 @@ terraform {
 }
 
 provider "github" {
+  # Use unauthenticated access - github_ip_ranges uses a public API endpoint
+  # and doesn't require a token. Setting empty token prevents the provider from
+  # using GITHUB_TOKEN env var (which fails in GitHub Actions due to limited permissions)
+  token = ""
 }
