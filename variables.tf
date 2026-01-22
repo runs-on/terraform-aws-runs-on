@@ -501,19 +501,13 @@ variable "enable_waf" {
 }
 
 variable "waf_allowed_ip_ranges" {
-  description = "List of IPv4 CIDR blocks to allow through WAF. Combined with GitHub webhook IPs when waf_use_github_ip_ranges is true."
+  description = "List of IPv4 CIDR blocks to allow through WAF. Combined with GitHub webhook IPs."
   type        = list(string)
   default     = []
 }
 
 variable "waf_allowed_ip_ranges_ipv6" {
-  description = "List of IPv6 CIDR blocks to allow through WAF. Combined with GitHub webhook IPs when waf_use_github_ip_ranges is true."
+  description = "List of IPv6 CIDR blocks to allow through WAF. Combined with GitHub webhook IPs."
   type        = list(string)
   default     = []
-}
-
-variable "waf_use_github_ip_ranges" {
-  description = "When enable_waf is true, automatically include GitHub's webhook IP ranges in the WAF allow list"
-  type        = bool
-  default     = true
 }

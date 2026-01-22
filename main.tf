@@ -232,7 +232,6 @@ module "core" {
   enable_waf                 = var.enable_waf
   waf_allowed_ip_ranges      = var.waf_allowed_ip_ranges
   waf_allowed_ip_ranges_ipv6 = var.waf_allowed_ip_ranges_ipv6
-  waf_use_github_ip_ranges   = var.waf_use_github_ip_ranges
 
   tags = local.common_tags
 

@@ -339,9 +339,3 @@ variable "waf_allowed_ip_ranges_ipv6" {
   type        = list(string)
   default     = []
 }
-
-variable "waf_use_github_ip_ranges" {
-  description = "Automatically include GitHub's webhook IP ranges in the WAF allow list"
-  type        = bool
-  default     = true
-}
