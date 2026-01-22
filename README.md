@@ -249,6 +249,43 @@ module "runs-on" {
 }
 ```
 
+### WAF (Web Application Firewall)
+
+Restrict App Runner access to GitHub webhook IPs only, blocking all other internet traffic:
+
+```hcl
+module "runs-on" {
+  source  = "runs-on/runs-on/aws"
+  version = "v2.11.0"
+
+  github_organization = "my-org"
+  license_key         = "your-license-key"
+  email               = "alerts@example.com"
+
+  vpc_id            = "vpc-xxxxxxxx"
+  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
+
+  # Enable WAF to restrict access to GitHub IPs only
+  enable_waf = true
+
+  # Optionally add your own IPs for admin access
+  # waf_allowed_ip_ranges = ["203.0.113.50/32"]
+}
+```
+
+> [!WARNING]
+> **Enable WAF only AFTER completing initial GitHub App setup.**
+>
+> WAF blocks all traffic except GitHub webhook IPs. The setup UI at your App Runner URL
+> requires browser access, which WAF will block.
+>
+> **Deployment order:**
+> 1. Deploy with `enable_waf = false` (default)
+> 2. Access App Runner URL to configure GitHub App
+> 3. Set `enable_waf = true` and re-apply
+>
+> If you need ongoing browser access (e.g., for metrics), add your IP to `waf_allowed_ip_ranges`.
+
 ### Full Featured
 
 All features enabled together, with VPC endpoints for improved security and reduced data transfer costs:
@@ -324,13 +361,14 @@ module "runs-on" {
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.0 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 6.0 |
+| <a name="requirement_http"></a> [http](#requirement\_http) | >= 3.0 |
 | <a name="requirement_time"></a> [time](#requirement\_time) | >= 0.9 |
 
 ## Providers
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.24.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.28.0 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
 
 ## Modules
@@ -366,9 +404,9 @@ module "runs-on" {
 | <a name="input_app_alarm_daily_minutes"></a> [app\_alarm\_daily\_minutes](#input\_app\_alarm\_daily\_minutes) | Daily budget in minutes for the App Runner service before triggering an alarm | `number` | `4000` | no |
 | <a name="input_app_cpu"></a> [app\_cpu](#input\_app\_cpu) | CPU units for App Runner service (256, 512, 1024, 2048, 4096) | `number` | `256` | no |
 | <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack (prevents auto-shutdown of failed runner instances) | `bool` | `false` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.10.0"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.11.0@sha256:875bcd8a36be7be78509a4c8371cdb4bff01af06c49f4a2d2a2647e3bf44bac5"` | no |
 | <a name="input_app_memory"></a> [app\_memory](#input\_app\_memory) | Memory in MB for App Runner service (512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288) | `number` | `512` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service | `string` | `"v2.10.0"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service | `string` | `"v2.11.0"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts in S3 before expiration | `number` | `10` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Name of the tag key used for cost allocation and tracking | `string` | `"stack"` | no |
@@ -381,6 +419,7 @@ module "runs-on" {
 | <a name="input_enable_dashboard"></a> [enable\_dashboard](#input\_enable\_dashboard) | Create a CloudWatch dashboard for monitoring RunsOn operations (number of jobs processed, rate limit status, last error messages, etc.) | `bool` | `true` | no |
 | <a name="input_enable_ecr"></a> [enable\_ecr](#input\_enable\_ecr) | Enable ECR repository for ephemeral Docker image storage | `bool` | `false` | no |
 | <a name="input_enable_efs"></a> [enable\_efs](#input\_enable\_efs) | Enable EFS file system for shared storage across runners | `bool` | `false` | no |
+| <a name="input_enable_waf"></a> [enable\_waf](#input\_enable\_waf) | Enable AWS WAF for App Runner service to restrict access to allowed IP ranges | `bool` | `false` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name used for resource tagging and RunsOn job filtering. RunsOn will only process jobs with an 'env' label matching this value. See https://runs-on.com/configuration/environments/ for details. | `string` | `"production"` | no |
 | <a name="input_force_delete_ecr"></a> [force\_delete\_ecr](#input\_force\_delete\_ecr) | Allow ECR repository to be deleted even when it contains images. Set to true for testing environments. | `bool` | `false` | no |
 | <a name="input_force_destroy_buckets"></a> [force\_destroy\_buckets](#input\_force\_destroy\_buckets) | Allow S3 buckets to be destroyed even when not empty. Set to false for production environments to prevent accidental data loss. | `bool` | `false` | no |
@@ -411,6 +450,9 @@ module "runs-on" {
 | <a name="input_ssh_cidr_range"></a> [ssh\_cidr\_range](#input\_ssh\_cidr\_range) | CIDR range allowed for SSH access to runner instances (only applies if ssh\_allowed is true) | `string` | `"0.0.0.0/0"` | no |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Name for the RunsOn stack (used for resource naming) | `string` | `"runs-on"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. Note: 'runs-on-stack-name' is added automatically for resource discovery. | `map(string)` | <pre>{<br/>  "ManagedBy": "opentofu/terraform"<br/>}</pre> | no |
+| <a name="input_waf_allowed_ip_ranges"></a> [waf\_allowed\_ip\_ranges](#input\_waf\_allowed\_ip\_ranges) | List of IPv4 CIDR blocks to allow through WAF. Combined with GitHub webhook IPs when waf\_use\_github\_ip\_ranges is true. | `list(string)` | `[]` | no |
+| <a name="input_waf_allowed_ip_ranges_ipv6"></a> [waf\_allowed\_ip\_ranges\_ipv6](#input\_waf\_allowed\_ip\_ranges\_ipv6) | List of IPv6 CIDR blocks to allow through WAF. Combined with GitHub webhook IPs when waf\_use\_github\_ip\_ranges is true. | `list(string)` | `[]` | no |
+| <a name="input_waf_use_github_ip_ranges"></a> [waf\_use\_github\_ip\_ranges](#input\_waf\_use\_github\_ip\_ranges) | When enable\_waf is true, automatically include GitHub's webhook IP ranges in the WAF allow list | `bool` | `true` | no |
 
 ## Outputs
 
@@ -452,6 +494,8 @@ module "runs-on" {
 | <a name="output_sqs_queue_pool_url"></a> [sqs\_queue\_pool\_url](#output\_sqs\_queue\_pool\_url) | URL of the pool SQS queue |
 | <a name="output_sqs_queue_termination_url"></a> [sqs\_queue\_termination\_url](#output\_sqs\_queue\_termination\_url) | URL of the termination SQS queue |
 | <a name="output_stack_name"></a> [stack\_name](#output\_stack\_name) | The stack name used for this deployment |
+| <a name="output_waf_web_acl_arn"></a> [waf\_web\_acl\_arn](#output\_waf\_web\_acl\_arn) | ARN of the WAF Web ACL (if enabled) |
+| <a name="output_waf_web_acl_id"></a> [waf\_web\_acl\_id](#output\_waf\_web\_acl\_id) | ID of the WAF Web ACL (if enabled) |
 <!-- END_TF_DOCS -->
 
 ## License
