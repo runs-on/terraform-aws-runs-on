@@ -19,6 +19,7 @@ App Runner service, queues, and state management for RunsOn.
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.0 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
+| <a name="requirement_http"></a> [http](#requirement\_http) | >= 3.0 |
 
 ## Providers
 
@@ -26,6 +27,7 @@ App Runner service, queues, and state management for RunsOn.
 |------|---------|
 | <a name="provider_archive"></a> [archive](#provider\_archive) | n/a |
 | <a name="provider_aws"></a> [aws](#provider\_aws) | 6.21.0 |
+| <a name="provider_http"></a> [http](#provider\_http) | >= 3.0 |
 
 ## Modules
 
@@ -77,6 +79,10 @@ No modules.
 | [aws_ssm_parameter.license_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
 | [aws_ssm_parameter.otel_exporter_headers](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
 | [aws_ssm_parameter.server_password](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
+| [aws_wafv2_ip_set.allowed_ips_ipv4](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_ip_set) | resource |
+| [aws_wafv2_ip_set.allowed_ips_ipv6](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_ip_set) | resource |
+| [aws_wafv2_web_acl.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl) | resource |
+| [aws_wafv2_web_acl_association.apprunner](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl_association) | resource |
 
 ## Inputs
 
@@ -116,6 +122,7 @@ No modules.
 | <a name="input_ec2_queue_size"></a> [ec2\_queue\_size](#input\_ec2\_queue\_size) | EC2 queue size | `number` | `2` | no |
 | <a name="input_enable_cost_reports"></a> [enable\_cost\_reports](#input\_enable\_cost\_reports) | Enable automated cost reports | `bool` | `true` | no |
 | <a name="input_enable_dashboard"></a> [enable\_dashboard](#input\_enable\_dashboard) | Create a CloudWatch dashboard for monitoring RunsOn operations | `bool` | `true` | no |
+| <a name="input_enable_waf"></a> [enable\_waf](#input\_enable\_waf) | Enable AWS WAF for App Runner service | `bool` | `false` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name (e.g., prod, dev, staging) | `string` | `"production"` | no |
 | <a name="input_github_api_strategy"></a> [github\_api\_strategy](#input\_github\_api\_strategy) | GitHub API strategy | `string` | `"normal"` | no |
 | <a name="input_github_enterprise_url"></a> [github\_enterprise\_url](#input\_github\_enterprise\_url) | GitHub Enterprise URL (optional) | `string` | `""` | no |
@@ -138,6 +145,9 @@ No modules.
 | <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker configuration | `string` | `""` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH access to runners | `bool` | `true` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | `{}` | no |
+| <a name="input_waf_allowed_ip_ranges"></a> [waf\_allowed\_ip\_ranges](#input\_waf\_allowed\_ip\_ranges) | List of IPv4 CIDR blocks to allow through WAF | `list(string)` | `[]` | no |
+| <a name="input_waf_allowed_ip_ranges_ipv6"></a> [waf\_allowed\_ip\_ranges\_ipv6](#input\_waf\_allowed\_ip\_ranges\_ipv6) | List of IPv6 CIDR blocks to allow through WAF | `list(string)` | `[]` | no |
+| <a name="input_waf_use_github_ip_ranges"></a> [waf\_use\_github\_ip\_ranges](#input\_waf\_use\_github\_ip\_ranges) | Automatically include GitHub's webhook IP ranges in the WAF allow list | `bool` | `true` | no |
 
 ## Outputs
 
@@ -168,4 +178,6 @@ No modules.
 | <a name="output_sqs_queue_main_url"></a> [sqs\_queue\_main\_url](#output\_sqs\_queue\_main\_url) | URL of the main SQS queue |
 | <a name="output_sqs_queue_pool_url"></a> [sqs\_queue\_pool\_url](#output\_sqs\_queue\_pool\_url) | URL of the pool SQS queue |
 | <a name="output_sqs_queue_termination_url"></a> [sqs\_queue\_termination\_url](#output\_sqs\_queue\_termination\_url) | URL of the termination SQS queue |
+| <a name="output_waf_web_acl_arn"></a> [waf\_web\_acl\_arn](#output\_waf\_web\_acl\_arn) | ARN of the WAF Web ACL |
+| <a name="output_waf_web_acl_id"></a> [waf\_web\_acl\_id](#output\_waf\_web\_acl\_id) | ID of the WAF Web ACL |
 <!-- END_TF_DOCS -->

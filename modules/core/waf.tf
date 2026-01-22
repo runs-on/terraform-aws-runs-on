@@ -2,23 +2,40 @@
 # AWS WAF configuration for App Runner service
 
 ###########################
-# GitHub IP Ranges Data Source
+# GitHub IP Ranges (via public API)
 ###########################
 
-data "github_ip_ranges" "this" {
+data "http" "github_meta" {
   count = var.enable_waf && var.waf_use_github_ip_ranges ? 1 : 0
+  url   = "https://api.github.com/meta"
+
+  request_headers = {
+    Accept = "application/json"
+  }
 }
 
 locals {
+  # Parse GitHub meta API response
+  github_meta = var.enable_waf && var.waf_use_github_ip_ranges ? jsondecode(data.http.github_meta[0].response_body) : null
+
+  # GitHub hooks array contains both IPv4 and IPv6 mixed - separate them
+  # IPv6 addresses contain ":", IPv4 addresses don't
+  github_hooks_ipv4 = var.enable_waf && var.waf_use_github_ip_ranges ? [
+    for cidr in local.github_meta.hooks : cidr if !can(regex(":", cidr))
+  ] : []
+  github_hooks_ipv6 = var.enable_waf && var.waf_use_github_ip_ranges ? [
+    for cidr in local.github_meta.hooks : cidr if can(regex(":", cidr))
+  ] : []
+
   # Combine GitHub hooks IPs with custom allowed ranges (IPv4)
   waf_allowed_cidrs_ipv4 = var.enable_waf ? concat(
-    var.waf_use_github_ip_ranges ? data.github_ip_ranges.this[0].hooks_ipv4 : [],
+    local.github_hooks_ipv4,
     var.waf_allowed_ip_ranges
   ) : []
 
   # Combine GitHub hooks IPs with custom allowed ranges (IPv6)
   waf_allowed_cidrs_ipv6 = var.enable_waf ? concat(
-    var.waf_use_github_ip_ranges ? data.github_ip_ranges.this[0].hooks_ipv6 : [],
+    local.github_hooks_ipv6,
     var.waf_allowed_ip_ranges_ipv6
   ) : []
 }
