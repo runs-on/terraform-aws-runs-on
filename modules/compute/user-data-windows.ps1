@@ -5,7 +5,7 @@ $env:RUNS_ON_LOG_GROUP_NAME = "${log_group}"
 $env:RUNS_ON_DEBUG = "${app_debug}"
 $env:AWS_REGION = "${region}"
 %{ if efs_file_system_id != "" }$env:RUNS_ON_EFS_ID = "${efs_file_system_id}"%{ endif }
-%{ if ephemeral_registry_uri != "" }$env:RUNS_ON_EPHEMERAL_REGISTRY = "${ephemeral_registry_uri}"%{ endif }
+%{ if ephemeral_registry_uri != "" }$env:RUNS_ON_ECR_CACHE = "${ephemeral_registry_uri}"%{ endif }
 # Enable and start SSM Agent service
 try {
   Set-Service -Name "AmazonSSMAgent" -StartupType Automatic -ErrorAction SilentlyContinue

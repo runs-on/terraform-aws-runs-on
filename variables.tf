@@ -218,8 +218,8 @@ variable "runner_default_volume_throughput" {
   default     = 400
 
   validation {
-    condition     = var.runner_default_volume_throughput >= 125 && var.runner_default_volume_throughput <= 1000
-    error_message = "Volume throughput must be between 125 and 1000 MiB/s for gp3 volumes."
+    condition     = var.runner_default_volume_throughput >= 125 && var.runner_default_volume_throughput <= 2000
+    error_message = "Volume throughput must be between 125 and 2000 MiB/s for gp3 volumes."
   }
 }
 
@@ -240,8 +240,8 @@ variable "runner_large_volume_throughput" {
   default     = 750
 
   validation {
-    condition     = var.runner_large_volume_throughput >= 125 && var.runner_large_volume_throughput <= 1000
-    error_message = "Large volume throughput must be between 125 and 1000 MiB/s for gp3 volumes."
+    condition     = var.runner_large_volume_throughput >= 125 && var.runner_large_volume_throughput <= 2000
+    error_message = "Large volume throughput must be between 125 and 2000 MiB/s for gp3 volumes."
   }
 }
 
