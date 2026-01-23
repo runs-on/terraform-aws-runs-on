@@ -14,8 +14,5 @@ terraform {
 
 # Local variables
 locals {
-  common_tags = merge(
-    var.tags,
-    {}
-  )
+  common_tags = var.tags
 }

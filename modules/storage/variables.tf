@@ -11,12 +11,6 @@ variable "stack_name" {
   }
 }
 
-variable "cost_allocation_tag" {
-  description = "Name of the tag key used for cost allocation"
-  type        = string
-  default     = "CostCenter"
-}
-
 variable "cache_expiration_days" {
   description = "Number of days to retain cache artifacts before expiration"
   type        = number
@@ -26,12 +20,6 @@ variable "cache_expiration_days" {
     condition     = var.cache_expiration_days >= 1 && var.cache_expiration_days <= 365
     error_message = "Cache expiration days must be between 1 and 365."
   }
-}
-
-variable "environment" {
-  description = "Environment name (e.g., prod, dev, staging)"
-  type        = string
-  default     = "production"
 }
 
 variable "tags" {

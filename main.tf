@@ -18,7 +18,8 @@ locals {
   common_tags = merge(
     var.tags,
     {
-      "runs-on-stack-name" = var.stack_name
+      "runs-on-stack-name"      = var.stack_name
+      (var.cost_allocation_tag) = var.stack_name
     }
   )
 }
@@ -43,8 +44,6 @@ module "storage" {
   source = "./modules/storage"
 
   stack_name            = var.stack_name
-  environment           = var.environment
-  cost_allocation_tag   = var.cost_allocation_tag
   cache_expiration_days = var.cache_expiration_days
   force_destroy_buckets = var.force_destroy_buckets
 
@@ -63,7 +62,6 @@ module "compute" {
   account_id = local.account_id
 
   stack_name          = var.stack_name
-  environment         = var.environment
   cost_allocation_tag = var.cost_allocation_tag
 
   # S3 bucket dependencies from storage module
@@ -118,8 +116,7 @@ module "compute" {
 module "optional" {
   source = "./modules/optional"
 
-  stack_name  = var.stack_name
-  environment = var.environment
+  stack_name = var.stack_name
 
   # Feature flags
   enable_efs = var.enable_efs

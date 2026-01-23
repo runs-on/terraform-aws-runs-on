@@ -14,7 +14,7 @@ resource "aws_apprunner_auto_scaling_configuration_version" "this" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-autoscaling"
+      Name = "${var.stack_name}-autoscaling"
     }
   )
 }
@@ -33,7 +33,7 @@ resource "aws_apprunner_vpc_connector" "this" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-vpc-connector"
+      Name = "${var.stack_name}-vpc-connector"
     }
   )
 }
@@ -63,7 +63,7 @@ resource "aws_iam_role" "apprunner" {
   tags = merge(
     local.common_tags,
     {
-      Name        = "${var.stack_name}-apprunner-role"
+      Name = "${var.stack_name}-apprunner-role"
     }
   )
 }

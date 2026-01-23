@@ -13,8 +13,6 @@ resource "aws_s3_bucket" "logging" {
     local.common_tags,
     {
       Name               = "${var.stack_name}-logging"
-      Description        = "Access logs for RunsOn S3 buckets"
-      Environment        = var.environment
       "runs-on-resource" = "logging-bucket" # Used for resource discovery
     }
   )
@@ -153,11 +151,8 @@ resource "aws_s3_bucket" "config" {
   tags = merge(
     local.common_tags,
     {
-      Name                      = "${var.stack_name}-config"
-      Description               = "Configuration and metadata for RunsOn"
-      (var.cost_allocation_tag) = var.stack_name
-      Environment               = var.environment
-      "runs-on-resource"        = "config-bucket" # Used for resource discovery
+      Name               = "${var.stack_name}-config"
+      "runs-on-resource" = "config-bucket" # Used for resource discovery
     }
   )
 }
@@ -293,11 +288,8 @@ resource "aws_s3_bucket" "cache" {
   tags = merge(
     local.common_tags,
     {
-      Name                      = "${var.stack_name}-cache"
-      Description               = "Cache artifacts for RunsOn runners"
-      (var.cost_allocation_tag) = var.stack_name
-      Environment               = var.environment
-      "runs-on-resource"        = "cache-bucket" # Used for resource discovery
+      Name               = "${var.stack_name}-cache"
+      "runs-on-resource" = "cache-bucket" # Used for resource discovery
     }
   )
 }

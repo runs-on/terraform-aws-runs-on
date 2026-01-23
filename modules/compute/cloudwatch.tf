@@ -8,10 +8,8 @@ resource "aws_cloudwatch_log_group" "ec2_instances" {
   tags = merge(
     local.common_tags,
     {
-      Name                      = "${var.stack_name}-ec2-logs"
-      Environment               = var.environment
-      "runs-on-resource"        = "ec2-log-group" # Used for resource discovery
-      (var.cost_allocation_tag) = var.stack_name  # Cost tracking and fallback discovery
+      Name               = "${var.stack_name}-ec2-logs"
+      "runs-on-resource" = "ec2-log-group" # Used for resource discovery
     }
   )
 }

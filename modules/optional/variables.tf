@@ -6,12 +6,6 @@ variable "stack_name" {
   type        = string
 }
 
-variable "environment" {
-  description = "Environment name (e.g., prod, dev, staging)"
-  type        = string
-  default     = "production"
-}
-
 variable "enable_efs" {
   description = "Enable EFS file system for shared storage"
   type        = bool

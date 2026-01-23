@@ -55,11 +55,6 @@ module "vpc" {
   enable_logs_endpoint        = false # For CloudWatch Logs
   enable_ssm_endpoint         = false # For SSM access
   enable_ssmmessages_endpoint = false # For SSM Session Manager
-
-  tags = {
-    ManagedBy   = "OpenTofu"
-    Project     = "RunsOn"
-  }
 }
 
 # RunsOn Module - All features enabled

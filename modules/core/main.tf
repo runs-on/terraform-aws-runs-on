@@ -14,19 +14,7 @@ terraform {
 
 # Local variables
 locals {
-  common_tags = merge(
-    var.tags,
-    {}
-  )
-
-  # Queue names
-  queue_main         = "${var.stack_name}-main.fifo"
-  queue_jobs         = "${var.stack_name}-jobs.fifo"
-  queue_github       = "${var.stack_name}-github.fifo"
-  queue_pool         = "${var.stack_name}-pool"
-  queue_housekeeping = "${var.stack_name}-housekeeping"
-  queue_termination  = "${var.stack_name}-termination"
-  queue_events       = "${var.stack_name}-events"
+  common_tags = var.tags
 
   # Non-sensitive environment variables for App Runner (before filtering)
   # Sensitive vars (license_key, server_password, etc.) are in sensitive_env_secrets

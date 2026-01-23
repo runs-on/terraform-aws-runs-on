@@ -61,7 +61,7 @@ resource "aws_sqs_queue" "pool_dead_letter" {
 ###########################
 
 resource "aws_sqs_queue" "main" {
-  name                        = local.queue_main
+  name                        = "${var.stack_name}-main.fifo"
   fifo_queue                  = true
   content_based_deduplication = true
   message_retention_seconds   = 86400
@@ -82,7 +82,7 @@ resource "aws_sqs_queue" "main" {
 }
 
 resource "aws_sqs_queue" "jobs" {
-  name                        = local.queue_jobs
+  name                        = "${var.stack_name}-jobs.fifo"
   fifo_queue                  = true
   content_based_deduplication = true
   message_retention_seconds   = 86400
@@ -103,7 +103,7 @@ resource "aws_sqs_queue" "jobs" {
 }
 
 resource "aws_sqs_queue" "github" {
-  name                        = local.queue_github
+  name                        = "${var.stack_name}-github.fifo"
   fifo_queue                  = true
   content_based_deduplication = true
   message_retention_seconds   = 86400
@@ -124,7 +124,7 @@ resource "aws_sqs_queue" "github" {
 }
 
 resource "aws_sqs_queue" "pool" {
-  name                       = local.queue_pool
+  name                       = "${var.stack_name}-pool"
   message_retention_seconds  = 86400
   receive_wait_time_seconds  = 10
   visibility_timeout_seconds = 120
@@ -143,7 +143,7 @@ resource "aws_sqs_queue" "pool" {
 }
 
 resource "aws_sqs_queue" "housekeeping" {
-  name                       = local.queue_housekeeping
+  name                       = "${var.stack_name}-housekeeping"
   message_retention_seconds  = 86400
   receive_wait_time_seconds  = 10
   visibility_timeout_seconds = 120
@@ -157,7 +157,7 @@ resource "aws_sqs_queue" "housekeeping" {
 }
 
 resource "aws_sqs_queue" "termination" {
-  name                       = local.queue_termination
+  name                       = "${var.stack_name}-termination"
   message_retention_seconds  = 86400
   receive_wait_time_seconds  = 10
   visibility_timeout_seconds = 120
@@ -171,7 +171,7 @@ resource "aws_sqs_queue" "termination" {
 }
 
 resource "aws_sqs_queue" "events" {
-  name                       = local.queue_events
+  name                       = "${var.stack_name}-events"
   message_retention_seconds  = 7200
   receive_wait_time_seconds  = 10
   visibility_timeout_seconds = 120
