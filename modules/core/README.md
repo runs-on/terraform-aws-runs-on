@@ -145,9 +145,8 @@ No modules.
 | <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker configuration | `string` | `""` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH access to runners | `bool` | `true` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | `{}` | no |
-| <a name="input_waf_allowed_ip_ranges"></a> [waf\_allowed\_ip\_ranges](#input\_waf\_allowed\_ip\_ranges) | List of IPv4 CIDR blocks to allow through WAF | `list(string)` | `[]` | no |
-| <a name="input_waf_allowed_ip_ranges_ipv6"></a> [waf\_allowed\_ip\_ranges\_ipv6](#input\_waf\_allowed\_ip\_ranges\_ipv6) | List of IPv6 CIDR blocks to allow through WAF | `list(string)` | `[]` | no |
-| <a name="input_waf_use_github_ip_ranges"></a> [waf\_use\_github\_ip\_ranges](#input\_waf\_use\_github\_ip\_ranges) | Automatically include GitHub's webhook IP ranges in the WAF allow list | `bool` | `true` | no |
+| <a name="input_waf_allowed_ipv4_cidrs"></a> [waf\_allowed\_ipv4\_cidrs](#input\_waf\_allowed\_ipv4\_cidrs) | List of IPv4 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
+| <a name="input_waf_allowed_ipv6_cidrs"></a> [waf\_allowed\_ipv6\_cidrs](#input\_waf\_allowed\_ipv6\_cidrs) | List of IPv6 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
 
 ## Outputs
 

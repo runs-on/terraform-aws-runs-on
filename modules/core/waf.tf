@@ -6,7 +6,7 @@
 ###########################
 
 data "http" "github_meta" {
-  count = var.enable_waf && var.waf_use_github_ip_ranges ? 1 : 0
+  count = var.enable_waf ? 1 : 0
   url   = "https://api.github.com/meta"
 
   request_headers = {
@@ -16,27 +16,27 @@ data "http" "github_meta" {
 
 locals {
   # Parse GitHub meta API response
-  github_meta = var.enable_waf && var.waf_use_github_ip_ranges ? jsondecode(data.http.github_meta[0].response_body) : null
+  github_meta = var.enable_waf ? jsondecode(data.http.github_meta[0].response_body) : null
 
   # GitHub hooks array contains both IPv4 and IPv6 mixed - separate them
   # IPv6 addresses contain ":", IPv4 addresses don't
-  github_hooks_ipv4 = var.enable_waf && var.waf_use_github_ip_ranges ? [
+  github_hooks_ipv4 = var.enable_waf ? [
     for cidr in local.github_meta.hooks : cidr if !can(regex(":", cidr))
   ] : []
-  github_hooks_ipv6 = var.enable_waf && var.waf_use_github_ip_ranges ? [
+  github_hooks_ipv6 = var.enable_waf ? [
     for cidr in local.github_meta.hooks : cidr if can(regex(":", cidr))
   ] : []
 
   # Combine GitHub hooks IPs with custom allowed ranges (IPv4)
   waf_allowed_cidrs_ipv4 = var.enable_waf ? concat(
     local.github_hooks_ipv4,
-    var.waf_allowed_ip_ranges
+    var.waf_allowed_ipv4_cidrs
   ) : []
 
   # Combine GitHub hooks IPs with custom allowed ranges (IPv6)
   waf_allowed_cidrs_ipv6 = var.enable_waf ? concat(
     local.github_hooks_ipv6,
-    var.waf_allowed_ip_ranges_ipv6
+    var.waf_allowed_ipv6_cidrs
   ) : []
 }
 
@@ -45,7 +45,7 @@ locals {
 ###########################
 
 resource "aws_wafv2_ip_set" "allowed_ips_ipv4" {
-  count              = var.enable_waf && (var.waf_use_github_ip_ranges || length(var.waf_allowed_ip_ranges) > 0) ? 1 : 0
+  count              = var.enable_waf ? 1 : 0
   name               = "${var.stack_name}-allowed-ips-ipv4"
   scope              = "REGIONAL"
   ip_address_version = "IPV4"
@@ -61,7 +61,7 @@ resource "aws_wafv2_ip_set" "allowed_ips_ipv4" {
 }
 
 resource "aws_wafv2_ip_set" "allowed_ips_ipv6" {
-  count              = var.enable_waf && (var.waf_use_github_ip_ranges || length(var.waf_allowed_ip_ranges_ipv6) > 0) ? 1 : 0
+  count              = var.enable_waf ? 1 : 0
   name               = "${var.stack_name}-allowed-ips-ipv6"
   scope              = "REGIONAL"
   ip_address_version = "IPV6"
@@ -92,7 +92,7 @@ resource "aws_wafv2_web_acl" "this" {
 
   # Rule for IPv4 addresses
   dynamic "rule" {
-    for_each = (var.waf_use_github_ip_ranges || length(var.waf_allowed_ip_ranges) > 0) ? [1] : []
+    for_each = var.enable_waf ? [1] : []
     content {
       name     = "AllowedIPsIPv4"
       priority = 1
@@ -117,7 +117,7 @@ resource "aws_wafv2_web_acl" "this" {
 
   # Rule for IPv6 addresses
   dynamic "rule" {
-    for_each = (var.waf_use_github_ip_ranges || length(var.waf_allowed_ip_ranges_ipv6) > 0) ? [1] : []
+    for_each = var.enable_waf ? [1] : []
     content {
       name     = "AllowedIPsIPv6"
       priority = 2

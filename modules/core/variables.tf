@@ -292,20 +292,14 @@ variable "enable_waf" {
   default     = false
 }
 
-variable "waf_allowed_ip_ranges" {
-  description = "List of IPv4 CIDR blocks to allow through WAF"
+variable "waf_allowed_ipv4_cidrs" {
+  description = "List of IPv4 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs)"
   type        = list(string)
   default     = []
 }
 
-variable "waf_allowed_ip_ranges_ipv6" {
-  description = "List of IPv6 CIDR blocks to allow through WAF"
+variable "waf_allowed_ipv6_cidrs" {
+  description = "List of IPv6 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs)"
   type        = list(string)
   default     = []
-}
-
-variable "waf_use_github_ip_ranges" {
-  description = "Automatically include GitHub's webhook IP ranges in the WAF allow list"
-  type        = bool
-  default     = true
 }

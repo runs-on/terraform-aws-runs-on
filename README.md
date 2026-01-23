@@ -269,7 +269,7 @@ module "runs-on" {
   enable_waf = true
 
   # Optionally add your own IPs for admin access
-  # waf_allowed_ip_ranges = ["203.0.113.50/32"]
+  # waf_allowed_ipv4_cidrs = ["203.0.113.50/32"]
 }
 ```
 
@@ -284,7 +284,7 @@ module "runs-on" {
 > 2. Access App Runner URL to configure GitHub App
 > 3. Set `enable_waf = true` and re-apply
 >
-> If you need ongoing browser access (e.g., for metrics), add your IP to `waf_allowed_ip_ranges`.
+> If you need ongoing browser access (e.g., for metrics), add your IP to `waf_allowed_ipv4_cidrs`.
 
 ### Full Featured
 
@@ -450,9 +450,8 @@ module "runs-on" {
 | <a name="input_ssh_cidr_range"></a> [ssh\_cidr\_range](#input\_ssh\_cidr\_range) | CIDR range allowed for SSH access to runner instances (only applies if ssh\_allowed is true) | `string` | `"0.0.0.0/0"` | no |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Name for the RunsOn stack (used for resource naming) | `string` | `"runs-on"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. Note: 'runs-on-stack-name' is added automatically for resource discovery. | `map(string)` | <pre>{<br/>  "ManagedBy": "opentofu/terraform"<br/>}</pre> | no |
-| <a name="input_waf_allowed_ip_ranges"></a> [waf\_allowed\_ip\_ranges](#input\_waf\_allowed\_ip\_ranges) | List of IPv4 CIDR blocks to allow through WAF. Combined with GitHub webhook IPs when waf\_use\_github\_ip\_ranges is true. | `list(string)` | `[]` | no |
-| <a name="input_waf_allowed_ip_ranges_ipv6"></a> [waf\_allowed\_ip\_ranges\_ipv6](#input\_waf\_allowed\_ip\_ranges\_ipv6) | List of IPv6 CIDR blocks to allow through WAF. Combined with GitHub webhook IPs when waf\_use\_github\_ip\_ranges is true. | `list(string)` | `[]` | no |
-| <a name="input_waf_use_github_ip_ranges"></a> [waf\_use\_github\_ip\_ranges](#input\_waf\_use\_github\_ip\_ranges) | When enable\_waf is true, automatically include GitHub's webhook IP ranges in the WAF allow list | `bool` | `true` | no |
+| <a name="input_waf_allowed_ipv4_cidrs"></a> [waf\_allowed\_ipv4\_cidrs](#input\_waf\_allowed\_ipv4\_cidrs) | List of IPv4 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
+| <a name="input_waf_allowed_ipv6_cidrs"></a> [waf\_allowed\_ipv6\_cidrs](#input\_waf\_allowed\_ipv6\_cidrs) | List of IPv6 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
 
 ## Outputs
 
