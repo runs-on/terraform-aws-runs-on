@@ -20,7 +20,7 @@ on:
 jobs:
   basic-scenario:
     name: Basic Scenario
-    runs-on: runs-on=${{ github.run_id }}/runner=2cpu-linux-x64
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
       id-token: write
@@ -38,8 +38,8 @@ jobs:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Download Go modules
         working-directory: test
