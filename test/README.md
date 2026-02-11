@@ -10,7 +10,7 @@ The tests deploy **real AWS infrastructure** to validate the module's functional
 
 ### Required Tools
 
-- Go 1.25+
+- Go 1.26+
 - OpenTofu 1.9+ (or Terraform 1.6+)
 - AWS CLI v2
 
