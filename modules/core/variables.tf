@@ -107,6 +107,11 @@ variable "ec2_instance_profile_arn" {
   type        = string
 }
 
+variable "ec2_instance_log_group_arn" {
+  description = "ARN of the CloudWatch log group used by EC2 instances"
+  type        = string
+}
+
 variable "launch_template_linux_default_id" {
   description = "ID of the Linux default launch template"
   type        = string
@@ -259,6 +264,11 @@ variable "otel_exporter_headers" {
   description = "OpenTelemetry exporter headers"
   type        = string
   sensitive   = true
+}
+
+variable "otel_exporter_temporality" {
+  description = "OTLP metrics temporality: cumulative (default) or delta"
+  type        = string
 }
 
 variable "logger_level" {

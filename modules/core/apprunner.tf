@@ -193,6 +193,14 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = "arn:aws:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/*"
       },
+      # Stack config secret for App Runner runtime
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = aws_secretsmanager_secret.runs_on_stack_config.arn
+      },
       # ec2:TerminateInstances, StopInstances, StartInstances with tag condition
       {
         Effect = "Allow"
@@ -375,8 +383,8 @@ resource "aws_apprunner_service" "this" {
         # Non-sensitive environment variables
         runtime_environment_variables = local.base_env_vars
 
-        # Sensitive environment variables fetched from SSM Parameter Store at runtime
-        runtime_environment_secrets = local.sensitive_env_secrets
+        # Runtime secrets fetched from Secrets Manager / SSM Parameter Store
+        runtime_environment_secrets = local.runtime_env_secrets
       }
 
       # Use private ECR URL if provided, otherwise default public image
@@ -397,6 +405,7 @@ resource "aws_apprunner_service" "this" {
 
   # Ensure ECR access policy is attached before App Runner tries to pull the image
   depends_on = [
-    aws_iam_role_policy_attachment.apprunner_ecr_access
+    aws_iam_role_policy_attachment.apprunner_ecr_access,
+    aws_secretsmanager_secret_version.runs_on_stack_config
   ]
 }

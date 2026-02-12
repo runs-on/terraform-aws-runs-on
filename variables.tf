@@ -259,7 +259,7 @@ variable "app_image" {
 variable "app_tag" {
   description = "Application version tag for RunsOn service"
   type        = string
-  default     = "v2.11.0"
+  default     = "dev@sha256:8cc63f3010f1c150684072b3cdd36385eac2aec1622f76cc7432a3717b25eea8"
 }
 
 variable "bootstrap_tag" {
@@ -428,6 +428,17 @@ variable "otel_exporter_headers" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "otel_exporter_temporality" {
+  description = "OTLP metrics temporality: cumulative (default) or delta"
+  type        = string
+  default     = "cumulative"
+
+  validation {
+    condition     = contains(["cumulative", "delta"], var.otel_exporter_temporality)
+    error_message = "OTLP temporality must be one of: cumulative, delta."
+  }
 }
 
 variable "logger_level" {

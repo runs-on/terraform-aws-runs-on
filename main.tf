@@ -170,6 +170,7 @@ module "core" {
   ec2_instance_role_name             = module.compute.ec2_instance_role_name
   ec2_instance_role_arn              = module.compute.ec2_instance_role_arn
   ec2_instance_profile_arn           = module.compute.ec2_instance_profile_arn
+  ec2_instance_log_group_arn         = module.compute.log_group_arn
   launch_template_linux_default_id   = module.compute.launch_template_linux_default_id
   launch_template_windows_default_id = module.compute.launch_template_windows_default_id
   launch_template_linux_private_id   = module.compute.launch_template_linux_private_id
@@ -212,6 +213,7 @@ module "core" {
   integration_step_security_api_key = var.integration_step_security_api_key
   otel_exporter_endpoint            = var.otel_exporter_endpoint
   otel_exporter_headers             = var.otel_exporter_headers
+  otel_exporter_temporality         = var.otel_exporter_temporality
   logger_level                      = var.logger_level
 
   # Alerting
