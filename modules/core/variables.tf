@@ -276,6 +276,12 @@ variable "logger_level" {
   type        = string
 }
 
+variable "extra_env_vars" {
+  description = "Additional environment variables to set on the App Runner service"
+  type        = map(string)
+  default     = {}
+}
+
 variable "email" {
   description = "Email address for alerts"
   type        = string

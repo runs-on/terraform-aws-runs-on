@@ -244,6 +244,8 @@ module "core" {
   waf_allowed_ipv4_cidrs = var.waf_allowed_ipv4_cidrs
   waf_allowed_ipv6_cidrs = var.waf_allowed_ipv6_cidrs
 
+  extra_env_vars = var.extra_env_vars
+
   tags = local.common_tags
 
   # Ensure NAT gateway is ready before App Runner starts
