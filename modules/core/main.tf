@@ -24,14 +24,17 @@ locals {
   stack_config_secret_id = "/runs-on/${var.stack_name}/config/${local.app_image_digest}"
 
   # Keep these as direct env vars because they are consumed before stack config is loaded.
-  all_env_vars = {
-    RUNS_ON_ENV                    = var.environment
-    RUNS_ON_STACK_NAME             = var.stack_name
-    RUNS_ON_APP_TAG                = var.app_tag
-    OTEL_EXPORTER_OTLP_ENDPOINT    = var.otel_exporter_endpoint
-    OTEL_EXPORTER_OTLP_TEMPORALITY = var.otel_exporter_temporality
-    RUNS_ON_LOGGER_LEVEL           = var.logger_level
-  }
+  all_env_vars = merge(
+    {
+      RUNS_ON_ENV                    = var.environment
+      RUNS_ON_STACK_NAME             = var.stack_name
+      RUNS_ON_APP_TAG                = var.app_tag
+      OTEL_EXPORTER_OTLP_ENDPOINT    = var.otel_exporter_endpoint
+      OTEL_EXPORTER_OTLP_TEMPORALITY = var.otel_exporter_temporality
+      RUNS_ON_LOGGER_LEVEL           = var.logger_level
+    },
+    var.extra_env_vars,
+  )
 
   # AWS App Runner doesn't store empty env vars, causing drift on every plan
   base_env_vars = { for k, v in local.all_env_vars : k => v if v != "" }

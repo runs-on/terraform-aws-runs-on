@@ -453,6 +453,17 @@ variable "logger_level" {
 }
 
 ###########################
+# Extra Environment Variables
+# Used by: core module
+###########################
+
+variable "extra_env_vars" {
+  description = "Additional environment variables to set on the App Runner service"
+  type        = map(string)
+  default     = {}
+}
+
+###########################
 # Alert Configuration
 # Used by: core module
 ###########################
