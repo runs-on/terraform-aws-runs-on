@@ -79,7 +79,7 @@ locals {
     QueueEvents                   = aws_sqs_queue.events.name
     LocksTable                    = aws_dynamodb_table.locks.name
     WorkflowJobsTable             = aws_dynamodb_table.workflow_jobs.name
-    CostReportsEnabled            = var.enable_cost_reports
+    CostReportsEnabled            = var.enable_cost_reports ? "true" : "false"
     ServerPassword                = var.server_password
     CostAllocationTag             = var.cost_allocation_tag
     SpotCircuitBreaker            = var.spot_circuit_breaker
