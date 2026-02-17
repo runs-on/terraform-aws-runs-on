@@ -87,6 +87,7 @@ locals {
     GithubEnterpriseUrl           = var.github_enterprise_url
     VPCId                         = var.vpc_id
     NetworkingStack               = "external"
+    InfrastructureSource          = "terraform"
     Ec2InstanceLogGroupArn        = var.ec2_instance_log_group_arn
   })
 
