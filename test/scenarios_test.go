@@ -1,372 +1,84 @@
 package test
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestScenarioBasic tests the basic deployment scenario with all security and compliance validations
+// TestScenarioBasic tests the basic deployment scenario with all validations.
 func TestScenarioBasic(t *testing.T) {
-	t.Parallel()
+	cfg := DefaultScenarioConfig()
 
-	config := DefaultScenarioConfig()
-	config.EnableEFS = false
-	config.EnableECR = false
-	config.EnableNAT = false
+	runScenario(t, cfg, func(t *testing.T, r ScenarioResult) {
+		clients := NewAWSClients(context.Background())
 
-	// Deploy VPC first
-	vpcOptions := &terraform.Options{
-		TerraformDir:    "./fixtures/vpc",
-		TerraformBinary: "tofu",
-		Vars:            config.ToVPCVars(),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, vpcOptions)
-	terraform.InitAndApply(t, vpcOptions)
+		runOutputValidations(t, r)
+		runSecurityValidations(t, clients, r)
+		runComplianceValidations(t, clients, r)
+		runWiringValidations(t, clients, r)
+		runTaggingValidations(t, clients, r)
+		runAdvancedValidations(t, r)
 
-	// Get VPC outputs
-	vpcID := terraform.Output(t, vpcOptions, "vpc_id")
-	publicSubnets := terraform.OutputList(t, vpcOptions, "public_subnets")
-	privateSubnets := terraform.OutputList(t, vpcOptions, "private_subnets")
-
-	// Deploy runs-on module (root module)
-	moduleOptions := &terraform.Options{
-		TerraformDir:    "../",
-		TerraformBinary: "tofu",
-		Vars:            config.ToModuleVars(vpcID, publicSubnets, privateSubnets),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, moduleOptions)
-	terraform.InitAndApply(t, moduleOptions)
-
-	// Get outputs
-	stackName := terraform.Output(t, moduleOptions, "stack_name")
-	appRunnerURL := terraform.Output(t, moduleOptions, "apprunner_service_url")
-	configBucket := terraform.Output(t, moduleOptions, "config_bucket_name")
-	cacheBucket := terraform.Output(t, moduleOptions, "cache_bucket_name")
-	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
-	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
-	logGroupName := terraform.Output(t, moduleOptions, "ec2_instance_log_group_name")
-
-	// ===== OUTPUT VALIDATIONS =====
-	t.Run("Outputs", func(t *testing.T) {
-		assert.NotEmpty(t, stackName, "Stack name should not be empty")
-		assert.NotEmpty(t, appRunnerURL, "App Runner URL should not be empty")
-		assert.Contains(t, appRunnerURL, "awsapprunner.com", "Should be a valid App Runner URL")
-		assert.NotEmpty(t, configBucket, "Config bucket should not be empty")
-		assert.NotEmpty(t, cacheBucket, "Cache bucket should not be empty")
-		assert.NotEmpty(t, loggingBucket, "Logging bucket should not be empty")
-		assert.NotEmpty(t, ec2RoleName, "EC2 role name should not be empty")
-	})
-
-	// ===== SECURITY VALIDATIONS =====
-	t.Run("Security/S3Encryption", func(t *testing.T) {
-		ValidateS3BucketEncryption(t, configBucket)
-		ValidateS3BucketEncryption(t, cacheBucket)
-		ValidateS3BucketEncryption(t, loggingBucket)
-	})
-
-	t.Run("Security/S3AccessLogging", func(t *testing.T) {
-		ValidateS3BucketLogging(t, configBucket, loggingBucket)
-		ValidateS3BucketLogging(t, cacheBucket, loggingBucket)
-	})
-
-	t.Run("Security/S3PublicAccessBlocked", func(t *testing.T) {
-		ValidateS3BucketPublicAccessBlocked(t, configBucket)
-		ValidateS3BucketPublicAccessBlocked(t, cacheBucket)
-		ValidateS3BucketPublicAccessBlocked(t, loggingBucket)
-	})
-
-	t.Run("Security/IAMMinimalPermissions", func(t *testing.T) {
-		ValidateIAMRoleNotOverlyPermissive(t, ec2RoleName)
-	})
-
-	// ===== COMPLIANCE VALIDATIONS =====
-	t.Run("Compliance/S3Versioning", func(t *testing.T) {
-		ValidateS3BucketVersioning(t, configBucket, "Enabled")
-		ValidateS3BucketVersioning(t, cacheBucket, "Suspended") // Cache doesn't need versioning
-		ValidateS3BucketVersioning(t, loggingBucket, "Enabled")
-	})
-
-	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, logGroupName)
-	})
-
-	// ===== ADVANCED VALIDATIONS =====
-	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
-		ValidateAppRunnerHealth(t, appRunnerURL, 10)
-	})
-
-	// ===== FUNCTIONAL VALIDATIONS =====
-	// These tests launch an EC2 instance and verify it can actually use the infrastructure
-	// Note: IAM policy allows:
-	//   - Cache bucket: read/write to cache/* prefix, read from runners/${aws:userid}/*
-	//   - Config bucket: read-only from agents/* prefix
-	t.Run("Functional", func(t *testing.T) {
-		// Get launch template ID for functional tests
-		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_default_id")
-		require.NotEmpty(t, launchTemplateID, "Launch template ID should not be empty")
-
-		// Launch shared instance for all functional tests (public subnet, needs public IP for SSM)
-		instanceID := LaunchTestInstance(t, launchTemplateID, publicSubnets[0], true)
-		defer TerminateTestInstance(t, instanceID)
-
-		// Wait for instance to be SSM-ready
-		ready := WaitForInstanceReady(t, instanceID, 5*time.Minute)
-		require.True(t, ready, "Instance failed to become SSM-ready within timeout")
-
-		t.Run("S3Access", func(t *testing.T) {
-			// Validates all S3 IAM policy permissions:
-			// - CAN write/read cache/* in cache bucket
-			// - CAN read runners/{own-userid}/* in cache bucket
-			// - CAN read agents/* in config bucket
-			// - CANNOT write to runners/* or read other users' runners paths
-			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
+		t.Run("Functional", func(t *testing.T) {
+			runFunctionalValidations(t, clients, r)
 		})
 
-		t.Run("CloudWatchLogging", func(t *testing.T) {
-			ValidateEC2CloudWatchLogs(t, instanceID, logGroupName)
-		})
+		runIntegrationTest(t, clients, r)
+
+		fmt.Printf("\nBasic scenario deployment successful!\n")
+		fmt.Printf("   Stack: %s\n", r.StackName())
+		fmt.Printf("   App Runner: %s\n", r.AppRunnerURL())
 	})
-
-	// ===== INTEGRATION TESTS =====
-	// Manual trigger mode: User triggers workflow with test_id provided by the test.
-	// Test watches for that specific run using the test_id for correlation.
-	// Skips automatically if required env vars not set.
-	t.Run("Integration/JobExecution", func(t *testing.T) {
-		// Requires GITHUB_TOKEN for GitHub API calls
-		if os.Getenv("GITHUB_TOKEN") == "" {
-			t.Skip("GITHUB_TOKEN not set")
-		}
-
-		// Get test repo - prefer RUNS_ON_TEST_REPO, fallback to GITHUB_REPOSITORY
-		// Skips automatically if neither is set (implicit opt-in)
-		testRepo := os.Getenv("RUNS_ON_TEST_REPO")
-		if testRepo == "" {
-			testRepo = os.Getenv("GITHUB_REPOSITORY")
-		}
-		if testRepo == "" {
-			t.Skip("RUNS_ON_TEST_REPO or GITHUB_REPOSITORY not set")
-		}
-
-		testWorkflow := os.Getenv("RUNS_ON_TEST_WORKFLOW")
-		if testWorkflow == "" {
-			t.Skip("RUNS_ON_TEST_WORKFLOW not set")
-		}
-
-		testID := GetTestID()
-		startTime := time.Now()
-
-		// Wait for App Runner health
-		ValidateAppRunnerHealth(t, appRunnerURL, 20)
-
-		// Display instructions
-		t.Log("=======================================================")
-		t.Log("INTEGRATION TEST - OBSERVER MODE")
-		t.Log("=======================================================")
-		t.Logf("App Runner URL: https://%s", appRunnerURL)
-		t.Logf("Test Repo: %s", testRepo)
-		t.Logf("Workflow: %s", testWorkflow)
-		t.Log("")
-		t.Log("Steps:")
-		t.Log("  1. Register RunsOn app at the URL above")
-		t.Log("  2. Trigger a workflow_dispatch run for the workflow above")
-		t.Log("  3. Test will detect the run and monitor to completion")
-		t.Log("")
-		t.Logf("To abort: touch /tmp/runson-%s-abort", testID)
-		t.Log("=======================================================")
-
-		// Watch for workflow run (user triggers it manually)
-		runID, err := WatchForWorkflowRun(t, testRepo, testWorkflow, testID, startTime, 15*time.Minute)
-		require.NoError(t, err, "Workflow run not found")
-
-		// Monitor job states for early stuck-queue detection
-		err = MonitorWorkflowJobStates(t, testRepo, runID, 3*time.Minute)
-		require.NoError(t, err, "Job stuck in queue - is the RunsOn app registered?")
-
-		// Wait for completion
-		conclusion := WaitForWorkflowCompletion(t, testRepo, runID, 10*time.Minute)
-		assert.Equal(t, "success", conclusion, "Workflow should succeed")
-
-		// Validate runner was launched
-		launched := ValidateRunnerLaunched(t, stackName, startTime)
-		assert.True(t, launched, "Runner instance should have been launched")
-	})
-
-	fmt.Printf("\n✅ Basic scenario deployment successful!\n")
-	fmt.Printf("   Stack: %s\n", stackName)
-	fmt.Printf("   App Runner: %s\n", appRunnerURL)
 }
 
-// TestScenarioFullFeatured tests full-featured scenario with all options
-// NOTE: Most expensive test - requires NAT + EFS + ECR
+// TestScenarioFullFeatured tests full-featured scenario with all options (NAT + EFS + ECR).
 func TestScenarioFullFeatured(t *testing.T) {
-	t.Parallel()
-
 	if testing.Short() {
 		t.Skip("Skipping expensive full-featured test (requires NAT + EFS + ECR)")
 	}
 
-	config := DefaultScenarioConfig()
-	config.EnableNAT = true
-	config.EnableEFS = true
-	config.EnableECR = true
+	cfg := DefaultScenarioConfig()
+	cfg.EnableNAT = true
+	cfg.EnableEFS = true
+	cfg.EnableECR = true
 
-	// Deploy VPC with NAT
-	vpcOptions := &terraform.Options{
-		TerraformDir:    "./fixtures/vpc",
-		TerraformBinary: "tofu",
-		Vars:            config.ToVPCVars(),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, vpcOptions)
-	terraform.InitAndApply(t, vpcOptions)
+	runScenario(t, cfg, func(t *testing.T, r ScenarioResult) {
+		clients := NewAWSClients(context.Background())
 
-	// Get VPC outputs
-	vpcID := terraform.Output(t, vpcOptions, "vpc_id")
-	publicSubnets := terraform.OutputList(t, vpcOptions, "public_subnets")
-	privateSubnets := terraform.OutputList(t, vpcOptions, "private_subnets")
+		runOutputValidations(t, r)
+		runSecurityValidations(t, clients, r)
+		runComplianceValidations(t, clients, r)
+		runWiringValidations(t, clients, r)
+		runTaggingValidations(t, clients, r)
+		runAdvancedValidations(t, r)
 
-	// Deploy runs-on module with all features
-	moduleOptions := &terraform.Options{
-		TerraformDir:    "../",
-		TerraformBinary: "tofu",
-		Vars:            config.ToModuleVars(vpcID, publicSubnets, privateSubnets),
-		NoColor:         true,
-	}
-	defer terraform.Destroy(t, moduleOptions)
-	terraform.InitAndApply(t, moduleOptions)
-
-	// Get outputs
-	stackName := terraform.Output(t, moduleOptions, "stack_name")
-	appRunnerURL := terraform.Output(t, moduleOptions, "apprunner_service_url")
-	configBucket := terraform.Output(t, moduleOptions, "config_bucket_name")
-	cacheBucket := terraform.Output(t, moduleOptions, "cache_bucket_name")
-	loggingBucket := terraform.Output(t, moduleOptions, "logging_bucket_name")
-	ec2RoleName := terraform.Output(t, moduleOptions, "ec2_instance_role_name")
-	efsFileSystemID := terraform.Output(t, moduleOptions, "efs_file_system_id")
-	ecrURL := terraform.Output(t, moduleOptions, "ecr_repository_url")
-	logGroupName := terraform.Output(t, moduleOptions, "ec2_instance_log_group_name")
-
-	// ===== OUTPUT VALIDATIONS =====
-	t.Run("Outputs", func(t *testing.T) {
-		assert.NotEmpty(t, stackName, "Stack name should not be empty")
-		assert.NotEmpty(t, appRunnerURL, "App Runner URL should not be empty")
-		assert.Contains(t, appRunnerURL, "awsapprunner.com", "Should be a valid App Runner URL")
-		assert.NotEmpty(t, configBucket, "Config bucket should not be empty")
-		assert.NotEmpty(t, cacheBucket, "Cache bucket should not be empty")
-		assert.NotEmpty(t, loggingBucket, "Logging bucket should not be empty")
-		assert.NotEmpty(t, ec2RoleName, "EC2 role name should not be empty")
-		assert.NotEmpty(t, efsFileSystemID, "EFS ID should not be empty")
-		assert.NotEmpty(t, ecrURL, "ECR URL should not be empty")
-	})
-
-	// ===== SECURITY VALIDATIONS =====
-	t.Run("Security/S3Encryption", func(t *testing.T) {
-		ValidateS3BucketEncryption(t, configBucket)
-		ValidateS3BucketEncryption(t, cacheBucket)
-		ValidateS3BucketEncryption(t, loggingBucket)
-	})
-
-	t.Run("Security/S3AccessLogging", func(t *testing.T) {
-		ValidateS3BucketLogging(t, configBucket, loggingBucket)
-		ValidateS3BucketLogging(t, cacheBucket, loggingBucket)
-	})
-
-	t.Run("Security/S3PublicAccessBlocked", func(t *testing.T) {
-		ValidateS3BucketPublicAccessBlocked(t, configBucket)
-		ValidateS3BucketPublicAccessBlocked(t, cacheBucket)
-		ValidateS3BucketPublicAccessBlocked(t, loggingBucket)
-	})
-
-	t.Run("Security/IAMMinimalPermissions", func(t *testing.T) {
-		ValidateIAMRoleNotOverlyPermissive(t, ec2RoleName)
-	})
-
-	// ===== COMPLIANCE VALIDATIONS =====
-	t.Run("Compliance/S3Versioning", func(t *testing.T) {
-		ValidateS3BucketVersioning(t, configBucket, "Enabled")
-		ValidateS3BucketVersioning(t, cacheBucket, "Suspended")
-		ValidateS3BucketVersioning(t, loggingBucket, "Enabled")
-	})
-
-	t.Run("Compliance/LogRetention", func(t *testing.T) {
-		ValidateCloudWatchLogRetention(t, logGroupName)
-	})
-
-	// ===== ADVANCED VALIDATIONS =====
-	t.Run("Advanced/AppRunnerHealth", func(t *testing.T) {
-		ValidateAppRunnerHealth(t, appRunnerURL, 10)
-	})
-
-	// ===== FUNCTIONAL VALIDATIONS =====
-	// Full-featured scenario tests ALL functional capabilities from a private subnet:
-	// - Instance has no public IP (proper isolation)
-	// - Instance can reach external services via NAT gateway
-	// - Instance can access S3 buckets with correct IAM permissions
-	// - Instance can mount EFS and perform I/O operations
-	// - Instance can authenticate to ECR and push/pull images
-	t.Run("Functional", func(t *testing.T) {
-		// Get private launch template ID (test from private subnet for full coverage)
-		launchTemplateID := terraform.Output(t, moduleOptions, "launch_template_linux_private_id")
-		require.NotEmpty(t, launchTemplateID, "Private launch template ID should not be empty")
-
-		// Launch instance in PRIVATE subnet (no public IP, uses NAT for SSM)
-		instanceID := LaunchTestInstance(t, launchTemplateID, privateSubnets[0], false)
-		defer TerminateTestInstance(t, instanceID)
-
-		// Wait for instance to be SSM-ready (requires NAT gateway)
-		ready := WaitForInstanceReady(t, instanceID, 7*time.Minute)
-		require.True(t, ready, "Private instance failed to become SSM-ready - check NAT gateway")
-
-		t.Run("NoPublicIP", func(t *testing.T) {
-			hasNoPublicIP := ValidateInstanceHasNoPublicIP(t, instanceID)
-			assert.True(t, hasNoPublicIP, "Private subnet instance should not have public IP")
+		t.Run("Functional", func(t *testing.T) {
+			runFunctionalValidations(t, clients, r)
 		})
 
-		t.Run("OutboundConnectivity", func(t *testing.T) {
-			// Proves NAT gateway is working
-			ValidatePrivateNetworkConnectivity(t, instanceID)
-		})
+		runIntegrationTest(t, clients, r)
 
-		t.Run("S3Access", func(t *testing.T) {
-			// Validates IAM permissions work from private subnet
-			ValidateS3AccessFromEC2(t, instanceID, cacheBucket, configBucket)
-		})
-
-		t.Run("EFSMount", func(t *testing.T) {
-			// Validates EFS mount, write, read, and unmount
-			ValidateEFSMountFromEC2(t, instanceID, efsFileSystemID)
-		})
-
-		t.Run("ECRPushPull", func(t *testing.T) {
-			// Validates ECR authentication, push, and pull
-			ValidateECRPushPullFromEC2(t, instanceID, ecrURL)
-		})
-
-		t.Run("CloudWatchLogging", func(t *testing.T) {
-			ValidateEC2CloudWatchLogs(t, instanceID, logGroupName)
-		})
+		fmt.Printf("\nFull-featured deployment successful!\n")
+		fmt.Printf("   Stack: %s\n", r.StackName())
+		fmt.Printf("   App Runner: %s\n", r.AppRunnerURL())
+		fmt.Printf("   EFS: %s\n", r.EFSFileSystemID())
+		fmt.Printf("   ECR: %s\n", r.ECRURL())
 	})
+}
 
-	// ===== INTEGRATION TESTS =====
-	// Manual trigger mode: User triggers workflow with test_id provided by the test.
-	// Test watches for that specific run using the test_id for correlation.
-	// Skips automatically if required env vars not set.
+// runIntegrationTest runs the observer-mode integration test if env vars are set.
+func runIntegrationTest(t *testing.T, clients *AWSClients, r ScenarioResult) {
 	t.Run("Integration/JobExecution", func(t *testing.T) {
-		// Requires GITHUB_TOKEN for GitHub API calls
 		if os.Getenv("GITHUB_TOKEN") == "" {
 			t.Skip("GITHUB_TOKEN not set")
 		}
 
-		// Get test repo - prefer RUNS_ON_TEST_REPO, fallback to GITHUB_REPOSITORY
-		// Skips automatically if neither is set (implicit opt-in)
 		testRepo := os.Getenv("RUNS_ON_TEST_REPO")
 		if testRepo == "" {
 			testRepo = os.Getenv("GITHUB_REPOSITORY")
@@ -383,14 +95,12 @@ func TestScenarioFullFeatured(t *testing.T) {
 		testID := GetTestID()
 		startTime := time.Now()
 
-		// Wait for App Runner health
-		ValidateAppRunnerHealth(t, appRunnerURL, 20)
+		ValidateAppRunnerHealth(t, r.AppRunnerURL(), 20)
 
-		// Display instructions
 		t.Log("=======================================================")
 		t.Log("INTEGRATION TEST - OBSERVER MODE")
 		t.Log("=======================================================")
-		t.Logf("App Runner URL: https://%s", appRunnerURL)
+		t.Logf("App Runner URL: https://%s", r.AppRunnerURL())
 		t.Logf("Test Repo: %s", testRepo)
 		t.Logf("Workflow: %s", testWorkflow)
 		t.Log("")
@@ -402,26 +112,16 @@ func TestScenarioFullFeatured(t *testing.T) {
 		t.Logf("To abort: touch /tmp/runson-%s-abort", testID)
 		t.Log("=======================================================")
 
-		// Watch for workflow run (user triggers it manually)
 		runID, err := WatchForWorkflowRun(t, testRepo, testWorkflow, testID, startTime, 15*time.Minute)
 		require.NoError(t, err, "Workflow run not found")
 
-		// Monitor job states for early stuck-queue detection
 		err = MonitorWorkflowJobStates(t, testRepo, runID, 3*time.Minute)
 		require.NoError(t, err, "Job stuck in queue - is the RunsOn app registered?")
 
-		// Wait for completion
 		conclusion := WaitForWorkflowCompletion(t, testRepo, runID, 10*time.Minute)
 		assert.Equal(t, "success", conclusion, "Workflow should succeed")
 
-		// Validate runner was launched
-		launched := ValidateRunnerLaunched(t, stackName, startTime)
+		launched := ValidateRunnerLaunched(t, clients, r.StackName(), startTime)
 		assert.True(t, launched, "Runner instance should have been launched")
 	})
-
-	fmt.Printf("\n✅ Full-featured deployment successful!\n")
-	fmt.Printf("   Stack: %s\n", stackName)
-	fmt.Printf("   App Runner: %s\n", appRunnerURL)
-	fmt.Printf("   EFS: %s\n", efsFileSystemID)
-	fmt.Printf("   ECR: %s\n", ecrURL)
 }
