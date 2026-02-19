@@ -263,14 +263,6 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "${var.cache_bucket_arn}/agents/*"
         ]
       },
-      # S3 cache bucket: GetObject for metrics download redirect
-      {
-        Effect = "Allow"
-        Action = [
-          "s3:GetObject"
-        ]
-        Resource = "${var.cache_bucket_arn}/cache/metrics/*"
-      },
       # SNS Publish
       {
         Effect = "Allow"
