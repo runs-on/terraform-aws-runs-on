@@ -251,7 +251,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         ]
         Resource = "${var.config_bucket_arn}/runs-on/db/*"
       },
-      # S3 cache bucket: PutObject only
+      # S3 cache bucket: PutObject for runner configs and agent binaries
       {
         Effect = "Allow"
         Action = [
@@ -262,6 +262,14 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
           "${var.cache_bucket_arn}/runners/*",
           "${var.cache_bucket_arn}/agents/*"
         ]
+      },
+      # S3 cache bucket: GetObject for metrics download redirect
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = "${var.cache_bucket_arn}/cache/metrics/*"
       },
       # SNS Publish
       {
