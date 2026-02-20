@@ -99,6 +99,9 @@ locals {
     {
       RUNS_ON_STACK_CONFIG_JSON = aws_secretsmanager_secret.runs_on_stack_config.arn
     },
+    var.app_config_json != "" ? {
+      RUNS_ON_APP_CONFIG_JSON = aws_secretsmanager_secret.runs_on_app_config[0].arn
+    } : {},
     var.otel_exporter_headers != "" ? {
       OTEL_EXPORTER_OTLP_HEADERS = aws_ssm_parameter.otel_exporter_headers[0].arn
     } : {}

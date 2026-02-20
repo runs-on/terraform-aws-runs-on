@@ -190,6 +190,13 @@ module "core" {
   # App Runner configuration
   app_image              = var.app_image
   app_tag                = var.app_tag
+  app_config_json = var.github_app_id != null ? jsonencode({
+    id             = var.github_app_id
+    pem            = var.github_app_private_key
+    webhook_secret = var.github_app_webhook_secret
+    client_id      = var.github_app_client_id
+    client_secret  = var.github_app_client_secret
+  }) : ""
   app_cpu                = var.app_cpu
   app_memory             = var.app_memory
   bootstrap_tag          = var.bootstrap_tag
