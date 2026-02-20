@@ -148,6 +148,13 @@ variable "maintenance_mode" {
   default     = false
 }
 
+variable "app_config_json" {
+  description = "GitHub App configuration JSON (app.json contents). If provided, creates a Secrets Manager secret and skips the web-based GitHub App setup flow."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "bootstrap_tag" {
   description = "Bootstrap script version tag"
   type        = string

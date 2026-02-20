@@ -254,7 +254,7 @@ variable "app_image" {
 variable "app_tag" {
   description = "Application version tag for RunsOn service"
   type        = string
-  default     = "dev"
+  default     = "production"
 }
 
 variable "bootstrap_tag" {
@@ -301,6 +301,39 @@ variable "app_ecr_repository_url" {
   description = "Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, App Runner will pull from this private ECR instead of public ECR."
   type        = string
   default     = ""
+}
+
+variable "github_app_id" {
+  description = "GitHub App ID. If provided along with other github_app_* variables, creates a Secrets Manager secret and skips the web-based GitHub App setup flow."
+  type        = number
+  default     = null
+}
+
+variable "github_app_private_key" {
+  description = "GitHub App private key (PEM format)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_app_webhook_secret" {
+  description = "GitHub App webhook secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_app_client_id" {
+  description = "GitHub App client ID"
+  type        = string
+  default     = ""
+}
+
+variable "github_app_client_secret" {
+  description = "GitHub App client secret"
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 ###########################
