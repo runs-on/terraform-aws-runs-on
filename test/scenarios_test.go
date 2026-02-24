@@ -3,12 +3,7 @@ package test
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
-	"time"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // TestScenarioBasic tests the basic deployment scenario with all validations.
@@ -28,8 +23,6 @@ func TestScenarioBasic(t *testing.T) {
 		t.Run("Functional", func(t *testing.T) {
 			runFunctionalValidations(t, clients, r)
 		})
-
-		runIntegrationTest(t, clients, r)
 
 		fmt.Printf("\nBasic scenario deployment successful!\n")
 		fmt.Printf("   Stack: %s\n", r.StackName())
@@ -62,8 +55,6 @@ func TestScenarioFullFeatured(t *testing.T) {
 			runFunctionalValidations(t, clients, r)
 		})
 
-		runIntegrationTest(t, clients, r)
-
 		fmt.Printf("\nFull-featured deployment successful!\n")
 		fmt.Printf("   Stack: %s\n", r.StackName())
 		fmt.Printf("   App Runner: %s\n", r.AppRunnerURL())
@@ -72,56 +63,33 @@ func TestScenarioFullFeatured(t *testing.T) {
 	})
 }
 
-// runIntegrationTest runs the observer-mode integration test if env vars are set.
-func runIntegrationTest(t *testing.T, clients *AWSClients, r ScenarioResult) {
-	t.Run("Integration/JobExecution", func(t *testing.T) {
-		if os.Getenv("GITHUB_TOKEN") == "" {
-			t.Skip("GITHUB_TOKEN not set")
-		}
+// TestScenarioPrivateNetworking tests deployment with private networking enabled.
+func TestScenarioPrivateNetworking(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping expensive private networking test")
+	}
 
-		testRepo := os.Getenv("RUNS_ON_TEST_REPO")
-		if testRepo == "" {
-			testRepo = os.Getenv("GITHUB_REPOSITORY")
-		}
-		if testRepo == "" {
-			t.Skip("RUNS_ON_TEST_REPO or GITHUB_REPOSITORY not set")
-		}
+	cfg := DefaultScenarioConfig()
+	cfg.EnableNAT = true
+	cfg.PrivateMode = "true"
 
-		testWorkflow := os.Getenv("RUNS_ON_TEST_WORKFLOW")
-		if testWorkflow == "" {
-			t.Skip("RUNS_ON_TEST_WORKFLOW not set")
-		}
+	runScenario(t, cfg, func(t *testing.T, r ScenarioResult) {
+		clients := NewAWSClients(context.Background())
 
-		testID := GetTestID()
-		startTime := time.Now()
+		runOutputValidations(t, r)
+		runSecurityValidations(t, clients, r)
+		runComplianceValidations(t, clients, r)
+		runWiringValidations(t, clients, r)
+		runTaggingValidations(t, clients, r)
+		runAdvancedValidations(t, r)
 
-		ValidateAppRunnerHealth(t, r.AppRunnerURL(), 20)
+		t.Run("Functional", func(t *testing.T) {
+			runFunctionalValidations(t, clients, r)
+		})
 
-		t.Log("=======================================================")
-		t.Log("INTEGRATION TEST - OBSERVER MODE")
-		t.Log("=======================================================")
-		t.Logf("App Runner URL: https://%s", r.AppRunnerURL())
-		t.Logf("Test Repo: %s", testRepo)
-		t.Logf("Workflow: %s", testWorkflow)
-		t.Log("")
-		t.Log("Steps:")
-		t.Log("  1. Register RunsOn app at the URL above")
-		t.Log("  2. Trigger a workflow_dispatch run for the workflow above")
-		t.Log("  3. Test will detect the run and monitor to completion")
-		t.Log("")
-		t.Logf("To abort: touch /tmp/runson-%s-abort", testID)
-		t.Log("=======================================================")
-
-		runID, err := WatchForWorkflowRun(t, testRepo, testWorkflow, testID, startTime, 15*time.Minute)
-		require.NoError(t, err, "Workflow run not found")
-
-		err = MonitorWorkflowJobStates(t, testRepo, runID, 3*time.Minute)
-		require.NoError(t, err, "Job stuck in queue - is the RunsOn app registered?")
-
-		conclusion := WaitForWorkflowCompletion(t, testRepo, runID, 10*time.Minute)
-		assert.Equal(t, "success", conclusion, "Workflow should succeed")
-
-		launched := ValidateRunnerLaunched(t, clients, r.StackName(), startTime)
-		assert.True(t, launched, "Runner instance should have been launched")
+		fmt.Printf("\nPrivate networking deployment successful!\n")
+		fmt.Printf("   Stack: %s\n", r.StackName())
+		fmt.Printf("   App Runner: %s\n", r.AppRunnerURL())
+		fmt.Printf("   Private Mode: %s\n", cfg.PrivateMode)
 	})
 }

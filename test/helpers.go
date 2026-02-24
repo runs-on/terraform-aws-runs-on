@@ -2,11 +2,17 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"net/http"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -14,11 +20,18 @@ import (
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
+	ghinstallation "github.com/bradleyfalzon/ghinstallation/v2"
 	"github.com/google/go-github/v68/github"
 	"github.com/gruntwork-io/terratest/modules/terraform"
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 )
+
+func init() {
+	// Load .env file if present (does not override existing env vars)
+	_ = godotenv.Load()
+}
 
 // GetTestID generates a unique test ID for resource naming (Unix timestamp in seconds)
 func GetTestID() string {
@@ -48,14 +61,16 @@ type ScenarioConfig struct {
 	TestID     string
 	GithubOrg  string
 	LicenseKey string
-	EnableEFS  bool
-	EnableECR  bool
-	EnableNAT  bool
-	AWSRegion  string
+	EnableEFS   bool
+	EnableECR   bool
+	EnableNAT   bool
+	PrivateMode string // "false", "true", "always", "only" — implies EnableNAT when not "false"
+	AWSRegion   string
 
 	// App version overrides (optional - empty means use module defaults)
-	AppImage string
-	AppTag   string
+	AppImage         string
+	AppTag           string
+	AppECRRepository string // private ECR image URL (overrides AppImage when set)
 
 	// ForceDestroyBuckets controls whether S3 buckets can be force-destroyed on terraform destroy.
 	// Set to false for integration tests that preserve buckets across runs.
@@ -64,6 +79,15 @@ type ScenarioConfig struct {
 	// FixedStackName overrides the auto-generated stack name.
 	// Used by integration tests that need a stable stack name across runs.
 	FixedStackName string
+
+	// GitHub App credentials (optional). When GithubAppID is set, credentials are
+	// passed to Terraform as github_app_* variables, creating a Secrets Manager
+	// secret so the server skips web-based GitHub App registration.
+	GithubAppID            int64
+	GithubAppPrivateKey    string
+	GithubAppWebhookSecret string
+	GithubAppClientID      string
+	GithubAppClientSecret  string
 }
 
 // DefaultScenarioConfig returns config with sensible test defaults
@@ -73,8 +97,9 @@ func DefaultScenarioConfig() ScenarioConfig {
 		GithubOrg:           getGithubOrg(),
 		LicenseKey:          GetOptionalEnv("RUNS_ON_LICENSE_KEY", "test-license"),
 		AWSRegion:           GetOptionalEnv("AWS_REGION", "us-east-1"),
-		AppImage:            os.Getenv("RUNS_ON_APP_IMAGE"),
-		AppTag:              os.Getenv("RUNS_ON_APP_TAG"),
+		AppImage:         os.Getenv("RUNS_ON_APP_IMAGE"),
+		AppTag:           os.Getenv("RUNS_ON_APP_TAG"),
+		AppECRRepository: os.Getenv("RUNS_ON_APP_ECR_URL"),
 		ForceDestroyBuckets: true,
 	}
 }
@@ -139,12 +164,36 @@ func (c ScenarioConfig) ToModuleVars(vpcID string, publicSubnets, privateSubnets
 	if c.AppTag != "" {
 		vars["app_tag"] = c.AppTag
 	}
+	if c.AppECRRepository != "" {
+		vars["app_ecr_repository_url"] = c.AppECRRepository
+	}
+
+	if c.PrivateMode != "" && c.PrivateMode != "false" {
+		vars["private_mode"] = c.PrivateMode
+	}
 
 	if len(privateSubnets) > 0 && c.EnableNAT {
 		vars["private_subnet_ids"] = privateSubnets
 	}
 
+	if c.GithubAppID != 0 {
+		vars["github_app_id"] = c.GithubAppID
+		vars["github_app_client_id"] = c.GithubAppClientID
+	}
+
 	return vars
+}
+
+// ToModuleEnvVars returns sensitive/multiline values as TF_VAR_ environment variables.
+// These can't be passed as -var CLI flags (multiline strings break the command).
+func (c ScenarioConfig) ToModuleEnvVars() map[string]string {
+	envVars := map[string]string{}
+	if c.GithubAppID != 0 {
+		envVars["TF_VAR_github_app_private_key"] = c.GithubAppPrivateKey
+		envVars["TF_VAR_github_app_webhook_secret"] = c.GithubAppWebhookSecret
+		envVars["TF_VAR_github_app_client_secret"] = c.GithubAppClientSecret
+	}
+	return envVars
 }
 
 // =============================================================================
@@ -194,6 +243,7 @@ func runScenario(t *testing.T, cfg ScenarioConfig, validate func(t *testing.T, r
 		TerraformDir:    "../",
 		TerraformBinary: "tofu",
 		Vars:            cfg.ToModuleVars(vpcID, publicSubnets, privateSubnets),
+		EnvVars:         cfg.ToModuleEnvVars(),
 		NoColor:         true,
 	}
 	defer terraform.Destroy(t, moduleOptions)
@@ -214,34 +264,24 @@ func runScenario(t *testing.T, cfg ScenarioConfig, validate func(t *testing.T, r
 	validate(t, result)
 }
 
-// extractOutputs reads all terraform outputs, tolerating optional null outputs.
+// extractOutputs reads all terraform outputs at once via `tofu output -json`.
+// This avoids per-key queries that fail fatally for optional null outputs.
 func extractOutputs(t *testing.T, opts *terraform.Options) map[string]string {
 	outputs := make(map[string]string)
-	keys := []string{
-		"stack_name", "aws_account_id", "aws_region",
-		"config_bucket_name", "cache_bucket_name", "logging_bucket_name",
-		"ec2_instance_role_name", "ec2_instance_role_arn", "ec2_instance_profile_arn",
-		"ec2_instance_log_group_name",
-		"launch_template_linux_default_id", "launch_template_windows_default_id",
-		"launch_template_linux_private_id", "launch_template_windows_private_id",
-		"apprunner_service_url", "apprunner_service_arn", "apprunner_service_status",
-		"apprunner_log_group_name",
-		"sns_topic_arn",
-		"sqs_queue_main_url", "sqs_queue_jobs_url", "sqs_queue_github_url",
-		"sqs_queue_pool_url", "sqs_queue_housekeeping_url", "sqs_queue_termination_url",
-		"sqs_queue_events_url",
-		"dynamodb_locks_table_name", "dynamodb_workflow_jobs_table_name",
-		"dashboard_url", "dashboard_name",
-		// Optional outputs (may be null when features disabled)
-		"efs_file_system_id", "efs_file_system_dns_name",
-		"ecr_repository_url", "ecr_repository_name",
-		"waf_web_acl_arn", "waf_web_acl_id",
-	}
 
-	for _, key := range keys {
-		val, err := terraform.OutputE(t, opts, key)
-		if err == nil && val != "" {
-			outputs[key] = val
+	jsonStr := terraform.RunTerraformCommand(t, opts, "output", "-json")
+
+	var raw map[string]struct {
+		Value interface{} `json:"value"`
+	}
+	err := json.Unmarshal([]byte(jsonStr), &raw)
+	require.NoError(t, err, "Failed to parse terraform output JSON")
+
+	for key, entry := range raw {
+		if entry.Value != nil {
+			if s, ok := entry.Value.(string); ok && s != "" {
+				outputs[key] = s
+			}
 		}
 	}
 	return outputs
@@ -494,6 +534,25 @@ func getGitHubClient() (*github.Client, error) {
 	return github.NewClient(tc), nil
 }
 
+// UpdateGitHubAppWebhookURL authenticates as a GitHub App using JWT and updates
+// the App's webhook URL via PATCH /app/hook/config.
+func UpdateGitHubAppWebhookURL(t *testing.T, appID int64, privateKey string, webhookURL string) {
+	t.Helper()
+
+	transport, err := ghinstallation.NewAppsTransport(
+		http.DefaultTransport, appID, []byte(privateKey),
+	)
+	require.NoError(t, err, "Failed to create GitHub App JWT transport")
+
+	client := github.NewClient(&http.Client{Transport: transport})
+	_, _, err = client.Apps.UpdateHookConfig(
+		context.Background(),
+		&github.HookConfig{URL: github.Ptr(webhookURL)},
+	)
+	require.NoError(t, err, "Failed to update GitHub App webhook URL")
+	t.Logf("Updated GitHub App webhook URL to: %s", webhookURL)
+}
+
 // parseRepo splits a repo string in "owner/repo" format into owner and repo name.
 func parseRepo(repo string) (string, string, error) {
 	parts := strings.Split(repo, "/")
@@ -654,4 +713,96 @@ func MonitorWorkflowJobStates(t *testing.T, repo string, runID int64, queuedTime
 	}
 
 	return fmt.Errorf("jobs stuck in 'queued' state for %v - likely no runner available (is the RunsOn app registered?)", queuedTimeout)
+}
+
+// BootTimings holds timing data extracted from workflow job logs.
+type BootTimings struct {
+	TotalDuration     float64 // seconds, from "Timings - X.XXs" group header
+	AgentBootingTotal float64 // seconds, Total column on the agent-booting row
+}
+
+var (
+	reTimingsHeader = regexp.MustCompile(`Timings.*?-\s+(\d+\.?\d*)s`)
+	reTimingValue   = regexp.MustCompile(`(\d+\.?\d*)s`)
+)
+
+// FetchJobLogs retrieves the raw log text for each job in a workflow run.
+// Returns a map of job name to log text.
+func FetchJobLogs(t *testing.T, repo string, runID int64) map[string]string {
+	t.Helper()
+
+	client, err := getGitHubClient()
+	require.NoError(t, err, "Failed to create GitHub client")
+
+	owner, repoName, err := parseRepo(repo)
+	require.NoError(t, err, "Invalid repo format")
+
+	ctx := context.Background()
+
+	jobs, _, err := client.Actions.ListWorkflowJobs(ctx, owner, repoName, runID, &github.ListWorkflowJobsOptions{
+		Filter: "all",
+	})
+	require.NoError(t, err, "Failed to list workflow jobs for run %d", runID)
+
+	logs := make(map[string]string)
+	for _, job := range jobs.Jobs {
+		jobName := job.GetName()
+		logURL, _, err := client.Actions.GetWorkflowJobLogs(ctx, owner, repoName, job.GetID(), 2)
+		if err != nil {
+			t.Logf("Warning: failed to get log URL for job %q: %v", jobName, err)
+			continue
+		}
+
+		resp, err := http.Get(logURL.String()) // #nosec G107 -- URL from GitHub API
+		if err != nil {
+			t.Logf("Warning: failed to fetch logs for job %q: %v", jobName, err)
+			continue
+		}
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			t.Logf("Warning: failed to read log body for job %q: %v", jobName, err)
+			continue
+		}
+
+		logs[jobName] = string(body)
+		t.Logf("Fetched %d bytes of logs for job %q", len(body), jobName)
+	}
+
+	return logs
+}
+
+// ParseBootTimings extracts boot timing data from a workflow job's raw log text.
+// Returns nil if no timing data is found.
+func ParseBootTimings(logText string) *BootTimings {
+	bt := &BootTimings{}
+	found := false
+
+	// Extract total duration from "::group::⏱️ Timings - X.XXs" header
+	if m := reTimingsHeader.FindStringSubmatch(logText); len(m) > 1 {
+		if v, err := strconv.ParseFloat(m[1], 64); err == nil {
+			bt.TotalDuration = v
+			found = true
+		}
+	}
+
+	// Find the agent-booting row and extract the Total column (last Xs value on the line)
+	for _, line := range strings.Split(logText, "\n") {
+		if strings.Contains(line, "agent-booting") {
+			matches := reTimingValue.FindAllStringSubmatch(line, -1)
+			if len(matches) > 0 {
+				last := matches[len(matches)-1]
+				if v, err := strconv.ParseFloat(last[1], 64); err == nil {
+					bt.AgentBootingTotal = v
+					found = true
+				}
+			}
+			break
+		}
+	}
+
+	if !found {
+		return nil
+	}
+	return bt
 }
