@@ -64,15 +64,21 @@ resource "aws_dynamodb_table" "workflow_jobs" {
 
   global_secondary_index {
     name            = "next-check-index"
-    hash_key        = "next_check_partition"
-    range_key       = "next_check_at_unix"
     projection_type = "ALL"
+
+    key_schema {
+      attribute_name = "next_check_partition"
+      key_type       = "HASH"
+    }
+
+    key_schema {
+      attribute_name = "next_check_at_unix"
+      key_type       = "RANGE"
+    }
   }
 
   global_secondary_index {
     name            = "daily-activity-index"
-    hash_key        = "created_at_date"
-    range_key       = "created_at_unix"
     projection_type = "INCLUDE"
     non_key_attributes = [
       "installation_id",
@@ -80,6 +86,16 @@ resource "aws_dynamodb_table" "workflow_jobs" {
       "repo_name",
       "job_id"
     ]
+
+    key_schema {
+      attribute_name = "created_at_date"
+      key_type       = "HASH"
+    }
+
+    key_schema {
+      attribute_name = "created_at_unix"
+      key_type       = "RANGE"
+    }
   }
 
   ttl {
