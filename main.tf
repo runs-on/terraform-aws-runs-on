@@ -42,9 +42,9 @@ locals {
 ###########################
 
 resource "time_sleep" "wait_for_nat" {
-  count = var.private_mode != "false" ? 1 : 0
+  count = var.private_mode != "false" && var.private_mode_delay != "0s" ? 1 : 0
 
-  create_duration = "60s"
+  create_duration = var.private_mode_delay
 }
 
 ###########################

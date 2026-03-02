@@ -58,9 +58,9 @@ func GetAWSRegion() string {
 
 // ScenarioConfig holds common test configuration for all scenarios
 type ScenarioConfig struct {
-	TestID     string
-	GithubOrg  string
-	LicenseKey string
+	TestID      string
+	GithubOrg   string
+	LicenseKey  string
 	EnableEFS   bool
 	EnableECR   bool
 	EnableNAT   bool
@@ -97,9 +97,9 @@ func DefaultScenarioConfig() ScenarioConfig {
 		GithubOrg:           getGithubOrg(),
 		LicenseKey:          GetOptionalEnv("RUNS_ON_LICENSE_KEY", "test-license"),
 		AWSRegion:           GetOptionalEnv("AWS_REGION", "us-east-1"),
-		AppImage:         os.Getenv("RUNS_ON_APP_IMAGE"),
-		AppTag:           os.Getenv("RUNS_ON_APP_TAG"),
-		AppECRRepository: os.Getenv("RUNS_ON_APP_ECR_URL"),
+		AppImage:            os.Getenv("RUNS_ON_APP_IMAGE"),
+		AppTag:              os.Getenv("RUNS_ON_APP_TAG"),
+		AppECRRepository:    os.Getenv("RUNS_ON_APP_ECR_URL"),
 		ForceDestroyBuckets: true,
 	}
 }
@@ -170,6 +170,7 @@ func (c ScenarioConfig) ToModuleVars(vpcID string, publicSubnets, privateSubnets
 
 	if c.PrivateMode != "" && c.PrivateMode != "false" {
 		vars["private_mode"] = c.PrivateMode
+		vars["private_mode_delay"] = "60s"
 	}
 
 	if len(privateSubnets) > 0 && c.EnableNAT {
@@ -200,16 +201,11 @@ func (c ScenarioConfig) ToModuleEnvVars() map[string]string {
 // AWS SDK HELPERS
 // =============================================================================
 
-// GetAWSConfig creates a reusable AWS config for SDK v2
-func GetAWSConfig(ctx context.Context) (aws.Config, error) {
-	return config.LoadDefaultConfig(ctx,
-		config.WithRegion(GetAWSRegion()),
-	)
-}
-
 // MustGetAWSConfig creates a reusable AWS config, panicking on error
 func MustGetAWSConfig(ctx context.Context) aws.Config {
-	cfg, err := GetAWSConfig(ctx)
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithRegion(GetAWSRegion()),
+	)
 	if err != nil {
 		panic(fmt.Sprintf("failed to load AWS config: %v", err))
 	}

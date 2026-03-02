@@ -99,17 +99,18 @@ func TestPlanConditionalResources(t *testing.T) {
 			},
 			expectPresent: []string{
 				"aws_apprunner_vpc_connector",
-				"time_sleep",
 			},
 		},
 		{
-			name: "PrivateModeAlways",
+			name: "PrivateModeWithDelay",
 			overrides: map[string]interface{}{
-				"private_mode":       "always",
+				"private_mode":       "true",
 				"private_subnet_ids": []string{"subnet-22222222"},
+				"private_mode_delay": "60s",
 			},
 			expectPresent: []string{
 				"aws_apprunner_vpc_connector",
+				"time_sleep",
 			},
 		},
 		{
