@@ -142,6 +142,12 @@ variable "app_tag" {
   type        = string
 }
 
+variable "maintenance_mode" {
+  description = "Enable maintenance mode (disables queue processing and leader election)"
+  type        = bool
+  default     = false
+}
+
 variable "bootstrap_tag" {
   description = "Bootstrap script version tag"
   type        = string

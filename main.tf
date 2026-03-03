@@ -190,6 +190,7 @@ module "core" {
   # App Runner configuration
   app_image              = var.app_image
   app_tag                = var.app_tag
+  maintenance_mode       = var.maintenance_mode
   app_cpu                = var.app_cpu
   app_memory             = var.app_memory
   bootstrap_tag          = var.bootstrap_tag
