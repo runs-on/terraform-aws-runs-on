@@ -197,6 +197,7 @@ module "core" {
     client_id      = var.github_app_client_id
     client_secret  = var.github_app_client_secret
   }) : ""
+  maintenance_mode       = var.maintenance_mode
   app_cpu                = var.app_cpu
   app_memory             = var.app_memory
   bootstrap_tag          = var.bootstrap_tag

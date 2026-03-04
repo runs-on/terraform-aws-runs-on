@@ -147,6 +147,11 @@ variable "app_config_json" {
   type        = string
   default     = ""
   sensitive   = true
+  
+variable "maintenance_mode" {
+  description = "Enable maintenance mode (disables queue processing and leader election)"
+  type        = bool
+  default     = false
 }
 
 variable "bootstrap_tag" {

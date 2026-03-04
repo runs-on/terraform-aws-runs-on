@@ -263,6 +263,12 @@ variable "bootstrap_tag" {
   default     = "v0.1.12"
 }
 
+variable "maintenance_mode" {
+  description = "Enable maintenance mode (disables queue processing and leader election)"
+  type        = bool
+  default     = false
+}
+
 variable "app_cpu" {
   description = "CPU units for App Runner service (256, 512, 1024, 2048, 4096)"
   type        = number
