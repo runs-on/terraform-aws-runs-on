@@ -59,7 +59,7 @@ Requires=local-fs.target
 
 [Service]
 Type=simple
-ExecStart=/bin/bash -lc '/usr/local/bin/runs-on-bootstrap.sh 2>&1 | tee -a /runs-on/output.log'
+ExecStart=/bin/bash -lc '/usr/local/bin/runs-on-bootstrap.sh 2>&1 | tee -a /runs-on/output.log /var/log/cloud-init-output.log'
 StandardOutput=journal+console
 StandardError=journal+console
 Restart=no
@@ -71,5 +71,5 @@ EOF
 systemctl daemon-reload
 if ! systemctl --no-block enable --now runs-on-bootstrap.service; then
   echo "Failed to enable/start runs-on-bootstrap.service via systemd, falling back to inline bootstrap."
-  /usr/local/bin/runs-on-bootstrap.sh 2>&1 | tee -a /runs-on/output.log
+  /usr/local/bin/runs-on-bootstrap.sh 2>&1 | tee -a /runs-on/output.log /var/log/cloud-init-output.log
 fi
