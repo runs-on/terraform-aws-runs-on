@@ -2,7 +2,7 @@
 # Core module orchestration for RunsOn - App Runner, SQS, DynamoDB, SNS, EventBridge
 
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.5.7"
 
   required_providers {
     aws = {
@@ -29,6 +29,7 @@ locals {
       RUNS_ON_ENV                    = var.environment
       RUNS_ON_STACK_NAME             = var.stack_name
       RUNS_ON_APP_TAG                = var.app_tag
+      RUNS_ON_MAINTENANCE_MODE       = tostring(var.maintenance_mode)
       OTEL_EXPORTER_OTLP_ENDPOINT    = var.otel_exporter_endpoint
       OTEL_EXPORTER_OTLP_TEMPORALITY = var.otel_exporter_temporality
       RUNS_ON_LOGGER_LEVEL           = var.logger_level
@@ -87,6 +88,7 @@ locals {
     GithubEnterpriseUrl           = var.github_enterprise_url
     VPCId                         = var.vpc_id
     NetworkingStack               = "external"
+    InfrastructureSource          = "terraform"
     Ec2InstanceLogGroupArn        = var.ec2_instance_log_group_arn
   })
 

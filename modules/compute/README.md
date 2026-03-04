@@ -16,7 +16,7 @@ EC2 launch templates and IAM roles for RunsOn runners.
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.7 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
 
 ## Providers
@@ -61,34 +61,33 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_account_id"></a> [account\_id](#input\_account\_id) | AWS account ID | `string` | n/a | yes |
+| <a name="input_account_id"></a> [account\_id](#input\_account\_id) | AWS account ID for resource ARN construction | `string` | n/a | yes |
+| <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack | `bool` | n/a | yes |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag | `string` | n/a | yes |
+| <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | n/a | yes |
 | <a name="input_cache_bucket_arn"></a> [cache\_bucket\_arn](#input\_cache\_bucket\_arn) | S3 bucket ARN for cache storage | `string` | n/a | yes |
 | <a name="input_cache_bucket_name"></a> [cache\_bucket\_name](#input\_cache\_bucket\_name) | S3 bucket name for cache storage | `string` | n/a | yes |
 | <a name="input_config_bucket_arn"></a> [config\_bucket\_arn](#input\_config\_bucket\_arn) | S3 bucket ARN for configuration storage | `string` | n/a | yes |
 | <a name="input_config_bucket_name"></a> [config\_bucket\_name](#input\_config\_bucket\_name) | S3 bucket name for configuration storage | `string` | n/a | yes |
-| <a name="input_region"></a> [region](#input\_region) | AWS region | `string` | n/a | yes |
+| <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key for cost allocation | `string` | n/a | yes |
+| <a name="input_detailed_monitoring_enabled"></a> [detailed\_monitoring\_enabled](#input\_detailed\_monitoring\_enabled) | Enable detailed CloudWatch monitoring | `bool` | n/a | yes |
+| <a name="input_ebs_encryption_enabled"></a> [ebs\_encryption\_enabled](#input\_ebs\_encryption\_enabled) | Enable EBS volume encryption | `bool` | n/a | yes |
+| <a name="input_efs_file_system_id"></a> [efs\_file\_system\_id](#input\_efs\_file\_system\_id) | EFS file system ID (optional) | `string` | n/a | yes |
+| <a name="input_enable_ecr"></a> [enable\_ecr](#input\_enable\_ecr) | Whether ECR is enabled | `bool` | n/a | yes |
+| <a name="input_enable_efs"></a> [enable\_efs](#input\_enable\_efs) | Whether EFS is enabled | `bool` | n/a | yes |
+| <a name="input_ephemeral_registry_arn"></a> [ephemeral\_registry\_arn](#input\_ephemeral\_registry\_arn) | ECR repository ARN (optional) | `string` | n/a | yes |
+| <a name="input_ephemeral_registry_uri"></a> [ephemeral\_registry\_uri](#input\_ephemeral\_registry\_uri) | ECR repository URI (optional) | `string` | n/a | yes |
+| <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 for runners | `bool` | n/a | yes |
+| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Days to retain CloudWatch logs | `number` | n/a | yes |
+| <a name="input_permission_boundary_arn"></a> [permission\_boundary\_arn](#input\_permission\_boundary\_arn) | IAM permission boundary ARN | `string` | n/a | yes |
+| <a name="input_private_mode"></a> [private\_mode](#input\_private\_mode) | Private networking mode: 'false', 'true', 'always', or 'only' | `string` | n/a | yes |
+| <a name="input_region"></a> [region](#input\_region) | AWS region where resources are deployed | `string` | n/a | yes |
+| <a name="input_runner_default_disk_size"></a> [runner\_default\_disk\_size](#input\_runner\_default\_disk\_size) | Default EBS volume size in GB | `number` | n/a | yes |
+| <a name="input_runner_default_volume_throughput"></a> [runner\_default\_volume\_throughput](#input\_runner\_default\_volume\_throughput) | Default EBS volume throughput in MiB/s | `number` | n/a | yes |
+| <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes for runners | `number` | n/a | yes |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for EC2 instances | `list(string)` | n/a | yes |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Stack name for resource naming | `string` | n/a | yes |
-| <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack | `bool` | `false` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag | `string` | `"v2.10.0"` | no |
-| <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
-| <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key for cost allocation | `string` | `"CostCenter"` | no |
-| <a name="input_detailed_monitoring_enabled"></a> [detailed\_monitoring\_enabled](#input\_detailed\_monitoring\_enabled) | Enable detailed CloudWatch monitoring | `bool` | `false` | no |
-| <a name="input_ebs_encryption_enabled"></a> [ebs\_encryption\_enabled](#input\_ebs\_encryption\_enabled) | Enable EBS volume encryption | `bool` | `false` | no |
-| <a name="input_efs_file_system_id"></a> [efs\_file\_system\_id](#input\_efs\_file\_system\_id) | EFS file system ID (optional) | `string` | `""` | no |
-| <a name="input_enable_ecr"></a> [enable\_ecr](#input\_enable\_ecr) | Whether ECR is enabled | `bool` | `false` | no |
-| <a name="input_enable_efs"></a> [enable\_efs](#input\_enable\_efs) | Whether EFS is enabled | `bool` | `false` | no |
-| <a name="input_environment"></a> [environment](#input\_environment) | Environment name (e.g., prod, dev, staging) | `string` | `"production"` | no |
-| <a name="input_ephemeral_registry_arn"></a> [ephemeral\_registry\_arn](#input\_ephemeral\_registry\_arn) | ECR repository ARN (optional) | `string` | `""` | no |
-| <a name="input_ephemeral_registry_uri"></a> [ephemeral\_registry\_uri](#input\_ephemeral\_registry\_uri) | ECR repository URI (optional) | `string` | `""` | no |
-| <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 for runners | `bool` | `false` | no |
-| <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Days to retain CloudWatch logs | `number` | `7` | no |
-| <a name="input_permission_boundary_arn"></a> [permission\_boundary\_arn](#input\_permission\_boundary\_arn) | IAM permission boundary ARN | `string` | `""` | no |
-| <a name="input_private_mode"></a> [private\_mode](#input\_private\_mode) | Private networking mode: 'false', 'true', 'always', or 'only' | `string` | `"false"` | no |
-| <a name="input_runner_default_disk_size"></a> [runner\_default\_disk\_size](#input\_runner\_default\_disk\_size) | Default EBS volume size in GB | `number` | `40` | no |
-| <a name="input_runner_default_volume_throughput"></a> [runner\_default\_volume\_throughput](#input\_runner\_default\_volume\_throughput) | Default EBS volume throughput in MiB/s | `number` | `400` | no |
-| <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes for runners | `number` | `720` | no |
-| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | `{}` | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | n/a | yes |
 
 ## Outputs
 

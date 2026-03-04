@@ -17,7 +17,7 @@ App Runner service, queues, and state management for RunsOn.
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.7 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
 | <a name="requirement_http"></a> [http](#requirement\_http) | >= 3.0 |
 
@@ -48,11 +48,13 @@ No modules.
 | [aws_dynamodb_table.locks](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_dynamodb_table.workflow_jobs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
 | [aws_iam_role.apprunner](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role.apprunner_ecr_access](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.scheduler](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.slack_webhook](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.apprunner_permissions](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy.scheduler_sqs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy_attachment.apprunner_ecr](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
+| [aws_iam_role_policy_attachment.apprunner_ecr_access](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.slack_webhook_basic_execution](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_lambda_function.slack_webhook](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function) | resource |
 | [aws_lambda_permission.slack_webhook](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
@@ -89,62 +91,63 @@ No modules.
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_account_id"></a> [account\_id](#input\_account\_id) | AWS account ID | `string` | n/a | yes |
+| <a name="input_alert_https_endpoint"></a> [alert\_https\_endpoint](#input\_alert\_https\_endpoint) | HTTPS endpoint for alerts | `string` | n/a | yes |
+| <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alerts | `string` | n/a | yes |
 | <a name="input_app_alarm_daily_minutes"></a> [app\_alarm\_daily\_minutes](#input\_app\_alarm\_daily\_minutes) | Daily budget in minutes for the App Runner service | `number` | n/a | yes |
+| <a name="input_app_cpu"></a> [app\_cpu](#input\_app\_cpu) | CPU units for App Runner service | `number` | n/a | yes |
+| <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack | `bool` | n/a | yes |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner image identifier | `string` | n/a | yes |
+| <a name="input_app_memory"></a> [app\_memory](#input\_app\_memory) | Memory in MB for App Runner service | `number` | n/a | yes |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag | `string` | n/a | yes |
+| <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | n/a | yes |
 | <a name="input_cache_bucket_arn"></a> [cache\_bucket\_arn](#input\_cache\_bucket\_arn) | S3 bucket ARN for cache | `string` | n/a | yes |
 | <a name="input_cache_bucket_name"></a> [cache\_bucket\_name](#input\_cache\_bucket\_name) | S3 bucket name for cache | `string` | n/a | yes |
 | <a name="input_config_bucket_arn"></a> [config\_bucket\_arn](#input\_config\_bucket\_arn) | S3 bucket ARN for configuration | `string` | n/a | yes |
 | <a name="input_config_bucket_name"></a> [config\_bucket\_name](#input\_config\_bucket\_name) | S3 bucket name for configuration | `string` | n/a | yes |
+| <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key for cost allocation | `string` | n/a | yes |
+| <a name="input_default_admins"></a> [default\_admins](#input\_default\_admins) | Comma-separated list of default admin usernames | `string` | n/a | yes |
+| <a name="input_ebs_encryption_key_id"></a> [ebs\_encryption\_key\_id](#input\_ebs\_encryption\_key\_id) | KMS key ID for EBS encryption (leave empty for AWS managed key) | `string` | n/a | yes |
 | <a name="input_ec2_instance_profile_arn"></a> [ec2\_instance\_profile\_arn](#input\_ec2\_instance\_profile\_arn) | ARN of the EC2 instance profile | `string` | n/a | yes |
 | <a name="input_ec2_instance_role_arn"></a> [ec2\_instance\_role\_arn](#input\_ec2\_instance\_role\_arn) | ARN of the EC2 instance IAM role | `string` | n/a | yes |
 | <a name="input_ec2_instance_role_name"></a> [ec2\_instance\_role\_name](#input\_ec2\_instance\_role\_name) | Name of the EC2 instance IAM role | `string` | n/a | yes |
+| <a name="input_ec2_queue_size"></a> [ec2\_queue\_size](#input\_ec2\_queue\_size) | EC2 queue size | `number` | n/a | yes |
 | <a name="input_email"></a> [email](#input\_email) | Email address for alerts | `string` | n/a | yes |
+| <a name="input_enable_cost_reports"></a> [enable\_cost\_reports](#input\_enable\_cost\_reports) | Enable automated cost reports | `bool` | n/a | yes |
+| <a name="input_enable_dashboard"></a> [enable\_dashboard](#input\_enable\_dashboard) | Create a CloudWatch dashboard for monitoring RunsOn operations | `bool` | n/a | yes |
+| <a name="input_environment"></a> [environment](#input\_environment) | Environment name (e.g., prod, dev, staging) | `string` | n/a | yes |
+| <a name="input_github_api_strategy"></a> [github\_api\_strategy](#input\_github\_api\_strategy) | Strategy for GitHub API calls (normal, conservative) | `string` | n/a | yes |
+| <a name="input_github_enterprise_url"></a> [github\_enterprise\_url](#input\_github\_enterprise\_url) | GitHub Enterprise URL (optional) | `string` | n/a | yes |
 | <a name="input_github_organization"></a> [github\_organization](#input\_github\_organization) | GitHub organization or username | `string` | n/a | yes |
+| <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | StepSecurity integration API key | `string` | n/a | yes |
 | <a name="input_launch_template_linux_default_id"></a> [launch\_template\_linux\_default\_id](#input\_launch\_template\_linux\_default\_id) | ID of the Linux default launch template | `string` | n/a | yes |
+| <a name="input_launch_template_linux_private_id"></a> [launch\_template\_linux\_private\_id](#input\_launch\_template\_linux\_private\_id) | ID of the Linux private launch template | `string` | n/a | yes |
 | <a name="input_launch_template_windows_default_id"></a> [launch\_template\_windows\_default\_id](#input\_launch\_template\_windows\_default\_id) | ID of the Windows default launch template | `string` | n/a | yes |
-| <a name="input_license_key"></a> [license\_key](#input\_license\_key) | RunsOn license key | `string` | n/a | yes |
+| <a name="input_launch_template_windows_private_id"></a> [launch\_template\_windows\_private\_id](#input\_launch\_template\_windows\_private\_id) | ID of the Windows private launch template | `string` | n/a | yes |
+| <a name="input_license_key"></a> [license\_key](#input\_license\_key) | RunsOn license key obtained from runs-on.com | `string` | n/a | yes |
+| <a name="input_logger_level"></a> [logger\_level](#input\_logger\_level) | Log level: debug, info, warn, or error | `string` | n/a | yes |
+| <a name="input_otel_exporter_endpoint"></a> [otel\_exporter\_endpoint](#input\_otel\_exporter\_endpoint) | OpenTelemetry exporter endpoint | `string` | n/a | yes |
+| <a name="input_otel_exporter_headers"></a> [otel\_exporter\_headers](#input\_otel\_exporter\_headers) | OpenTelemetry exporter headers | `string` | n/a | yes |
+| <a name="input_private_mode"></a> [private\_mode](#input\_private\_mode) | Private networking mode: 'false', 'true', 'always', or 'only' | `string` | n/a | yes |
+| <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | List of private subnet IDs | `list(string)` | n/a | yes |
 | <a name="input_public_subnet_ids"></a> [public\_subnet\_ids](#input\_public\_subnet\_ids) | List of public subnet IDs | `list(string)` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | AWS region | `string` | n/a | yes |
+| <a name="input_runner_config_auto_extends_from"></a> [runner\_config\_auto\_extends\_from](#input\_runner\_config\_auto\_extends\_from) | Repository to auto-extend runner config from (e.g., '.github-private') | `string` | n/a | yes |
+| <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Custom tags for runners | `list(string)` | n/a | yes |
+| <a name="input_runner_default_disk_size"></a> [runner\_default\_disk\_size](#input\_runner\_default\_disk\_size) | Default EBS volume size in GB | `number` | n/a | yes |
+| <a name="input_runner_default_volume_throughput"></a> [runner\_default\_volume\_throughput](#input\_runner\_default\_volume\_throughput) | Default EBS volume throughput in MiB/s | `number` | n/a | yes |
+| <a name="input_runner_large_disk_size"></a> [runner\_large\_disk\_size](#input\_runner\_large\_disk\_size) | Large EBS volume size in GB | `number` | n/a | yes |
+| <a name="input_runner_large_volume_throughput"></a> [runner\_large\_volume\_throughput](#input\_runner\_large\_volume\_throughput) | Large EBS volume throughput in MiB/s | `number` | n/a | yes |
+| <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes for runners | `number` | n/a | yes |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for App Runner | `list(string)` | n/a | yes |
+| <a name="input_server_password"></a> [server\_password](#input\_server\_password) | Password for RunsOn server admin interface | `string` | n/a | yes |
+| <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker config (e.g., '2/15/30' = 2 failures in 15min, block for 30min) | `string` | n/a | yes |
 | <a name="input_sqs_queue_oldest_message_threshold_seconds"></a> [sqs\_queue\_oldest\_message\_threshold\_seconds](#input\_sqs\_queue\_oldest\_message\_threshold\_seconds) | Threshold in seconds for oldest message in SQS queues | `number` | n/a | yes |
+| <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH access to runners | `bool` | n/a | yes |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Stack name for resource naming | `string` | n/a | yes |
+| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | VPC ID where RunsOn is deployed | `string` | n/a | yes |
-| <a name="input_alert_https_endpoint"></a> [alert\_https\_endpoint](#input\_alert\_https\_endpoint) | HTTPS endpoint for alerts | `string` | `""` | no |
-| <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alerts | `string` | `""` | no |
-| <a name="input_app_cpu"></a> [app\_cpu](#input\_app\_cpu) | CPU units for App Runner service | `number` | `256` | no |
-| <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack | `bool` | `false` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner image identifier | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.10.0"` | no |
-| <a name="input_app_memory"></a> [app\_memory](#input\_app\_memory) | Memory in MB for App Runner service | `number` | `512` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag | `string` | `"v2.10.0"` | no |
-| <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
-| <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key for cost allocation | `string` | `"CostCenter"` | no |
-| <a name="input_default_admins"></a> [default\_admins](#input\_default\_admins) | Default admins | `string` | `""` | no |
-| <a name="input_ebs_encryption_key_id"></a> [ebs\_encryption\_key\_id](#input\_ebs\_encryption\_key\_id) | KMS key ID for EBS encryption | `string` | `""` | no |
-| <a name="input_ec2_queue_size"></a> [ec2\_queue\_size](#input\_ec2\_queue\_size) | EC2 queue size | `number` | `2` | no |
-| <a name="input_enable_cost_reports"></a> [enable\_cost\_reports](#input\_enable\_cost\_reports) | Enable automated cost reports | `bool` | `true` | no |
-| <a name="input_enable_dashboard"></a> [enable\_dashboard](#input\_enable\_dashboard) | Create a CloudWatch dashboard for monitoring RunsOn operations | `bool` | `true` | no |
+| <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image. When specified, App Runner will pull from this private ECR instead of public ECR. | `string` | `""` | no |
 | <a name="input_enable_waf"></a> [enable\_waf](#input\_enable\_waf) | Enable AWS WAF for App Runner service | `bool` | `false` | no |
-| <a name="input_environment"></a> [environment](#input\_environment) | Environment name (e.g., prod, dev, staging) | `string` | `"production"` | no |
-| <a name="input_github_api_strategy"></a> [github\_api\_strategy](#input\_github\_api\_strategy) | GitHub API strategy | `string` | `"normal"` | no |
-| <a name="input_github_enterprise_url"></a> [github\_enterprise\_url](#input\_github\_enterprise\_url) | GitHub Enterprise URL (optional) | `string` | `""` | no |
-| <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | StepSecurity integration API key | `string` | `""` | no |
-| <a name="input_launch_template_linux_private_id"></a> [launch\_template\_linux\_private\_id](#input\_launch\_template\_linux\_private\_id) | ID of the Linux private launch template | `string` | `null` | no |
-| <a name="input_launch_template_windows_private_id"></a> [launch\_template\_windows\_private\_id](#input\_launch\_template\_windows\_private\_id) | ID of the Windows private launch template | `string` | `null` | no |
-| <a name="input_logger_level"></a> [logger\_level](#input\_logger\_level) | Logger level | `string` | `"info"` | no |
-| <a name="input_otel_exporter_endpoint"></a> [otel\_exporter\_endpoint](#input\_otel\_exporter\_endpoint) | OpenTelemetry exporter endpoint | `string` | `""` | no |
-| <a name="input_otel_exporter_headers"></a> [otel\_exporter\_headers](#input\_otel\_exporter\_headers) | OpenTelemetry exporter headers | `string` | `""` | no |
-| <a name="input_private_mode"></a> [private\_mode](#input\_private\_mode) | Private networking mode: 'false', 'true', 'always', or 'only' | `string` | `"false"` | no |
-| <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | List of private subnet IDs | `list(string)` | `[]` | no |
-| <a name="input_runner_config_auto_extends_from"></a> [runner\_config\_auto\_extends\_from](#input\_runner\_config\_auto\_extends\_from) | Runner config auto extends from | `string` | `".github-private"` | no |
-| <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Custom tags for runners | `list(string)` | `[]` | no |
-| <a name="input_runner_default_disk_size"></a> [runner\_default\_disk\_size](#input\_runner\_default\_disk\_size) | Default EBS volume size in GB | `number` | `40` | no |
-| <a name="input_runner_default_volume_throughput"></a> [runner\_default\_volume\_throughput](#input\_runner\_default\_volume\_throughput) | Default EBS volume throughput in MiB/s | `number` | `400` | no |
-| <a name="input_runner_large_disk_size"></a> [runner\_large\_disk\_size](#input\_runner\_large\_disk\_size) | Large EBS volume size in GB | `number` | `80` | no |
-| <a name="input_runner_large_volume_throughput"></a> [runner\_large\_volume\_throughput](#input\_runner\_large\_volume\_throughput) | Large EBS volume throughput in MiB/s | `number` | `750` | no |
-| <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes for runners | `number` | `720` | no |
-| <a name="input_server_password"></a> [server\_password](#input\_server\_password) | Server password | `string` | `""` | no |
-| <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker configuration | `string` | `""` | no |
-| <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH access to runners | `bool` | `true` | no |
-| <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | `{}` | no |
 | <a name="input_waf_allowed_ipv4_cidrs"></a> [waf\_allowed\_ipv4\_cidrs](#input\_waf\_allowed\_ipv4\_cidrs) | List of IPv4 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
 | <a name="input_waf_allowed_ipv6_cidrs"></a> [waf\_allowed\_ipv6\_cidrs](#input\_waf\_allowed\_ipv6\_cidrs) | List of IPv6 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
 

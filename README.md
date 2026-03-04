@@ -2,11 +2,33 @@
 
 Deploy [RunsOn](https://runs-on.com) self-hosted GitHub Actions runners on AWS with Terraform/OpenTofu.
 
+## Table of Contents
+
+- [Usage](#usage)
+- [Versioning](#versioning)
+  - [Using a Git Branch](#using-a-git-branch)
+- [Resource Tags](#resource-tags)
+- [Architecture](#architecture)
+- [Examples](#examples)
+  - [Basic](#basic)
+  - [Private Networking](#private-networking)
+  - [EFS Enabled](#efs-enabled)
+  - [ECR Enabled](#ecr-enabled)
+  - [WAF (Web Application Firewall)](#waf-web-application-firewall)
+  - [Full Featured](#full-featured)
+- [Requirements](#requirements)
+- [Providers](#providers)
+- [Modules](#modules)
+- [Resources](#resources)
+- [Inputs](#inputs)
+- [Outputs](#outputs)
+- [License](#license)
+
 ## Usage
 
 ```hcl
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.5.7"
 
   required_providers {
     aws = {
@@ -48,7 +70,7 @@ module "vpc" {
 # RunsOn Module - Deploys RunsOn infrastructure with smart defaults
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0"
+  version = "v2.11.0-r1"
 
   # Required: GitHub and License
   github_organization = "my-org"
@@ -68,14 +90,16 @@ The module assumes you have your own VPC already configured.
 This module follows a versioning scheme that maps to the main RunsOn application version:
 
 ```
-v{MAJOR}.{MINOR}.{PATCH}
+v{MAJOR}.{MINOR}.{PATCH}-r{REVISION}
 ```
 
-- **`v{MAJOR}.{MINOR}.{PATCH}`** - Matches the RunsOn application version (e.g., `v2.11.0`)
+- **`v{MAJOR}.{MINOR}.{PATCH}`** - Matches the compatible RunsOn application version
+- **`-r{REVISION}`** - Independent Terraform module revision (r1, r2, r3, etc.)
 
 **Examples:**
-- `v2.10.0` - Terraform release for RunsOn v2.10.0
-- `v2.11.0` - Terraform release for RunsOn v2.11.0
+- `v2.11.0-r1` - First Terraform release for RunsOn v2.11.0
+- `v2.11.0-r2` - Second Terraform release for RunsOn v2.11.0 (bug fixes, improvements)
+- `v2.12.0-r1` - First Terraform release for RunsOn v2.12.0
 
 When upgrading, check:
 1. The RunsOn version changelog at [runs-on.com/changelog](https://runs-on.com/changelog)
@@ -83,11 +107,11 @@ When upgrading, check:
 
 ### Using a Git Branch
 
-To use this module from a specific git branch: 
+To use this module from a specific git branch (e.g. `main`):
 
 ```hcl
 module "runs-on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git?ref=dev"
+  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git?ref=main"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -98,16 +122,7 @@ module "runs-on" {
 }
 ```
 
-Replace `dev` with any branch name, tag, or commit SHA
-
-> [!TIP]
-Cost Estimates:
-> - **RunsOn base:** ~$3/mo (App Runner)
-> - **NAT Gateway:** ~$32/mo per gateway + data transfer charges (required for private networking)
-> - **VPC Endpoints:** ~$7/mo per interface endpoint + data transfer charges (S3 gateway endpoint is free)
-> - **EFS:** ~$0.30/GB-month for storage
-> - **ECR:** ~$0.10/GB-month for storage
-> - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
+Replace `main` with any branch name, tag, or commit SHA
 
 ## Resource Tags
 
@@ -180,6 +195,18 @@ flowchart TB
     classDef github fill:#8b5cf6,stroke:#7c3aed,color:#fff,stroke-width:2px
 ```
 
+> [!TIP]
+Cost Estimates:
+> - **RunsOn base:** ~$3/mo (App Runner)
+> - **EFS (optional):** ~$0.30/GB-month for storage
+> - **ECR (optional):** ~$0.10/GB-month for storage
+> - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
+> - **S3 Gateway endpoints**: free
+>
+> When using private networking, keep in mind you might incur the following costs:
+> - **NAT Gateway:** ~$32/mo per gateway + data transfer charges
+> - **VPC Endpoints:** ~$7/mo per interface endpoint (e.g. EC2, ECR) + data transfer charges
+
 # Examples
 
 ### Basic
@@ -189,7 +216,7 @@ Standard deployment with smart defaults:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0"
+  version = "v2.11.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -207,7 +234,7 @@ Enable private networking for static egress IPs (requires NAT Gateway):
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0"
+  version = "v2.11.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -233,7 +260,7 @@ Enable shared persistent storage across all runners for storing and sharing larg
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0"
+  version = "v2.11.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -254,7 +281,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0"
+  version = "v2.11.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -275,7 +302,7 @@ Restrict App Runner access to GitHub webhook IPs only, blocking all other intern
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0"
+  version = "v2.11.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -347,7 +374,7 @@ module "vpc" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0"
+  version = "v2.11.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -378,7 +405,7 @@ module "runs-on" {
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.6.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.7 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 6.0 |
 | <a name="requirement_http"></a> [http](#requirement\_http) | >= 3.0 |
 | <a name="requirement_time"></a> [time](#requirement\_time) | >= 0.9 |
@@ -423,6 +450,7 @@ module "runs-on" {
 | <a name="input_app_alarm_daily_minutes"></a> [app\_alarm\_daily\_minutes](#input\_app\_alarm\_daily\_minutes) | Daily budget in minutes for the App Runner service before triggering an alarm | `number` | `4000` | no |
 | <a name="input_app_cpu"></a> [app\_cpu](#input\_app\_cpu) | CPU units for App Runner service (256, 512, 1024, 2048, 4096) | `number` | `256` | no |
 | <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack (prevents auto-shutdown of failed runner instances) | `bool` | `false` | no |
+| <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, App Runner will pull from this private ECR instead of public ECR. | `string` | `""` | no |
 | <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.11.0@sha256:875bcd8a36be7be78509a4c8371cdb4bff01af06c49f4a2d2a2647e3bf44bac5"` | no |
 | <a name="input_app_memory"></a> [app\_memory](#input\_app\_memory) | Memory in MB for App Runner service (512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288) | `number` | `512` | no |
 | <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service | `string` | `"v2.11.0"` | no |
@@ -468,7 +496,7 @@ module "runs-on" {
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH access to runner instances | `bool` | `true` | no |
 | <a name="input_ssh_cidr_range"></a> [ssh\_cidr\_range](#input\_ssh\_cidr\_range) | CIDR range allowed for SSH access to runner instances (only applies if ssh\_allowed is true) | `string` | `"0.0.0.0/0"` | no |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Name for the RunsOn stack (used for resource naming) | `string` | `"runs-on"` | no |
-| <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. Note: 'runs-on-stack-name' is added automatically for resource discovery. | `map(string)` | <pre>{<br/>  "ManagedBy": "opentofu/terraform"<br/>}</pre> | no |
+| <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. Note: 'runs-on-stack-name' is added automatically for resource discovery. | `map(string)` | `{}` | no |
 | <a name="input_waf_allowed_ipv4_cidrs"></a> [waf\_allowed\_ipv4\_cidrs](#input\_waf\_allowed\_ipv4\_cidrs) | List of IPv4 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
 | <a name="input_waf_allowed_ipv6_cidrs"></a> [waf\_allowed\_ipv6\_cidrs](#input\_waf\_allowed\_ipv6\_cidrs) | List of IPv6 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
 

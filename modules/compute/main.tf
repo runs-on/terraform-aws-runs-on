@@ -2,7 +2,7 @@
 # Compute module orchestration for RunsOn - EC2 launch templates and IAM roles
 
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.5.7"
 
   required_providers {
     aws = {

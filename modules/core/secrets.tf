@@ -2,8 +2,9 @@
 # Secrets used by App Runner runtime environment
 
 resource "aws_secretsmanager_secret" "runs_on_stack_config" {
-  name        = local.stack_config_secret_id
-  description = "RunsOn stack configuration for App Runner runtime"
+  name                    = local.stack_config_secret_id
+  description             = "RunsOn stack configuration for App Runner runtime"
+  recovery_window_in_days = 0
 
   tags = merge(
     local.common_tags,

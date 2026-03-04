@@ -32,9 +32,6 @@ override.tf.json
 .terraformrc
 terraform.rc
 
-# Ignore lock file (commit this for reproducible builds)
-.terraform.lock.hcl
-
 # OS specific files
 .DS_Store
 Thumbs.db

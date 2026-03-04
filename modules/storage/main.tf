@@ -2,7 +2,7 @@
 # Storage module orchestration for RunsOn - S3 buckets for config, cache, and logging
 
 terraform {
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.5.7"
 
   required_providers {
     aws = {

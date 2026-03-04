@@ -1,4 +1,9 @@
-.PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools test test-short test-all test-basic test-full
+# Version for this terraform module (follows RunsOn version with -rN suffix)
+# e.g., v2.11.0-r1 means compatible with RunsOn v2.11.0, terraform revision 1
+VERSION=v2.11.0-r1
+
+.PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools test test-short test-all test-basic test-full \
+	check pre-release tag release
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -91,3 +96,32 @@ install-tools: ## Install development tools (macOS)
 		echo "Linux: Please install OpenTofu from https://opentofu.org/docs/intro/install/"; \
 		echo "Then install tflint, tfsec, and terraform-docs manually."; \
 	fi
+
+check: ## Validate version format
+	@if ! echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+$$'; then \
+		echo "Error: VERSION must be format vX.Y.Z-rN (e.g., v2.11.0-r1)"; \
+		exit 1; \
+	fi
+	@echo "Version $(VERSION) is valid"
+
+pre-release: ## Check for uncommitted changes before release
+	@if ! git diff-index --quiet HEAD --; then \
+		echo "Error: You have uncommitted changes. Commit or stash them first."; \
+		git status --short; \
+		exit 1; \
+	fi
+	@if ! git diff-index --quiet --cached HEAD --; then \
+		echo "Error: You have staged changes. Commit them first."; \
+		git status --short; \
+		exit 1; \
+	fi
+
+tag: pre-release check ## Create git tag for release
+	git tag -m "$(VERSION)" "$(VERSION)"
+
+release: ## Push tags and create GitHub release
+	git push origin --tags
+	gh release create $(VERSION) --generate-notes --draft
+	@echo ""
+	@echo "Draft release created for $(VERSION)"
+	@echo "Review and publish at: https://github.com/runs-on/terraform-aws-runs-on/releases"

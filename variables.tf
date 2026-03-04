@@ -103,11 +103,6 @@ variable "private_mode" {
     condition     = contains(["false", "true", "always", "only"], var.private_mode)
     error_message = "Private mode must be one of: false, true, always, only."
   }
-
-  validation {
-    condition     = var.private_mode == "false" || length(var.private_subnet_ids) > 0
-    error_message = "At least one private subnet ID is required for private networking."
-  }
 }
 
 variable "security_group_ids" {
@@ -266,6 +261,12 @@ variable "bootstrap_tag" {
   description = "Bootstrap script version tag"
   type        = string
   default     = "v0.1.12"
+}
+
+variable "maintenance_mode" {
+  description = "Enable maintenance mode (disables queue processing and leader election)"
+  type        = bool
+  default     = false
 }
 
 variable "app_cpu" {
