@@ -1,9 +1,11 @@
 # Version for this terraform module (follows RunsOn version with -rN suffix)
 # e.g., v2.11.0-r1 means compatible with RunsOn v2.11.0, terraform revision 1
 VERSION=v2.11.0-r1
+REGISTRY=public.ecr.aws/c5h5o9k1/runs-on/runs-on
+APP_VERSION=$(shell echo $(VERSION) | sed 's/-r[0-9]*//')
 
 .PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools test test-short test-all test-basic test-full \
-	check pre-release tag release
+	check pre-release tag release sync-image image-check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -97,6 +99,31 @@ install-tools: ## Install development tools (macOS)
 		echo "Then install tflint, tfsec, and terraform-docs manually."; \
 	fi
 
+sync-image: ## Sync app_image and app_tag defaults to match VERSION
+	@IMAGE_REF="$(REGISTRY):$(APP_VERSION)" && \
+	echo "Resolving digest for $$IMAGE_REF..." && \
+	DIGEST=$$(docker buildx imagetools inspect "$$IMAGE_REF" --format '{{json .}}' 2>/dev/null | jq -r '.manifest.digest // empty' || echo "") && \
+	if [ -z "$$DIGEST" ]; then \
+		echo "Error: Could not resolve digest for $$IMAGE_REF"; \
+		exit 1; \
+	fi && \
+	FULL_IMAGE="$(REGISTRY):$(APP_VERSION)@$$DIGEST" && \
+	echo "Updating app_image to $$FULL_IMAGE" && \
+	sed -i.bak 's|default *= *"public.ecr.aws/c5h5o9k1/runs-on/runs-on:[^"]*"|default     = "'$$FULL_IMAGE'"|' variables.tf && \
+	rm -f variables.tf.bak && \
+	sed -i.bak '/variable "app_tag"/,/^}/{s|default *= *"[^"]*"|default     = "$(APP_VERSION)"|;}' variables.tf && \
+	rm -f variables.tf.bak && \
+	echo "✓ app_image: $$FULL_IMAGE" && \
+	echo "✓ app_tag: $(APP_VERSION)"
+
+image-check: ## Verify app_image is not pointing to dev
+	@IMAGE=$$(grep -A2 'variable "app_image"' variables.tf | grep default | sed 's/.*"\(.*\)"/\1/') && \
+	if echo "$$IMAGE" | grep -q ':dev@'; then \
+		echo "Error: app_image still points to dev. Run 'make sync-image' first."; \
+		exit 1; \
+	fi && \
+	echo "✓ app_image: $$IMAGE"
+
 check: ## Validate version format
 	@if ! echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+$$'; then \
 		echo "Error: VERSION must be format vX.Y.Z-rN (e.g., v2.11.0-r1)"; \
@@ -116,7 +143,7 @@ pre-release: ## Check for uncommitted changes before release
 		exit 1; \
 	fi
 
-tag: pre-release check ## Create git tag for release
+tag: pre-release check quick docs image-check ## Create git tag for release
 	git tag -m "$(VERSION)" "$(VERSION)"
 
 release: ## Push tags and create GitHub release
