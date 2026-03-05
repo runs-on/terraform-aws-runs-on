@@ -2,7 +2,8 @@
 # e.g., v2.11.0-r1 means compatible with RunsOn v2.11.0, terraform revision 1
 VERSION=v2.11.0-r1
 
-.PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools test test-short test-all test-basic test-full \
+.PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools \
+	test test-plan test-basic test-private test-full test-integration test-short test-all \
 	check pre-release tag release
 
 help: ## Show this help
@@ -62,23 +63,35 @@ docs: ## Generate documentation for all modules
 		exit 1; \
 	fi
 
-test: test-basic ## Run basic test scenario (alias for test-basic)
+test: test-plan ## Run plan tests (free, no AWS resources)
 
-test-short: ## Run tests, skip expensive scenarios
-	@echo "Running short tests..."
-	cd test && mise exec -- go test -v -short ./...
+test-plan: ## Run plan-only validation tests (free, ~2min)
+	@echo "Running TestPlan*..."
+	cd test && mise exec -- go test -v -timeout 15m -run "TestPlan" ./...
 
-test-all: ## Run all test scenarios (expensive)
-	@echo "Running all test scenarios..."
-	cd test && mise exec -- go test -v -timeout 120m ./...
-
-test-basic: ## Run basic test scenario
+test-basic: ## Run basic infrastructure scenario (~45min, requires AWS + RUNS_ON_LICENSE_KEY)
 	@echo "Running TestScenarioBasic..."
 	cd test && mise exec -- go test -v -timeout 45m -run "TestScenarioBasic" ./...
 
-test-full: ## Run full-featured test scenario (expensive)
+test-private: ## Run private networking scenario (~60min, requires NAT gateway)
+	@echo "Running TestScenarioPrivateNetworking..."
+	cd test && mise exec -- go test -v -timeout 60m -run "TestScenarioPrivateNetworking" ./...
+
+test-full: ## Run full-featured scenario with EFS+ECR+NAT (~90min)
 	@echo "Running TestScenarioFullFeatured..."
 	cd test && mise exec -- go test -v -timeout 90m -run "TestScenarioFullFeatured" ./...
+
+test-integration: ## Run end-to-end integration test (~60min, requires GitHub App credentials)
+	@echo "Running TestIntegrationEndToEnd..."
+	cd test && mise exec -- go test -v -timeout 60m -run "TestIntegrationEndToEnd" ./...
+
+test-short: ## Run all tests, skip expensive NAT-dependent scenarios
+	@echo "Running short tests..."
+	cd test && mise exec -- go test -v -short -timeout 60m ./...
+
+test-all: ## Run all test scenarios (expensive, ~120min)
+	@echo "Running all test scenarios..."
+	cd test && mise exec -- go test -v -timeout 120m ./...
 
 clean: ## Clean up OpenTofu files
 	@echo "Cleaning up..."
