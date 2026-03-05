@@ -1,6 +1,6 @@
 # Version for this terraform module (follows RunsOn version with -rN suffix)
 # e.g., v2.11.0-r1 means compatible with RunsOn v2.11.0, terraform revision 1
-VERSION=v2.11.0-r1
+VERSION=v2.12.0-r1
 REGISTRY=public.ecr.aws/c5h5o9k1/runs-on/runs-on
 APP_VERSION=$(shell echo $(VERSION) | sed 's/-r[0-9]*//')
 
@@ -103,8 +103,8 @@ image-sync: ## Sync app_image and app_tag defaults to match VERSION
 	echo "✓ app_image: $$FULL_IMAGE" && \
 	echo "✓ app_tag: $(APP_VERSION)"
 
-check-image: ## Verify app_image is not pointing to dev
-	@IMAGE=$$(grep -A2 'variable "app_image"' variables.tf | grep default | sed 's/.*"\(.*\)"/\1/') && \
+image-check: ## Verify app_image is not pointing to dev
+	@IMAGE=$$(grep -A3 'variable "app_image"' variables.tf | grep default | sed 's/.*"\(.*\)"/\1/') && \
 	if echo "$$IMAGE" | grep -q ':dev@'; then \
 		echo "Error: app_image still points to dev. Run 'make sync-image' first."; \
 		exit 1; \
