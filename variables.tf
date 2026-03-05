@@ -249,12 +249,14 @@ variable "app_image" {
   description = "App Runner container image for RunsOn service"
   type        = string
   default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.0@sha256:8dc36cae587d82c6dbd1f90c02cedf723add3c72655b49939baf4c377b940272"
+  nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service"
   type        = string
   default     = "v2.12.0"
+  nullable    = false
 }
 
 variable "bootstrap_tag" {
