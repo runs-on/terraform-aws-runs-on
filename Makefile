@@ -46,9 +46,6 @@ security: ## Run tfsec security scan
 quick: fmt-check validate lint ## Run all fast checks
 	@echo "All fast checks passed!"
 
-pre-commit: quick security ## Run before committing
-	@echo "Ready to commit!"
-
 docs: ## Generate documentation for all modules
 	@echo "Generating documentation..."
 	@if command -v terraform-docs >/dev/null 2>&1; then \
@@ -89,17 +86,7 @@ clean: ## Clean up OpenTofu files
 	@find . -type f -name "tfplan" -delete 2>/dev/null || true
 	@find . -type f -name ".terraform.lock.hcl" -delete 2>/dev/null || true
 
-install-tools: ## Install development tools (macOS)
-	@echo "Installing development tools..."
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		echo "Installing for macOS..."; \
-		brew install opentofu tflint tfsec terraform-docs; \
-	else \
-		echo "Linux: Please install OpenTofu from https://opentofu.org/docs/intro/install/"; \
-		echo "Then install tflint, tfsec, and terraform-docs manually."; \
-	fi
-
-sync-image: ## Sync app_image and app_tag defaults to match VERSION
+image-sync: ## Sync app_image and app_tag defaults to match VERSION
 	@IMAGE_REF="$(REGISTRY):$(APP_VERSION)" && \
 	echo "Resolving digest for $$IMAGE_REF..." && \
 	DIGEST=$$(docker buildx imagetools inspect "$$IMAGE_REF" --format '{{json .}}' 2>/dev/null | jq -r '.manifest.digest // empty' || echo "") && \
@@ -116,7 +103,7 @@ sync-image: ## Sync app_image and app_tag defaults to match VERSION
 	echo "✓ app_image: $$FULL_IMAGE" && \
 	echo "✓ app_tag: $(APP_VERSION)"
 
-image-check: ## Verify app_image is not pointing to dev
+check-image: ## Verify app_image is not pointing to dev
 	@IMAGE=$$(grep -A2 'variable "app_image"' variables.tf | grep default | sed 's/.*"\(.*\)"/\1/') && \
 	if echo "$$IMAGE" | grep -q ':dev@'; then \
 		echo "Error: app_image still points to dev. Run 'make sync-image' first."; \
