@@ -248,13 +248,13 @@ variable "runner_large_volume_throughput" {
 variable "app_image" {
   description = "App Runner container image for RunsOn service"
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.11.0@sha256:875bcd8a36be7be78509a4c8371cdb4bff01af06c49f4a2d2a2647e3bf44bac5"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:dev@sha256:8cc63f3010f1c150684072b3cdd36385eac2aec1622f76cc7432a3717b25eea8"
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service"
   type        = string
-  default     = "v2.11.0"
+  default     = "dev"
 }
 
 variable "bootstrap_tag" {
