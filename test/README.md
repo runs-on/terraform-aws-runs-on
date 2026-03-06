@@ -53,11 +53,10 @@ The `github_organization` module variable is automatically extracted from `RUNS_
 
 ### Integration Tests (End-to-End)
 
-These additional variables are required for `TestIntegrationEndToEnd`:
+These additional variables are required for `TestIntegrationEndToEnd`. Authentication uses a GitHub App installation token — no separate PAT is needed.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `GITHUB_TOKEN` | Yes | GitHub PAT with `actions:write` for workflow dispatch |
 | `RUNS_ON_TEST_REPO` | Yes | Repository in `owner/repo` format |
 | `RUNS_ON_TEST_WORKFLOW` | Yes | Workflow file name (e.g., `test.yml`) |
 | `GITHUB_APP_ID` | Yes | GitHub App ID (numeric) |
@@ -153,7 +152,6 @@ Run the fully automated integration test that deploys infrastructure, wires up a
 
 ```bash
 export RUNS_ON_LICENSE_KEY="your-license-key"
-export GITHUB_TOKEN="ghp_xxxx"
 export RUNS_ON_TEST_REPO="my-org/my-test-repo"
 export RUNS_ON_TEST_WORKFLOW="test.yml"
 export GITHUB_APP_ID="123456"

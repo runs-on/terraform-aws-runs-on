@@ -21,8 +21,10 @@ import (
 // triggers a workflow, and verifies the runner processes the job. All infrastructure
 // is destroyed on completion.
 //
+// Authentication uses a GitHub App installation token derived from the App credentials.
+// No separate GITHUB_TOKEN or PAT is required.
+//
 // Required env vars:
-//   - GITHUB_TOKEN: GitHub PAT with actions:write for workflow dispatch
 //   - RUNS_ON_TEST_REPO: Repository in "owner/repo" format
 //   - RUNS_ON_TEST_WORKFLOW: Workflow file name (e.g., "test.yml")
 //   - RUNS_ON_LICENSE_KEY: RunsOn license key
@@ -34,7 +36,6 @@ import (
 func TestIntegrationEndToEnd(t *testing.T) {
 	// Check required env vars
 	requiredEnvVars := []string{
-		"GITHUB_TOKEN",
 		"RUNS_ON_TEST_REPO",
 		"RUNS_ON_TEST_WORKFLOW",
 		"RUNS_ON_LICENSE_KEY",
@@ -73,6 +74,13 @@ func TestIntegrationEndToEnd(t *testing.T) {
 		cfg.EnableNAT = true
 	}
 
+	// Create GitHub client using App installation token
+	owner, repoName, err := parseRepo(testRepo)
+	require.NoError(t, err, "Invalid RUNS_ON_TEST_REPO format")
+
+	client, err := getGitHubInstallationClient(cfg.GithubAppID, cfg.GithubAppPrivateKey, owner)
+	require.NoError(t, err, "Failed to create GitHub App installation client")
+
 	runScenario(t, cfg, func(t *testing.T, r ScenarioResult) {
 		appRunnerURL := r.AppRunnerURL()
 		t.Logf("App Runner URL: https://%s", appRunnerURL)
@@ -85,12 +93,6 @@ func TestIntegrationEndToEnd(t *testing.T) {
 		UpdateGitHubAppWebhookURL(t, cfg.GithubAppID, cfg.GithubAppPrivateKey, webhookURL)
 
 		// 3. Trigger workflow dispatch
-		client, err := getGitHubClient()
-		require.NoError(t, err, "Failed to create GitHub client")
-
-		owner, repoName, err := parseRepo(testRepo)
-		require.NoError(t, err, "Invalid RUNS_ON_TEST_REPO format")
-
 		startTime := time.Now()
 
 		t.Logf("Dispatching workflow %s on %s/%s...", testWorkflow, owner, repoName)
@@ -105,13 +107,13 @@ func TestIntegrationEndToEnd(t *testing.T) {
 
 		// 4. Monitor execution
 		testID := GetTestID()
-		runID, err := WatchForWorkflowRun(t, testRepo, testWorkflow, testID, startTime, 5*time.Minute)
+		runID, err := WatchForWorkflowRun(t, client, testRepo, testWorkflow, testID, startTime, 5*time.Minute)
 		require.NoError(t, err, "Workflow run not found after dispatch")
 
-		err = MonitorWorkflowJobStates(t, testRepo, runID, 5*time.Minute)
+		err = MonitorWorkflowJobStates(t, client, testRepo, runID, 5*time.Minute)
 		require.NoError(t, err, "Jobs stuck in queue — webhook URL may not have updated correctly")
 
-		conclusion := WaitForWorkflowCompletion(t, testRepo, runID, 10*time.Minute)
+		conclusion := WaitForWorkflowCompletion(t, client, testRepo, runID, 10*time.Minute)
 		assert.Equal(t, "success", conclusion, "Workflow should complete successfully")
 
 		// 5. Validate runner was launched
@@ -120,7 +122,7 @@ func TestIntegrationEndToEnd(t *testing.T) {
 		assert.True(t, launched, "Runner instance should have been launched for stack %s", r.StackName())
 
 		// 6. Extract boot timings from job logs
-		jobLogs := FetchJobLogs(t, testRepo, runID)
+		jobLogs := FetchJobLogs(t, client, testRepo, runID)
 		for jobName, logText := range jobLogs {
 			if bt := ParseBootTimings(logText); bt != nil {
 				t.Logf("Job %q: total=%.2fs, agent-booting-at=%.2fs",

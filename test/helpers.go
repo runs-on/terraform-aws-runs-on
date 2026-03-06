@@ -25,7 +25,6 @@ import (
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/oauth2"
 )
 
 func init() {
@@ -517,17 +516,27 @@ func RunSSMCommand(t *testing.T, clients *AWSClients, instanceID string, command
 // GITHUB HELPERS
 // =============================================================================
 
-// getGitHubClient creates a GitHub client using the GITHUB_TOKEN environment variable.
-func getGitHubClient() (*github.Client, error) {
-	token := os.Getenv("GITHUB_TOKEN")
-	if token == "" {
-		return nil, fmt.Errorf("GITHUB_TOKEN environment variable is required")
+// getGitHubInstallationClient creates a GitHub client authenticated as a GitHub App installation.
+// It uses the App's private key to mint a JWT, finds the installation for the given org,
+// and returns a client that auto-refreshes installation access tokens.
+func getGitHubInstallationClient(appID int64, privateKey, owner string) (*github.Client, error) {
+	appTransport, err := ghinstallation.NewAppsTransport(
+		http.DefaultTransport, appID, []byte(privateKey),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub App JWT transport: %w", err)
 	}
 
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	tc := oauth2.NewClient(ctx, ts)
-	return github.NewClient(tc), nil
+	appClient := github.NewClient(&http.Client{Transport: appTransport})
+	installation, _, err := appClient.Apps.FindOrganizationInstallation(
+		context.Background(), owner,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find installation for org %s: %w", owner, err)
+	}
+
+	itr := ghinstallation.NewFromAppsTransport(appTransport, installation.GetID())
+	return github.NewClient(&http.Client{Transport: itr}), nil
 }
 
 // UpdateGitHubAppWebhookURL authenticates as a GitHub App using JWT and updates
@@ -560,10 +569,7 @@ func parseRepo(repo string) (string, string, error) {
 
 // WaitForWorkflowCompletion polls the GitHub API until the workflow completes.
 // Returns the conclusion (success, failure, cancelled, etc.) or empty string on timeout.
-func WaitForWorkflowCompletion(t *testing.T, repo string, runID int64, timeout time.Duration) string {
-	client, err := getGitHubClient()
-	require.NoError(t, err, "Failed to create GitHub client")
-
+func WaitForWorkflowCompletion(t *testing.T, client *github.Client, repo string, runID int64, timeout time.Duration) string {
 	owner, repoName, err := parseRepo(repo)
 	require.NoError(t, err, "Invalid repo format")
 
@@ -594,13 +600,7 @@ func WaitForWorkflowCompletion(t *testing.T, repo string, runID int64, timeout t
 }
 
 // WatchForWorkflowRun watches for workflow_dispatch runs of a specific workflow file.
-// User registers the app and triggers the workflow manually; test detects and monitors.
-func WatchForWorkflowRun(t *testing.T, repo, workflowFile, testID string, startTime time.Time, timeout time.Duration) (int64, error) {
-	client, err := getGitHubClient()
-	if err != nil {
-		return 0, fmt.Errorf("failed to create GitHub client: %w", err)
-	}
-
+func WatchForWorkflowRun(t *testing.T, client *github.Client, repo, workflowFile, testID string, startTime time.Time, timeout time.Duration) (int64, error) {
 	owner, repoName, err := parseRepo(repo)
 	if err != nil {
 		return 0, fmt.Errorf("invalid repo format: %w", err)
@@ -653,12 +653,7 @@ func WatchForWorkflowRun(t *testing.T, repo, workflowFile, testID string, startT
 // MonitorWorkflowJobStates monitors job states and detects stuck "queued" jobs.
 // Returns nil when any job reaches "in_progress" or "completed" (runner picked it up).
 // Returns error if all jobs stay "queued" longer than queuedTimeout.
-func MonitorWorkflowJobStates(t *testing.T, repo string, runID int64, queuedTimeout time.Duration) error {
-	client, err := getGitHubClient()
-	if err != nil {
-		return fmt.Errorf("failed to create GitHub client: %w", err)
-	}
-
+func MonitorWorkflowJobStates(t *testing.T, client *github.Client, repo string, runID int64, queuedTimeout time.Duration) error {
 	owner, repoName, err := parseRepo(repo)
 	if err != nil {
 		return fmt.Errorf("invalid repo format: %w", err)
@@ -724,11 +719,8 @@ var (
 
 // FetchJobLogs retrieves the raw log text for each job in a workflow run.
 // Returns a map of job name to log text.
-func FetchJobLogs(t *testing.T, repo string, runID int64) map[string]string {
+func FetchJobLogs(t *testing.T, client *github.Client, repo string, runID int64) map[string]string {
 	t.Helper()
-
-	client, err := getGitHubClient()
-	require.NoError(t, err, "Failed to create GitHub client")
 
 	owner, repoName, err := parseRepo(repo)
 	require.NoError(t, err, "Invalid repo format")
