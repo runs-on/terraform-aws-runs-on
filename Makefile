@@ -161,7 +161,7 @@ image-sync: ## Sync app_image and app_tag defaults to match VERSION
 image-check: ## Verify app_image is not pointing to dev
 	@IMAGE=$$(grep -A3 'variable "app_image"' variables.tf | grep default | sed 's/.*"\(.*\)"/\1/') && \
 	if echo "$$IMAGE" | grep -q ':dev@'; then \
-		echo "Error: app_image still points to dev. Run 'make sync-image' first."; \
+		echo "Error: app_image still points to dev. Run 'make image-sync' first."; \
 		exit 1; \
 	fi && \
 	echo "✓ app_image: $$IMAGE"

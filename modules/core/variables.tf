@@ -102,11 +102,6 @@ variable "ec2_instance_role_arn" {
   type        = string
 }
 
-variable "ec2_instance_profile_arn" {
-  description = "ARN of the EC2 instance profile"
-  type        = string
-}
-
 variable "ec2_instance_log_group_arn" {
   description = "ARN of the CloudWatch log group used by EC2 instances"
   type        = string
@@ -153,11 +148,6 @@ variable "app_config_json" {
   type        = string
   default     = ""
   sensitive   = true
-}
-
-variable "bootstrap_tag" {
-  description = "Bootstrap script version tag"
-  type        = string
 }
 
 variable "app_cpu" {

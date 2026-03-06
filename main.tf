@@ -180,7 +180,6 @@ module "core" {
   # Compute dependencies
   ec2_instance_role_name             = module.compute.ec2_instance_role_name
   ec2_instance_role_arn              = module.compute.ec2_instance_role_arn
-  ec2_instance_profile_arn           = module.compute.ec2_instance_profile_arn
   ec2_instance_log_group_arn         = module.compute.log_group_arn
   launch_template_linux_default_id   = module.compute.launch_template_linux_default_id
   launch_template_windows_default_id = module.compute.launch_template_windows_default_id
@@ -200,7 +199,6 @@ module "core" {
   }) : ""
   app_cpu                = var.app_cpu
   app_memory             = var.app_memory
-  bootstrap_tag          = var.bootstrap_tag
   app_ecr_repository_url = var.app_ecr_repository_url
 
   # Networking
