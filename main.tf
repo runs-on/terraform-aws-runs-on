@@ -188,16 +188,9 @@ module "core" {
   launch_template_windows_private_id = module.compute.launch_template_windows_private_id
 
   # App Runner configuration
-  app_image              = var.app_image
-  app_tag                = var.app_tag
-  app_config_json = var.github_app_id != null ? jsonencode({
-    id             = var.github_app_id
-    pem            = var.github_app_private_key
-    webhook_secret = var.github_app_webhook_secret
-    client_id      = var.github_app_client_id
-    client_secret  = var.github_app_client_secret
-  }) : ""
-  maintenance_mode       = var.maintenance_mode
+  app_image        = var.app_image
+  app_tag          = var.app_tag
+  maintenance_mode = var.maintenance_mode
   app_config_json = var.github_app_id != null ? jsonencode({
     id             = var.github_app_id
     pem            = var.github_app_private_key
