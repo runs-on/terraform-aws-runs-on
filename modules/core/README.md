@@ -153,6 +153,7 @@ No modules.
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image. When specified, App Runner will pull from this private ECR instead of public ECR. | `string` | `""` | no |
 | <a name="input_enable_waf"></a> [enable\_waf](#input\_enable\_waf) | Enable AWS WAF for App Runner service | `bool` | `false` | no |
 | <a name="input_extra_env_vars"></a> [extra\_env\_vars](#input\_extra\_env\_vars) | Additional environment variables to set on the App Runner service | `map(string)` | `{}` | no |
+| <a name="input_maintenance_mode"></a> [maintenance\_mode](#input\_maintenance\_mode) | Enable maintenance mode (disables queue processing and leader election) | `bool` | `false` | no |
 | <a name="input_waf_allowed_ipv4_cidrs"></a> [waf\_allowed\_ipv4\_cidrs](#input\_waf\_allowed\_ipv4\_cidrs) | List of IPv4 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
 | <a name="input_waf_allowed_ipv6_cidrs"></a> [waf\_allowed\_ipv6\_cidrs](#input\_waf\_allowed\_ipv6\_cidrs) | List of IPv6 CIDR blocks to allow through WAF (in addition to GitHub webhook IPs) | `list(string)` | `[]` | no |
 

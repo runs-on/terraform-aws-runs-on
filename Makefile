@@ -1,6 +1,8 @@
 # Version for this terraform module (follows RunsOn version with -rN suffix)
 # e.g., v2.11.0-r1 means compatible with RunsOn v2.11.0, terraform revision 1
-VERSION=v2.11.0-r1
+VERSION=v2.12.0-r1
+REGISTRY=public.ecr.aws/c5h5o9k1/runs-on/runs-on
+APP_VERSION=$(shell echo $(VERSION) | sed 's/-r[0-9]*//')
 
 .PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools \
 	test test-plan test-basic test-private test-full test-integration test-short test-all \
@@ -44,9 +46,6 @@ security: ## Run tfsec security scan
 
 quick: fmt-check validate lint ## Run all fast checks
 	@echo "All fast checks passed!"
-
-pre-commit: quick security ## Run before committing
-	@echo "Ready to commit!"
 
 docs: ## Generate documentation for all modules
 	@echo "Generating documentation..."
@@ -100,15 +99,30 @@ clean: ## Clean up OpenTofu files
 	@find . -type f -name "tfplan" -delete 2>/dev/null || true
 	@find . -type f -name ".terraform.lock.hcl" -delete 2>/dev/null || true
 
-install-tools: ## Install development tools (macOS)
-	@echo "Installing development tools..."
-	@if [ "$$(uname)" = "Darwin" ]; then \
-		echo "Installing for macOS..."; \
-		brew install opentofu tflint tfsec terraform-docs; \
-	else \
-		echo "Linux: Please install OpenTofu from https://opentofu.org/docs/intro/install/"; \
-		echo "Then install tflint, tfsec, and terraform-docs manually."; \
-	fi
+image-sync: ## Sync app_image and app_tag defaults to match VERSION
+	@IMAGE_REF="$(REGISTRY):$(APP_VERSION)" && \
+	echo "Resolving digest for $$IMAGE_REF..." && \
+	DIGEST=$$(docker buildx imagetools inspect "$$IMAGE_REF" --format '{{json .}}' 2>/dev/null | jq -r '.manifest.digest // empty' || echo "") && \
+	if [ -z "$$DIGEST" ]; then \
+		echo "Error: Could not resolve digest for $$IMAGE_REF"; \
+		exit 1; \
+	fi && \
+	FULL_IMAGE="$(REGISTRY):$(APP_VERSION)@$$DIGEST" && \
+	echo "Updating app_image to $$FULL_IMAGE" && \
+	sed -i.bak 's|default *= *"public.ecr.aws/c5h5o9k1/runs-on/runs-on:[^"]*"|default     = "'$$FULL_IMAGE'"|' variables.tf && \
+	rm -f variables.tf.bak && \
+	sed -i.bak '/variable "app_tag"/,/^}/{s|default *= *"[^"]*"|default     = "$(APP_VERSION)"|;}' variables.tf && \
+	rm -f variables.tf.bak && \
+	echo "✓ app_image: $$FULL_IMAGE" && \
+	echo "✓ app_tag: $(APP_VERSION)"
+
+image-check: ## Verify app_image is not pointing to dev
+	@IMAGE=$$(grep -A3 'variable "app_image"' variables.tf | grep default | sed 's/.*"\(.*\)"/\1/') && \
+	if echo "$$IMAGE" | grep -q ':dev@'; then \
+		echo "Error: app_image still points to dev. Run 'make sync-image' first."; \
+		exit 1; \
+	fi && \
+	echo "✓ app_image: $$IMAGE"
 
 check: ## Validate version format
 	@if ! echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+$$'; then \
@@ -129,7 +143,7 @@ pre-release: ## Check for uncommitted changes before release
 		exit 1; \
 	fi
 
-tag: pre-release check ## Create git tag for release
+tag: pre-release check quick docs image-check ## Create git tag for release
 	git tag -m "$(VERSION)" "$(VERSION)"
 
 release: ## Push tags and create GitHub release

@@ -68,7 +68,6 @@ Restart=no
 WantedBy=multi-user.target
 EOF
 
-systemctl daemon-reload
 if ! systemctl --no-block enable --now runs-on-bootstrap.service; then
   echo "Failed to enable/start runs-on-bootstrap.service via systemd, falling back to inline bootstrap."
   /usr/local/bin/runs-on-bootstrap.sh 2>&1 | tee -a /runs-on/output.log /var/log/cloud-init-output.log
