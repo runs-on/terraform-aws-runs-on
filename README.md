@@ -79,16 +79,17 @@ flowchart TB
     classDef github fill:#8b5cf6,stroke:#7c3aed,color:#fff,stroke-width:2px
 ```
 
-> **Cost Estimates:**
-> - **RunsOn base:** ~$3/mo (App Runner)
-> - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
-> - **EFS (optional):** ~$0.30/GB-month for storage
-> - **ECR (optional):** ~$0.10/GB-month for storage
-> - **S3 Gateway Endpoints:** free
->
-> With private networking:
-> - **NAT Gateway:** ~$32/mo per gateway + data transfer
-> - **VPC Interface Endpoints:** ~$7/mo per endpoint + data transfer
+## Cost Estimates
+
+- **RunsOn base:** ~$3/mo (App Runner)
+- **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
+- **EFS (optional):** ~$0.30/GB-month for storage
+- **ECR (optional):** ~$0.10/GB-month for storage
+- **S3 Gateway Endpoints:** free
+
+With private networking:
+- **NAT Gateway:** ~$32/mo per gateway + data transfer
+- **VPC Interface Endpoints:** ~$7/mo per endpoint + data transfer
 
 ## Documentation
 
