@@ -186,9 +186,9 @@ pre-release: ## Check for uncommitted changes before release
 	fi
 
 tag: check quick docs image-check readme-sync ## Create git tag for release
-	@if ! git diff --quiet README.md modules/*/README.md 2>/dev/null; then \
+	@if ! git diff --quiet README.md docs/*.md modules/*/README.md 2>/dev/null; then \
 		echo "Auto-committing doc changes..."; \
-		git add README.md modules/*/README.md; \
+		git add README.md docs/*.md modules/*/README.md; \
 		git commit -m "docs: update for $(VERSION)"; \
 	fi
 	$(MAKE) pre-release
@@ -201,9 +201,13 @@ release: ## Push tags and create GitHub release
 	@echo "Draft release created for $(VERSION)"
 	@echo "Review and publish at: https://github.com/runs-on/terraform-aws-runs-on/releases"
 
-readme-sync: ## Update README.md version references to match VERSION
-	@echo "Updating README.md version to $(VERSION)..."
-	@sed -i.bak 's|version = "v[0-9]*\.[0-9]*\.[0-9]*-r[0-9]*"|version = "$(VERSION)"|g' README.md && \
-	rm -f README.md.bak && \
-	UPDATED=$$(grep -c 'version = "$(VERSION)"' README.md) && \
-	echo "✓ Updated $$UPDATED version references in README.md"
+readme-sync: ## Update version references in README.md and docs/
+	@echo "Updating version to $(VERSION)..."
+	@for f in README.md docs/*.md; do \
+		if [ -f "$$f" ]; then \
+			sed -i.bak 's|version = "v[0-9]*\.[0-9]*\.[0-9]*-r[0-9]*"|version = "$(VERSION)"|g' "$$f" && \
+			rm -f "$$f.bak"; \
+		fi \
+	done && \
+	UPDATED=$$(grep -rc 'version = "$(VERSION)"' README.md docs/*.md 2>/dev/null | awk -F: '{s+=$$2}END{print s}') && \
+	echo "✓ Updated $$UPDATED version references"

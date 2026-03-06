@@ -2,117 +2,12 @@
 
 Deploy [RunsOn](https://runs-on.com) self-hosted GitHub Actions runners on AWS with Terraform/OpenTofu.
 
-## Table of Contents
-
-- [Usage](#usage)
-- [Versioning](#versioning)
-  - [Using a Git Branch](#using-a-git-branch)
-- [Resource Tags](#resource-tags)
-- [Architecture](#architecture)
-- [Examples](#examples)
-  - [Basic](#basic)
-  - [Private Networking](#private-networking)
-  - [EFS Enabled](#efs-enabled)
-  - [ECR Enabled](#ecr-enabled)
-  - [WAF (Web Application Firewall)](#waf-web-application-firewall)
-  - [GitHub App Configuration via Terraform](#github-app-configuration-via-terraform)
-  - [Full Featured](#full-featured)
-- [Requirements](#requirements)
-- [Providers](#providers)
-- [Modules](#modules)
-- [Resources](#resources)
-- [Inputs](#inputs)
-- [Outputs](#outputs)
-- [License](#license)
-
-## Usage
+## Quick Start
 
 ```hcl
-terraform {
-  required_version = ">= 1.5.7"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.0"
-    }
-  }
-}
-
-provider "aws" {
-  region = "us-east-1"
-}
-
-# Get available AZs
-data "aws_availability_zones" "available" {
-  state = "available"
-}
-
-# VPC Module - Creates networking infrastructure
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
-
-  name = "runs-on-vpc"
-  cidr = "10.0.0.0/16"
-
-  azs             = slice(data.aws_availability_zones.available.names, 0, 3)
-  private_subnets = ["10.0.128.0/20", "10.0.144.0/20", "10.0.160.0/20"]
-  public_subnets  = ["10.0.0.0/20", "10.0.16.0/20", "10.0.32.0/20"]
-
-  # NAT Gateway for private subnets (required for private networking)
-  # enable_nat_gateway = true
-  # single_nat_gateway = true
-
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-}
-
-# RunsOn Module - Deploys RunsOn infrastructure with smart defaults
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
   version = "v2.12.0-r1"
-
-  # Required: GitHub and License
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  # Required: Network configuration (BYOV - Bring Your Own VPC)
-  vpc_id             = module.vpc.vpc_id
-  public_subnet_ids  = module.vpc.public_subnets
-  private_subnet_ids = module.vpc.private_subnets
-}
-```
-The module assumes you have your own VPC already configured.
-
-## Versioning
-
-This module follows a versioning scheme that maps to the main RunsOn application version:
-
-```
-v{MAJOR}.{MINOR}.{PATCH}-r{REVISION}
-```
-
-- **`v{MAJOR}.{MINOR}.{PATCH}`** - Matches the compatible RunsOn application version
-- **`-r{REVISION}`** - Independent Terraform module revision (r1, r2, r3, etc.)
-
-**Examples:**
-- `v2.11.0-r1` - First Terraform release for RunsOn v2.11.0
-- `v2.11.0-r2` - Second Terraform release for RunsOn v2.11.0 (bug fixes, improvements)
-- `v2.12.0-r1` - First Terraform release for RunsOn v2.12.0
-
-When upgrading, check:
-1. The RunsOn version changelog at [runs-on.com/changelog](https://runs-on.com/changelog)
-2. The Terraform module release notes in this repository
-
-### Using a Git Branch
-
-To use this module from a specific git branch (e.g. `main`):
-
-```hcl
-module "runs-on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git?ref=main"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -123,21 +18,9 @@ module "runs-on" {
 }
 ```
 
-Replace `main` with any branch name, tag, or commit SHA
+Requires an existing VPC. See [examples](docs/examples.md) for VPC setup and all configuration options.
 
-## Resource Tags
-
-All resources are tagged with `runs-on-stack-name` for discovery by the CLI.
-Key resources also have a `runs-on-resource` tag for identification:
-- `apprunner-service` - App Runner service
-- `config-bucket` - Configuration S3 bucket
-- `cache-bucket` - Cache S3 bucket
-- `logging-bucket` - Logging S3 bucket
-- `ec2-log-group` - EC2 instances CloudWatch log group
-
-Do not remove these tags.
-
-# Architecture
+## Architecture
 
 ```mermaid
 flowchart TB
@@ -150,7 +33,7 @@ flowchart TB
             S3["S3 Buckets<br/><i>Config & Cache</i>"]
             EC2["EC2 Launch Templates<br/><i>Linux & Windows</i>"]
             IAM["IAM Roles<br/><i>Permissions</i>"]
-            
+
             subgraph Monitoring["Monitoring"]
                 SNS["SNS Topics<br/><i>Alerts</i>"]
                 CWLogs["CloudWatch Logs"]
@@ -196,238 +79,25 @@ flowchart TB
     classDef github fill:#8b5cf6,stroke:#7c3aed,color:#fff,stroke-width:2px
 ```
 
-> [!TIP]
-Cost Estimates:
+> **Cost Estimates:**
 > - **RunsOn base:** ~$3/mo (App Runner)
+> - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
 > - **EFS (optional):** ~$0.30/GB-month for storage
 > - **ECR (optional):** ~$0.10/GB-month for storage
-> - **Runners:** EC2 costs vary by instance type and usage (pay only for what you use)
-> - **S3 Gateway endpoints**: free
+> - **S3 Gateway Endpoints:** free
 >
-> When using private networking, keep in mind you might incur the following costs:
-> - **NAT Gateway:** ~$32/mo per gateway + data transfer charges
-> - **VPC Endpoints:** ~$7/mo per interface endpoint (e.g. EC2, ECR) + data transfer charges
+> With private networking:
+> - **NAT Gateway:** ~$32/mo per gateway + data transfer
+> - **VPC Interface Endpoints:** ~$7/mo per endpoint + data transfer
 
-# Examples
+## Documentation
 
-### Basic
-
-Standard deployment with smart defaults:
-
-```hcl
-module "runs-on" {
-  source  = "runs-on/runs-on/aws"
-  version = "v2.12.0-r1"
-
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  vpc_id            = "vpc-xxxxxxxx"
-  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
-}
-```
-
-### Private Networking
-
-Enable private networking for static egress IPs (requires NAT Gateway):
-
-```hcl
-module "runs-on" {
-  source  = "runs-on/runs-on/aws"
-  version = "v2.12.0-r1"
-
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  vpc_id             = "vpc-xxxxxxxx"
-  public_subnet_ids  = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
-  private_subnet_ids = ["subnet-priv1", "subnet-priv2", "subnet-priv3"]
-
-  # Private networking mode options:
-  #   "false"  - Disabled (default)
-  #   "true"   - Opt-in: runners can use private=true label
-  #   "always" - Default with opt-out: runners use private by default
-  #   "only"   - Forced: all runners must use private subnets
-  private_mode = "true"
-}
-```
-
-### EFS Enabled
-
-Enable shared persistent storage across all runners for storing and sharing large files/artifacts:
-
-```hcl
-module "runs-on" {
-  source  = "runs-on/runs-on/aws"
-  version = "v2.12.0-r1"
-
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  vpc_id            = "vpc-xxxxxxxx"
-  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
-
-  # Enables persistent shared filesystem across all runners
-  enable_efs = true
-}
-```
-
-### ECR Enabled
-
-Enable image cache across workflow jobs, including Docker build cache:
-
-```hcl
-module "runs-on" {
-  source  = "runs-on/runs-on/aws"
-  version = "v2.12.0-r1"
-
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  vpc_id            = "vpc-xxxxxxxx"
-  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
-
-  # Creates private ECR for build cache
-  enable_ecr = true
-}
-```
-
-### WAF (Web Application Firewall)
-
-Restrict App Runner access to GitHub webhook IPs only, blocking all other internet traffic:
-
-```hcl
-module "runs-on" {
-  source  = "runs-on/runs-on/aws"
-  version = "v2.12.0-r1"
-
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  vpc_id            = "vpc-xxxxxxxx"
-  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
-
-  # Enable WAF to restrict access to GitHub IPs only
-  enable_waf = true
-
-  # Optionally add your own IPs for admin access
-  # waf_allowed_ipv4_cidrs = ["203.0.113.50/32"]
-}
-```
-
-> [!WARNING]
-> **Enable WAF only AFTER completing initial GitHub App setup.**
->
-> WAF blocks all traffic except GitHub webhook IPs. The setup UI at your App Runner URL
-> requires browser access, which WAF will block.
->
-> **Deployment order:**
-> 1. Deploy with `enable_waf = false` (default)
-> 2. Access App Runner URL to configure GitHub App
-> 3. Set `enable_waf = true` and re-apply
->
-> If you need ongoing browser access (e.g., for metrics), add your IP to `waf_allowed_ipv4_cidrs`.
-
-### GitHub App Configuration via Terraform
-
-Instead of using the web-based setup flow, you can provide your GitHub App credentials directly as Terraform variables. This stores the app configuration as a Secrets Manager secret and skips the interactive setup:
-
-```hcl
-module "runs-on" {
-  source  = "runs-on/runs-on/aws"
-  version = "v2.12.0-r1"
-
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  vpc_id            = "vpc-xxxxxxxx"
-  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
-
-  # GitHub App credentials (skips web-based setup)
-  github_app_id             = 123456
-  github_app_private_key    = file("path/to/private-key.pem")
-  github_app_webhook_secret = "your-webhook-secret"
-  github_app_client_id      = "Iv1.xxxxxxxxxxxx"
-  github_app_client_secret  = "your-client-secret"
-}
-```
-
-These variables are assembled into a JSON configuration and stored in AWS Secrets Manager. All sensitive values (`private_key`, `webhook_secret`, `client_secret`) are marked as sensitive in Terraform.
-
-> [!TIP]
-> This approach is particularly useful for end-to-end integration tests (see `test/` directory) and automated deployments where you need fully non-interactive provisioning through CI/CD pipelines.
-
-### Full Featured
-
-All features enabled together, with VPC endpoints for improved security and reduced data transfer costs:
-
-```hcl
-# VPC with endpoints for private connectivity
-module "vpc" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
-
-  name = "runs-on-vpc"
-  cidr = "10.0.0.0/16"
-
-  azs             = ["us-east-1a", "us-east-1b", "us-east-1c"]
-  private_subnets = ["10.0.128.0/20", "10.0.144.0/20", "10.0.160.0/20"]
-  public_subnets  = ["10.0.0.0/20", "10.0.16.0/20", "10.0.32.0/20"]
-
-  enable_nat_gateway = true
-  single_nat_gateway = true # 'false' for High Availibility
-
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  # VPC Endpoints 
-  # Enable only if you're using private networking in RunsOn for full intra-VPC traffic to AWS APIs (avoids NAT Gateway data transfer costs).
-  
-  # S3 gateway endpoint is free and recommended
-  enable_s3_endpoint = true
-  
-  # ECR endpoints are useful if you push/pull lots of images (enable_ecr = true)
-  enable_ecr_api_endpoint     = false # For ECR API calls
-  enable_ecr_dkr_endpoint     = false # For ECR image pulls
-
-  # Interface endpoints below cost ~$7/mo each. 
-  enable_ec2_endpoint         = false # For EC2 API calls
-  enable_logs_endpoint        = false # For CloudWatch Logs
-  enable_ssm_endpoint         = false # For SSM access
-  enable_ssmmessages_endpoint = false # For SSM Session Manager
-}
-
-module "runs-on" {
-  source  = "runs-on/runs-on/aws"
-  version = "v2.12.0-r1"
-
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  vpc_id             = module.vpc.vpc_id
-  public_subnet_ids  = module.vpc.public_subnets
-  private_subnet_ids = module.vpc.private_subnets
-
-  # Private networking (opt-in mode)
-  private_mode = "true"
-
-  # EFS shared storage
-  enable_efs = true
-
-  # ECR container registry
-  enable_ecr = true
-
-  # CloudWatch dashboard for monitoring
-  enable_dashboard = true
-}
-```
+- **[Examples](docs/examples.md)** — Basic, private networking, EFS, ECR, WAF, full-featured
+- **[Private Networking](docs/private-networking.md)** — Static IPs, NAT gateway, mode options
+- **[WAF](docs/waf.md)** — Restrict access to GitHub webhook IPs
+- **[GitHub App Config](docs/github-app-config.md)** — Non-interactive setup via Terraform
+- **[Resource Tags](docs/resource-tags.md)** — Tag conventions
+- **[Versioning](docs/versioning.md)** — Version scheme and upgrades
 
 <!-- BEGIN_TF_DOCS -->
 
