@@ -185,7 +185,13 @@ pre-release: ## Check for uncommitted changes before release
 		exit 1; \
 	fi
 
-tag: pre-release check quick docs image-check readme-sync ## Create git tag for release
+tag: check quick docs image-check readme-sync ## Create git tag for release
+	@if ! git diff --quiet README.md modules/*/README.md 2>/dev/null; then \
+		echo "Auto-committing doc changes..."; \
+		git add README.md modules/*/README.md; \
+		git commit -m "docs: update for $(VERSION)"; \
+	fi
+	$(MAKE) pre-release
 	git tag -m "$(VERSION)" "$(VERSION)"
 
 release: ## Push tags and create GitHub release
