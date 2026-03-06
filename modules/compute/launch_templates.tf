@@ -1,6 +1,33 @@
 # modules/compute/launch_templates.tf
 # EC2 Launch Templates for RunsOn runners
 
+locals {
+  linux_user_data_vars = {
+    RunnerMaxRuntime         = var.runner_max_runtime
+    EC2InstanceLogGroup      = local.log_group_name
+    AppDebug                 = var.app_debug ? "true" : "false"
+    Region                   = var.region
+    S3BucketCache            = var.cache_bucket_name
+    BootstrapTag             = var.bootstrap_tag
+    AppTag                   = var.app_tag
+    AgentS3Bucket            = "s3://${var.config_bucket_name}/agents/${var.app_tag}"
+    EfsEnvLine               = var.efs_file_system_id != "" ? "RUNS_ON_EFS_ID=\"${var.efs_file_system_id}\"" : ""
+    EphemeralRegistryEnvLine = var.ephemeral_registry_uri != "" ? "RUNS_ON_ECR_CACHE=\"${var.ephemeral_registry_uri}\"" : ""
+  }
+
+  windows_user_data_vars = {
+    RunnerMaxRuntime         = var.runner_max_runtime
+    EC2InstanceLogGroup      = local.log_group_name
+    AppDebug                 = var.app_debug ? "true" : "false"
+    Region                   = var.region
+    S3BucketCache            = var.cache_bucket_name
+    BootstrapTag             = var.bootstrap_tag
+    AgentS3Bucket            = "s3://${var.config_bucket_name}/agents/${var.app_tag}"
+    EfsEnvLine               = var.efs_file_system_id != "" ? "$env:RUNS_ON_EFS_ID = \"${var.efs_file_system_id}\"" : ""
+    EphemeralRegistryEnvLine = var.ephemeral_registry_uri != "" ? "$env:RUNS_ON_ECR_CACHE = \"${var.ephemeral_registry_uri}\"" : ""
+  }
+}
+
 ###########################
 # EC2 Launch Templates
 ###########################
@@ -60,18 +87,7 @@ resource "aws_launch_template" "linux_default" {
     tags          = local.common_tags
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data-linux.sh", {
-    app_tag                = var.app_tag
-    bootstrap_tag          = var.bootstrap_tag
-    efs_file_system_id     = var.efs_file_system_id
-    ephemeral_registry_uri = var.ephemeral_registry_uri
-    config_bucket          = var.config_bucket_name
-    cache_bucket           = var.cache_bucket_name
-    region                 = var.region
-    log_group              = local.log_group_name
-    app_debug              = var.app_debug ? "true" : "false"
-    runner_max_runtime     = var.runner_max_runtime
-  }))
+  user_data = base64encode(templatefile("${path.module}/user-data/linux-bootstrap.sh.tmpl", local.linux_user_data_vars))
 
   tags = merge(
     local.common_tags,
@@ -136,18 +152,7 @@ resource "aws_launch_template" "windows_default" {
     tags          = local.common_tags
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data-windows.ps1", {
-    app_tag                = var.app_tag
-    bootstrap_tag          = var.bootstrap_tag
-    efs_file_system_id     = var.efs_file_system_id
-    ephemeral_registry_uri = var.ephemeral_registry_uri
-    config_bucket          = var.config_bucket_name
-    cache_bucket           = var.cache_bucket_name
-    region                 = var.region
-    log_group              = local.log_group_name
-    app_debug              = var.app_debug ? "true" : "false"
-    runner_max_runtime     = var.runner_max_runtime
-  }))
+  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.ps1.tmpl", local.windows_user_data_vars))
 
   tags = merge(
     local.common_tags,
@@ -212,18 +217,7 @@ resource "aws_launch_template" "linux_private" {
     tags          = local.common_tags
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data-linux.sh", {
-    app_tag                = var.app_tag
-    bootstrap_tag          = var.bootstrap_tag
-    efs_file_system_id     = var.efs_file_system_id
-    ephemeral_registry_uri = var.ephemeral_registry_uri
-    config_bucket          = var.config_bucket_name
-    cache_bucket           = var.cache_bucket_name
-    region                 = var.region
-    log_group              = local.log_group_name
-    app_debug              = var.app_debug ? "true" : "false"
-    runner_max_runtime     = var.runner_max_runtime
-  }))
+  user_data = base64encode(templatefile("${path.module}/user-data/linux-bootstrap.sh.tmpl", local.linux_user_data_vars))
 
   tags = merge(
     local.common_tags,
@@ -288,18 +282,7 @@ resource "aws_launch_template" "windows_private" {
     tags          = local.common_tags
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data-windows.ps1", {
-    app_tag                = var.app_tag
-    bootstrap_tag          = var.bootstrap_tag
-    efs_file_system_id     = var.efs_file_system_id
-    ephemeral_registry_uri = var.ephemeral_registry_uri
-    config_bucket          = var.config_bucket_name
-    cache_bucket           = var.cache_bucket_name
-    region                 = var.region
-    log_group              = local.log_group_name
-    app_debug              = var.app_debug ? "true" : "false"
-    runner_max_runtime     = var.runner_max_runtime
-  }))
+  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.ps1.tmpl", local.windows_user_data_vars))
 
   tags = merge(
     local.common_tags,
