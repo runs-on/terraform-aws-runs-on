@@ -102,8 +102,8 @@ variable "ec2_instance_role_arn" {
   type        = string
 }
 
-variable "ec2_instance_profile_arn" {
-  description = "ARN of the EC2 instance profile"
+variable "ec2_instance_log_group_arn" {
+  description = "ARN of the CloudWatch log group used by EC2 instances"
   type        = string
 }
 
@@ -137,9 +137,17 @@ variable "app_tag" {
   type        = string
 }
 
-variable "bootstrap_tag" {
-  description = "Bootstrap script version tag"
+variable "maintenance_mode" {
+  description = "Enable maintenance mode (disables queue processing and leader election)"
+  type        = bool
+  default     = false
+}
+
+variable "app_config_json" {
+  description = "GitHub App configuration JSON (app.json contents). If provided, creates a Secrets Manager secret and skips the web-based GitHub App setup flow."
   type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "app_cpu" {
@@ -261,9 +269,20 @@ variable "otel_exporter_headers" {
   sensitive   = true
 }
 
+variable "otel_exporter_temporality" {
+  description = "OTLP metrics temporality: cumulative (default) or delta"
+  type        = string
+}
+
 variable "logger_level" {
   description = "Log level: debug, info, warn, or error"
   type        = string
+}
+
+variable "extra_env_vars" {
+  description = "Additional environment variables to set on the App Runner service"
+  type        = map(string)
+  default     = {}
 }
 
 variable "email" {

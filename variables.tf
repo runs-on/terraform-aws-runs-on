@@ -105,6 +105,12 @@ variable "private_mode" {
   }
 }
 
+variable "private_mode_delay" {
+  description = "Delay before starting App Runner in private mode, to allow NAT gateways to become ready. Set to \"60s\" or higher for fresh NAT gateway deployments."
+  type        = string
+  default     = "0s"
+}
+
 variable "security_group_ids" {
   description = "Security group IDs for runner instances and App Runner service. If empty list provided, security groups will be created automatically."
   type        = list(string)
@@ -248,19 +254,27 @@ variable "runner_large_volume_throughput" {
 variable "app_image" {
   description = "App Runner container image for RunsOn service"
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.11.0@sha256:875bcd8a36be7be78509a4c8371cdb4bff01af06c49f4a2d2a2647e3bf44bac5"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.0@sha256:c2a00ae49598ae1b47c12409f9cc39885394da6c7d4fcdf1ef86570c88802706"
+  nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service"
   type        = string
-  default     = "v2.11.0"
+  default     = "v2.12.0"
+  nullable    = false
 }
 
 variable "bootstrap_tag" {
   description = "Bootstrap script version tag"
   type        = string
   default     = "v0.1.12"
+}
+
+variable "maintenance_mode" {
+  description = "Enable maintenance mode (disables queue processing and leader election)"
+  type        = bool
+  default     = false
 }
 
 variable "app_cpu" {
@@ -295,6 +309,39 @@ variable "app_ecr_repository_url" {
   description = "Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, App Runner will pull from this private ECR instead of public ECR."
   type        = string
   default     = ""
+}
+
+variable "github_app_id" {
+  description = "GitHub App ID. If provided along with other github_app_* variables, creates a Secrets Manager secret and skips the web-based GitHub App setup flow."
+  type        = number
+  default     = null
+}
+
+variable "github_app_private_key" {
+  description = "GitHub App private key (PEM format)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_app_webhook_secret" {
+  description = "GitHub App webhook secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_app_client_id" {
+  description = "GitHub App client ID"
+  type        = string
+  default     = ""
+}
+
+variable "github_app_client_secret" {
+  description = "GitHub App client secret"
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 ###########################
@@ -425,6 +472,17 @@ variable "otel_exporter_headers" {
   sensitive   = true
 }
 
+variable "otel_exporter_temporality" {
+  description = "OTLP metrics temporality: cumulative (default) or delta"
+  type        = string
+  default     = "cumulative"
+
+  validation {
+    condition     = contains(["cumulative", "delta"], var.otel_exporter_temporality)
+    error_message = "OTLP temporality must be one of: cumulative, delta."
+  }
+}
+
 variable "logger_level" {
   description = "Logging level for RunsOn service (debug, info, warn, error)"
   type        = string
@@ -434,6 +492,17 @@ variable "logger_level" {
     condition     = contains(["debug", "info", "warn", "error"], var.logger_level)
     error_message = "Logger level must be one of: debug, info, warn, error."
   }
+}
+
+###########################
+# Extra Environment Variables
+# Used by: core module
+###########################
+
+variable "extra_env_vars" {
+  description = "Additional environment variables to set on the App Runner service"
+  type        = map(string)
+  default     = {}
 }
 
 ###########################

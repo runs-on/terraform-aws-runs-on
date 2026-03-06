@@ -42,9 +42,9 @@ locals {
 ###########################
 
 resource "time_sleep" "wait_for_nat" {
-  count = var.private_mode != "false" ? 1 : 0
+  count = var.private_mode != "false" && var.private_mode_delay != "0s" ? 1 : 0
 
-  create_duration = "60s"
+  create_duration = var.private_mode_delay
 }
 
 ###########################
@@ -180,18 +180,25 @@ module "core" {
   # Compute dependencies
   ec2_instance_role_name             = module.compute.ec2_instance_role_name
   ec2_instance_role_arn              = module.compute.ec2_instance_role_arn
-  ec2_instance_profile_arn           = module.compute.ec2_instance_profile_arn
+  ec2_instance_log_group_arn         = module.compute.log_group_arn
   launch_template_linux_default_id   = module.compute.launch_template_linux_default_id
   launch_template_windows_default_id = module.compute.launch_template_windows_default_id
   launch_template_linux_private_id   = module.compute.launch_template_linux_private_id
   launch_template_windows_private_id = module.compute.launch_template_windows_private_id
 
   # App Runner configuration
-  app_image              = var.app_image
-  app_tag                = var.app_tag
+  app_image        = var.app_image
+  app_tag          = var.app_tag
+  maintenance_mode = var.maintenance_mode
+  app_config_json = var.github_app_id != null ? jsonencode({
+    id             = var.github_app_id
+    pem            = var.github_app_private_key
+    webhook_secret = var.github_app_webhook_secret
+    client_id      = var.github_app_client_id
+    client_secret  = var.github_app_client_secret
+  }) : ""
   app_cpu                = var.app_cpu
   app_memory             = var.app_memory
-  bootstrap_tag          = var.bootstrap_tag
   app_ecr_repository_url = var.app_ecr_repository_url
 
   # Networking
@@ -223,6 +230,7 @@ module "core" {
   integration_step_security_api_key = var.integration_step_security_api_key
   otel_exporter_endpoint            = var.otel_exporter_endpoint
   otel_exporter_headers             = var.otel_exporter_headers
+  otel_exporter_temporality         = var.otel_exporter_temporality
   logger_level                      = var.logger_level
 
   # Alerting
@@ -241,6 +249,8 @@ module "core" {
   enable_waf             = var.enable_waf
   waf_allowed_ipv4_cidrs = var.waf_allowed_ipv4_cidrs
   waf_allowed_ipv6_cidrs = var.waf_allowed_ipv6_cidrs
+
+  extra_env_vars = var.extra_env_vars
 
   tags = local.common_tags
 

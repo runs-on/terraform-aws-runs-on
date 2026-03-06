@@ -10,8 +10,8 @@ The tests deploy **real AWS infrastructure** to validate the module's functional
 
 ### Required Tools
 
-- Go 1.25+
-- OpenTofu 1.9+ (or Terraform 1.6+)
+- Go 1.26+
+- OpenTofu 1.9+ (or Terraform 1.57+)
 - AWS CLI v2
 
 Install all tools automatically using [mise](https://mise.jdx.dev/):
@@ -33,28 +33,69 @@ Tests require AWS credentials with permissions to create:
 - CloudWatch log groups
 - DynamoDB tables
 - SQS queues
+- Secrets Manager secrets
 - (Optional) EFS file systems
 - (Optional) ECR repositories
 
 ## Environment Variables
 
+### Infrastructure Tests
+
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `RUNS_ON_LICENSE_KEY` | Yes | - | RunsOn license key |
 | `AWS_REGION` | No | `us-east-1` | AWS region for deployments |
-| `RUNS_ON_TEST_REPO` | No | - | GitHub repo for integration tests (`owner/repo` format) |
-| `RUNS_ON_TEST_WORKFLOW` | No | - | Workflow file name for integration tests (e.g., `test.yml`) |
-| `GITHUB_TOKEN` | No | - | GitHub token for integration tests |
+| `GITHUB_ORG` | No | `test-org` | Override GitHub organization name |
 | `RUNS_ON_APP_IMAGE` | No | - | Override App Runner image |
 | `RUNS_ON_APP_TAG` | No | - | Override App Runner image tag |
 
-The `github_organization` module variable is automatically extracted from `RUNS_ON_TEST_REPO` (e.g., `my-org/my-repo` → `my-org`). For infrastructure-only tests, it defaults to `test-org`.
+The `github_organization` module variable is automatically extracted from `RUNS_ON_TEST_REPO` (e.g., `my-org/my-repo` → `my-org`), then falls back to `GITHUB_ORG`, then defaults to `test-org`.
 
-Integration tests require all three: `RUNS_ON_TEST_REPO`, `RUNS_ON_TEST_WORKFLOW`, and `GITHUB_TOKEN`.
+### Integration Tests (End-to-End)
+
+These additional variables are required for `TestIntegrationEndToEnd`. Authentication uses a GitHub App installation token — no separate PAT is needed.
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `RUNS_ON_TEST_REPO` | Yes | Repository in `owner/repo` format |
+| `RUNS_ON_TEST_WORKFLOW` | Yes | Workflow file name (e.g., `test.yml`) |
+| `GITHUB_APP_ID` | Yes | GitHub App ID (numeric) |
+| `GITHUB_APP_PRIVATE_KEY` | Yes | GitHub App private key (PEM format) |
+| `GITHUB_APP_WEBHOOK_SECRET` | Yes | GitHub App webhook secret |
+| `GITHUB_APP_CLIENT_ID` | Yes | GitHub App OAuth client ID |
+| `GITHUB_APP_CLIENT_SECRET` | Yes | GitHub App OAuth client secret |
+
+Optional feature flags for integration tests:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_EFS` | `false` | Set to `true` to deploy EFS |
+| `ENABLE_ECR` | `false` | Set to `true` to deploy ECR |
+| `PRIVATE_MODE` | `false` | Private networking mode: `true`, `always`, or `only` (auto-enables NAT) |
+
+`PRIVATE_MODE` maps directly to the Terraform `private_mode` variable:
+
+| Value | Meaning |
+|-------|---------|
+| `false` | Disabled — runners use public subnets (default) |
+| `true` | Opt-in — runners use public by default, private via workflow label |
+| `always` | Default private — runners use private by default, public via opt-out label |
+| `only` | Forced private — all runners must use private subnets |
 
 ## Running Tests Locally
 
-### Minimal Setup (Infrastructure Tests Only)
+### Plan Tests (No AWS Resources)
+
+Run plan-only validation — no infrastructure is created:
+
+```bash
+cd test
+go test -v -timeout 15m -run "TestPlan" ./...
+```
+
+These tests validate that feature flags control which resources appear in the plan output (EFS, ECR, VPC connector, security groups).
+
+### Basic Scenario (Infrastructure Tests)
 
 Run the basic scenario with just a license key:
 
@@ -65,59 +106,15 @@ export RUNS_ON_LICENSE_KEY="your-license-key"
 go test -v -timeout 45m -run "TestScenarioBasic" ./...
 ```
 
-This runs all infrastructure validations:
+This deploys infrastructure and runs all validations:
 
 - S3 bucket encryption, logging, public access blocking
 - IAM role permissions
 - S3 versioning and log retention
+- Secrets Manager wiring (StackConfig)
+- Resource tagging discovery
 - App Runner health checks
 - EC2 functional tests (S3 access, CloudWatch logging)
-
-Integration tests that require GitHub are **automatically skipped**.
-
-### With Integration Tests (Observer Mode)
-
-To run the full integration test that validates a GitHub Actions workflow executes on a RunsOn runner:
-
-```bash
-export RUNS_ON_LICENSE_KEY="your-license-key"
-export GITHUB_TOKEN="ghp_xxxx"
-export RUNS_ON_TEST_REPO="my-org/my-test-repo"
-export RUNS_ON_TEST_WORKFLOW="my-workflow.yml"
-
-go test -v -timeout 45m -run "TestScenarioBasic" ./...
-```
-
-The integration test runs in **observer mode**:
-
-1. Test deploys infrastructure and displays the App Runner URL
-2. You manually register the RunsOn app at the displayed URL
-3. You manually trigger the specified workflow
-4. Test detects and monitors the workflow run
-5. Test validates the runner was launched and job completed
-
-To abort the observer mode gracefully, create the abort file shown in the test output:
-
-```bash
-touch /tmp/runson-<test-id>-abort
-```
-
-### Testing a Different App Version
-
-To test a specific RunsOn app version, override the App Runner image and tag:
-
-```bash
-export RUNS_ON_LICENSE_KEY="your-license-key"
-export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.11.0"
-export RUNS_ON_APP_TAG="v2.11.0"
-
-go test -v -timeout 45m -run "TestScenarioBasic" ./...
-```
-
-This is useful for:
-- Testing pre-release versions before upgrading
-- Validating custom builds or forks
-- Regression testing against older versions
 
 ### Full-Featured Scenario
 
@@ -126,16 +123,70 @@ Test all optional features (NAT gateway, EFS, ECR):
 ```bash
 export RUNS_ON_LICENSE_KEY="your-license-key"
 
-go test -v -timeout 60m -run "TestScenarioFullFeatured" ./...
+go test -v -timeout 90m -run "TestScenarioFullFeatured" ./...
 ```
 
-This scenario:
+This scenario additionally:
 
 - Deploys NAT gateway for private networking
 - Tests EFS mount, read, write operations from EC2
 - Tests ECR Docker Buildx cache push/pull
 - Validates private subnet instances have no public IP
 - Validates outbound connectivity via NAT
+
+### Private Networking Scenario
+
+Test deployment with private networking enabled:
+
+```bash
+export RUNS_ON_LICENSE_KEY="your-license-key"
+
+go test -v -timeout 60m -run "TestScenarioPrivateNetworking" ./...
+```
+
+Runs the same validations as Basic, plus private subnet isolation and NAT gateway connectivity.
+
+### End-to-End Integration Test
+
+Run the fully automated integration test that deploys infrastructure, wires up a GitHub App, dispatches a workflow, and verifies a runner processes the job:
+
+```bash
+export RUNS_ON_LICENSE_KEY="your-license-key"
+export RUNS_ON_TEST_REPO="my-org/my-test-repo"
+export RUNS_ON_TEST_WORKFLOW="test.yml"
+export GITHUB_APP_ID="123456"
+export GITHUB_APP_PRIVATE_KEY="$(cat key.pem)"
+export GITHUB_APP_WEBHOOK_SECRET="your-webhook-secret"
+export GITHUB_APP_CLIENT_ID="Iv1.xxxx"
+export GITHUB_APP_CLIENT_SECRET="xxxx"
+
+go test -v -timeout 60m -run "TestIntegrationEndToEnd" ./...
+```
+
+The test flow:
+
+1. Deploys infrastructure with GitHub App credentials injected via Terraform variables
+2. Waits for App Runner health check
+3. Updates the GitHub App webhook URL to point to the new deployment
+4. Dispatches the specified workflow via GitHub API
+5. Monitors for the workflow run to start (5 min timeout)
+6. Monitors job state transitions — detects if jobs are stuck in queue (5 min timeout)
+7. Waits for workflow completion (10 min timeout)
+8. Validates a runner EC2 instance was launched
+9. Extracts boot timing metrics from job logs
+10. Destroys all infrastructure
+
+### Testing a Different App Version
+
+Override the App Runner image and tag:
+
+```bash
+export RUNS_ON_LICENSE_KEY="your-license-key"
+export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.11.0"
+export RUNS_ON_APP_TAG="v2.11.0"
+
+go test -v -timeout 45m -run "TestScenarioBasic" ./...
+```
 
 ### Skip Expensive Tests
 
@@ -148,10 +199,28 @@ go test -v -short ./...
 ### Run All Tests
 
 ```bash
-go test -v -timeout 90m ./...
+go test -v -timeout 120m ./...
 ```
 
 ## Test Scenarios
+
+### TestPlanConditionalResources / TestPlanResourceCounts
+
+Validates that feature flags control which resources appear in the plan output. Runs `tofu plan` with dummy values — **no AWS resources are created**.
+
+| Sub-case | What it checks |
+|----------|---------------|
+| BaselineNoOptional | EFS, ECR, VPC connector absent |
+| EFSOnly | EFS resources present, ECR absent |
+| ECROnly | ECR resources present, EFS absent |
+| PrivateModeTrue | VPC connector present |
+| PrivateModeWithDelay | `time_sleep` resource present |
+| AllFeatures | EFS, ECR, VPC connector all present |
+| SGCreatedWhenEmpty | Security group created when none provided |
+| SGNotCreatedWhenProvided | Security group not created when provided |
+| ResourceCounts | Baseline plan creates ≥30 resources |
+
+**Duration**: 2-5 minutes | **Cost**: Free
 
 ### TestScenarioBasic
 
@@ -162,36 +231,66 @@ Deploys a minimal RunsOn stack and validates:
 | Outputs | Stack name, App Runner URL, bucket names, IAM role |
 | Security | S3 encryption (KMS), access logging, public access blocking, IAM permissions |
 | Compliance | S3 versioning, CloudWatch log retention |
-| Functional | App Runner health, S3 access from EC2, CloudWatch logging |
-| Integration | (Optional) GitHub workflow execution |
+| Wiring | StackConfig Secrets Manager secret matches Terraform outputs |
+| Tagging | `runs-on-stack-name` tag on ≥5 resources |
+| Advanced | App Runner health check |
+| Functional | S3 access from EC2 (allowed/denied paths), CloudWatch logging |
 
-**Duration**: 30-45 minutes  
-**Cost**: ~$1-2 per run
+**Duration**: 30-45 minutes | **Cost**: ~$1-2
+
+### TestScenarioPrivateNetworking
+
+Deploys with private networking (`private_mode = "true"` + NAT gateway):
+
+| Category | Validations |
+|----------|-------------|
+| All Basic | Everything from TestScenarioBasic |
+| Private | No public IP on instances, NAT gateway connectivity |
+
+**Duration**: 35-50 minutes | **Cost**: ~$2-3
 
 ### TestScenarioFullFeatured
 
-Deploys a full RunsOn stack with all features:
+Deploys with all features enabled (NAT + EFS + ECR):
 
 | Category | Validations |
 |----------|-------------|
 | All Basic | Everything from TestScenarioBasic |
 | Private Networking | No public IP on instances, NAT gateway connectivity |
-| EFS | Mount, write, read, unmount operations |
-| ECR | Docker Buildx cache-to and cache-from |
+| EFS | Mount, write, read, verify, unmount from EC2 |
+| ECR | Docker Buildx `cache-to` and `cache-from` with ECR registry |
 
-**Duration**: 45-60 minutes  
-**Cost**: ~$3-5 per run
+**Duration**: 45-60 minutes | **Cost**: ~$3-5
+
+### TestIntegrationEndToEnd
+
+Fully automated end-to-end test with a real GitHub Actions workflow:
+
+| Step | What happens |
+|------|-------------|
+| Deploy | Infrastructure with GitHub App credentials |
+| Health | App Runner `/ping` health check |
+| Webhook | Updates GitHub App webhook URL to new deployment |
+| Dispatch | Triggers `workflow_dispatch` on test repo |
+| Monitor | Watches for run start, job state transitions, completion |
+| Validate | Runner EC2 instance was launched, boot timings extracted |
+
+**Duration**: 30-45 minutes | **Cost**: ~$1-2
 
 ## Test Architecture
 
 ```
 test/
-├── scenarios_test.go   # Main test scenarios
-├── helpers.go          # AWS SDK helpers and validators
-├── go.mod              # Go module dependencies
-├── mise.toml           # Tool versions
+├── scenarios_test.go    # Infrastructure test scenarios (Basic, FullFeatured, PrivateNetworking)
+├── integration_test.go  # End-to-end integration test with GitHub Actions
+├── plan_test.go         # Plan-only validation tests (no AWS resources)
+├── helpers.go           # Scenario harness, config types, AWS/GitHub helpers
+├── validators.go        # Composable validation functions (security, compliance, wiring, tagging, functional)
+├── go.mod               # Go module dependencies
+├── go.sum
+├── mise.toml            # Tool versions
 └── fixtures/
-    └── vpc/            # VPC fixture module
+    └── vpc/             # VPC fixture module
         ├── main.tf
         ├── variables.tf
         └── outputs.tf
@@ -201,7 +300,7 @@ test/
 
 1. Deploy VPC fixture (public/private subnets, optional NAT)
 2. Deploy runs-on root module
-3. Run validation suites
+3. Run validation suites (composable per scenario)
 4. Cleanup (terraform destroy)
 
 All cleanup runs via `defer`, so infrastructure is destroyed even if tests fail.
@@ -224,6 +323,18 @@ All cleanup runs via `defer`, so infrastructure is destroyed even if tests fail.
 | `ValidateS3BucketVersioning` | Verifies versioning status matches expected |
 | `ValidateCloudWatchLogRetention` | Verifies retention policy is set (not infinite) |
 
+### Wiring
+
+| Function | Description |
+|----------|-------------|
+| `ValidateStackConfig` | Verifies Secrets Manager config JSON matches Terraform outputs (buckets, IAM roles, launch templates, SQS queues, DynamoDB tables, SNS topic) |
+
+### Tagging
+
+| Function | Description |
+|----------|-------------|
+| `ValidateResourceTagging` | Discovers resources tagged with `runs-on-stack-name` and verifies ≥5 exist |
+
 ### Functional
 
 | Function | Description |
@@ -240,10 +351,13 @@ All cleanup runs via `defer`, so infrastructure is destroyed even if tests fail.
 
 | Function | Description |
 |----------|-------------|
-| `WatchForWorkflowRun` | Polls GitHub API for workflow_dispatch runs |
+| `UpdateGitHubAppWebhookURL` | Updates GitHub App webhook via JWT |
+| `WatchForWorkflowRun` | Polls GitHub API for `workflow_dispatch` runs |
 | `MonitorWorkflowJobStates` | Detects stuck jobs (no runner available) |
 | `WaitForWorkflowCompletion` | Waits for workflow to complete |
 | `ValidateRunnerLaunched` | Verifies EC2 runner instance was created |
+| `FetchJobLogs` | Downloads raw logs for all jobs in a run |
+| `ParseBootTimings` | Extracts timing metrics from runner logs |
 
 ### Running a Single Subtest
 
@@ -265,4 +379,4 @@ Tests deploy real AWS resources:
 | EFS | ~$0.30/GB-month | Only provisioned storage used |
 | ECR | ~$0.10/GB-month | Only test images |
 
-**Tip**: Run `TestScenarioBasic` during development. Only run `TestScenarioFullFeatured` before merging.
+**Tip**: Run `TestPlanConditionalResources` during development (free). Run `TestScenarioBasic` before merging. Only run `TestScenarioFullFeatured` for releases or major changes.
