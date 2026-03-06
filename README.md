@@ -71,7 +71,7 @@ module "vpc" {
 # RunsOn Module - Deploys RunsOn infrastructure with smart defaults
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0-r1"
+  version = "v2.12.0-r1"
 
   # Required: GitHub and License
   github_organization = "my-org"
@@ -217,7 +217,7 @@ Standard deployment with smart defaults:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0-r1"
+  version = "v2.12.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -235,7 +235,7 @@ Enable private networking for static egress IPs (requires NAT Gateway):
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0-r1"
+  version = "v2.12.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -261,7 +261,7 @@ Enable shared persistent storage across all runners for storing and sharing larg
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0-r1"
+  version = "v2.12.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -282,7 +282,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0-r1"
+  version = "v2.12.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -303,7 +303,7 @@ Restrict App Runner access to GitHub webhook IPs only, blocking all other intern
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0-r1"
+  version = "v2.12.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -340,7 +340,7 @@ Instead of using the web-based setup flow, you can provide your GitHub App crede
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0-r1"
+  version = "v2.12.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -405,7 +405,7 @@ module "vpc" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.11.0-r1"
+  version = "v2.12.0-r1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -445,7 +445,7 @@ module "runs-on" {
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.30.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.35.1 |
 | <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
 
 ## Modules
@@ -482,9 +482,9 @@ module "runs-on" {
 | <a name="input_app_cpu"></a> [app\_cpu](#input\_app\_cpu) | CPU units for App Runner service (256, 512, 1024, 2048, 4096) | `number` | `256` | no |
 | <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack (prevents auto-shutdown of failed runner instances) | `bool` | `false` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, App Runner will pull from this private ECR instead of public ECR. | `string` | `""` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:dev@sha256:8cc63f3010f1c150684072b3cdd36385eac2aec1622f76cc7432a3717b25eea8"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.0@sha256:c2a00ae49598ae1b47c12409f9cc39885394da6c7d4fcdf1ef86570c88802706"` | no |
 | <a name="input_app_memory"></a> [app\_memory](#input\_app\_memory) | Memory in MB for App Runner service (512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288) | `number` | `512` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service | `string` | `"production"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service | `string` | `"v2.12.0"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts in S3 before expiration | `number` | `10` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Name of the tag key used for cost allocation and tracking | `string` | `"stack"` | no |
