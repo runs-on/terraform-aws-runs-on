@@ -42,9 +42,9 @@ locals {
 ###########################
 
 resource "time_sleep" "wait_for_nat" {
-  count = var.private_mode != "false" ? 1 : 0
+  count = var.private_mode != "false" && var.private_mode_delay != "0s" ? 1 : 0
 
-  create_duration = "60s"
+  create_duration = var.private_mode_delay
 }
 
 ###########################
@@ -198,6 +198,13 @@ module "core" {
     client_secret  = var.github_app_client_secret
   }) : ""
   maintenance_mode       = var.maintenance_mode
+  app_config_json = var.github_app_id != null ? jsonencode({
+    id             = var.github_app_id
+    pem            = var.github_app_private_key
+    webhook_secret = var.github_app_webhook_secret
+    client_id      = var.github_app_client_id
+    client_secret  = var.github_app_client_secret
+  }) : ""
   app_cpu                = var.app_cpu
   app_memory             = var.app_memory
   bootstrap_tag          = var.bootstrap_tag

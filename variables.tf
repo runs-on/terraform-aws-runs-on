@@ -105,6 +105,12 @@ variable "private_mode" {
   }
 }
 
+variable "private_mode_delay" {
+  description = "Delay before starting App Runner in private mode, to allow NAT gateways to become ready. Set to \"60s\" or higher for fresh NAT gateway deployments."
+  type        = string
+  default     = "0s"
+}
+
 variable "security_group_ids" {
   description = "Security group IDs for runner instances and App Runner service. If empty list provided, security groups will be created automatically."
   type        = list(string)

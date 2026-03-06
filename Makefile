@@ -4,8 +4,15 @@ VERSION=v2.12.0-r1
 REGISTRY=public.ecr.aws/c5h5o9k1/runs-on/runs-on
 APP_VERSION=$(shell echo $(VERSION) | sed 's/-r[0-9]*//')
 
-.PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools test test-short test-all test-basic test-full \
-	check pre-release tag release sync-image image-check
+# Dev deploy config
+DEV_VPC_DIR=test/fixtures/vpc
+DEV_TFVARS=dev.tfvars
+DEV_STACK_NAME ?= runs-on-tf
+
+.PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools \
+	test test-plan test-basic test-private test-full test-integration test-short test-all \
+	dev-vpc dev-apply dev-destroy dev-output \
+	check pre-release tag release
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -61,23 +68,71 @@ docs: ## Generate documentation for all modules
 		exit 1; \
 	fi
 
-test: test-basic ## Run basic test scenario (alias for test-basic)
+test: test-plan ## Run plan tests (free, no AWS resources)
 
-test-short: ## Run tests, skip expensive scenarios
-	@echo "Running short tests..."
-	cd test && mise exec -- go test -v -short ./...
+test-plan: ## Run plan-only validation tests (free, ~2min)
+	@echo "Running TestPlan*..."
+	cd test && mise exec -- go test -v -timeout 15m -run "TestPlan" ./...
 
-test-all: ## Run all test scenarios (expensive)
-	@echo "Running all test scenarios..."
-	cd test && mise exec -- go test -v -timeout 120m ./...
-
-test-basic: ## Run basic test scenario
+test-basic: ## Run basic infrastructure scenario (~45min, requires AWS + RUNS_ON_LICENSE_KEY)
 	@echo "Running TestScenarioBasic..."
 	cd test && mise exec -- go test -v -timeout 45m -run "TestScenarioBasic" ./...
 
-test-full: ## Run full-featured test scenario (expensive)
+test-private: ## Run private networking scenario (~60min, requires NAT gateway)
+	@echo "Running TestScenarioPrivateNetworking..."
+	cd test && mise exec -- go test -v -timeout 60m -run "TestScenarioPrivateNetworking" ./...
+
+test-full: ## Run full-featured scenario with EFS+ECR+NAT (~90min)
 	@echo "Running TestScenarioFullFeatured..."
 	cd test && mise exec -- go test -v -timeout 90m -run "TestScenarioFullFeatured" ./...
+
+test-integration: ## Run end-to-end integration test (~60min, requires GitHub App credentials)
+	@echo "Running TestIntegrationEndToEnd..."
+	cd test && mise exec -- go test -v -timeout 60m -run "TestIntegrationEndToEnd" ./...
+
+test-short: ## Run all tests, skip expensive NAT-dependent scenarios
+	@echo "Running short tests..."
+	cd test && mise exec -- go test -v -short -timeout 60m ./...
+
+test-all: ## Run all test scenarios (expensive, ~120min)
+	@echo "Running all test scenarios..."
+	cd test && mise exec -- go test -v -timeout 120m ./...
+
+dev-vpc: ## Deploy dev VPC (run once, then use dev-apply)
+	@echo "Deploying dev VPC (stack: $(DEV_STACK_NAME))..."
+	@cd $(DEV_VPC_DIR) && tofu init -upgrade && tofu apply -auto-approve \
+		-var="test_id=$(DEV_STACK_NAME)" \
+		-var="enable_nat=$$(grep -q 'private_mode' $(CURDIR)/$(DEV_TFVARS) 2>/dev/null && grep 'private_mode' $(CURDIR)/$(DEV_TFVARS) | grep -qv '"false"' && echo true || echo false)"
+	@echo ""
+	@echo "VPC ready. Now run: make dev-apply"
+
+dev-apply: ## Deploy RunsOn root module on dev VPC
+	@if [ ! -f "$(DEV_TFVARS)" ]; then \
+		echo "Error: $(DEV_TFVARS) not found."; \
+		echo "Copy dev.tfvars.example to dev.tfvars and fill in your values."; \
+		exit 1; \
+	fi
+	@echo "Deploying RunsOn (stack: $$(grep stack_name $(DEV_TFVARS) | head -1 | sed 's/.*= *"\(.*\)"/\1/'))..."
+	@tofu init -upgrade
+	tofu apply \
+		-var-file="$(DEV_TFVARS)" \
+		-var="vpc_id=$$(cd $(DEV_VPC_DIR) && tofu output -raw vpc_id)" \
+		-var="public_subnet_ids=$$(cd $(DEV_VPC_DIR) && tofu output -json public_subnets)" \
+		-var="private_subnet_ids=$$(cd $(DEV_VPC_DIR) && tofu output -json private_subnets)"
+
+dev-destroy: ## Destroy RunsOn and dev VPC
+	@echo "Destroying RunsOn..."
+	-tofu destroy \
+		-var-file="$(DEV_TFVARS)" \
+		-var="vpc_id=$$(cd $(DEV_VPC_DIR) && tofu output -raw vpc_id)" \
+		-var="public_subnet_ids=$$(cd $(DEV_VPC_DIR) && tofu output -json public_subnets)" \
+		-var="private_subnet_ids=$$(cd $(DEV_VPC_DIR) && tofu output -json private_subnets)"
+	@echo "Destroying dev VPC..."
+	cd $(DEV_VPC_DIR) && tofu destroy -auto-approve \
+		-var="test_id=$(DEV_STACK_NAME)"
+
+dev-output: ## Show dev deployment outputs
+	@tofu output
 
 clean: ## Clean up OpenTofu files
 	@echo "Cleaning up..."
