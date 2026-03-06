@@ -9,10 +9,10 @@ DEV_VPC_DIR=test/fixtures/vpc
 DEV_TFVARS=dev.tfvars
 DEV_STACK_NAME ?= runs-on-tf
 
-.PHONY: help init validate fmt fmt-check lint security quick pre-commit docs clean install-tools \
+.PHONY: help init validate fmt fmt-check lint security quick docs clean \
 	test test-plan test-basic test-private test-full test-integration test-short test-all \
 	dev-vpc dev-apply dev-destroy dev-output \
-	check pre-release tag release
+	image-sync image-check readme-sync check pre-release tag release
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -185,7 +185,7 @@ pre-release: ## Check for uncommitted changes before release
 		exit 1; \
 	fi
 
-tag: pre-release check quick docs image-check ## Create git tag for release
+tag: pre-release check quick docs image-check readme-sync ## Create git tag for release
 	git tag -m "$(VERSION)" "$(VERSION)"
 
 release: ## Push tags and create GitHub release
@@ -194,3 +194,10 @@ release: ## Push tags and create GitHub release
 	@echo ""
 	@echo "Draft release created for $(VERSION)"
 	@echo "Review and publish at: https://github.com/runs-on/terraform-aws-runs-on/releases"
+
+readme-sync: ## Update README.md version references to match VERSION
+	@echo "Updating README.md version to $(VERSION)..."
+	@sed -i.bak 's|version = "v[0-9]*\.[0-9]*\.[0-9]*-r[0-9]*"|version = "$(VERSION)"|g' README.md && \
+	rm -f README.md.bak && \
+	UPDATED=$$(grep -c 'version = "$(VERSION)"' README.md) && \
+	echo "✓ Updated $$UPDATED version references in README.md"
