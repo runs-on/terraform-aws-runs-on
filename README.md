@@ -15,6 +15,7 @@ Deploy [RunsOn](https://runs-on.com) self-hosted GitHub Actions runners on AWS w
   - [EFS Enabled](#efs-enabled)
   - [ECR Enabled](#ecr-enabled)
   - [WAF (Web Application Firewall)](#waf-web-application-firewall)
+  - [GitHub App Configuration via Terraform](#github-app-configuration-via-terraform)
   - [Full Featured](#full-featured)
 - [Requirements](#requirements)
 - [Providers](#providers)
@@ -332,6 +333,36 @@ module "runs-on" {
 >
 > If you need ongoing browser access (e.g., for metrics), add your IP to `waf_allowed_ipv4_cidrs`.
 
+### GitHub App Configuration via Terraform
+
+Instead of using the web-based setup flow, you can provide your GitHub App credentials directly as Terraform variables. This stores the app configuration as a Secrets Manager secret and skips the interactive setup:
+
+```hcl
+module "runs-on" {
+  source  = "runs-on/runs-on/aws"
+  version = "v2.11.0-r1"
+
+  github_organization = "my-org"
+  license_key         = "your-license-key"
+  email               = "alerts@example.com"
+
+  vpc_id            = "vpc-xxxxxxxx"
+  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
+
+  # GitHub App credentials (skips web-based setup)
+  github_app_id             = 123456
+  github_app_private_key    = file("path/to/private-key.pem")
+  github_app_webhook_secret = "your-webhook-secret"
+  github_app_client_id      = "Iv1.xxxxxxxxxxxx"
+  github_app_client_secret  = "your-client-secret"
+}
+```
+
+These variables are assembled into a JSON configuration and stored in AWS Secrets Manager. All sensitive values (`private_key`, `webhook_secret`, `client_secret`) are marked as sensitive in Terraform.
+
+> [!TIP]
+> This approach is particularly useful for end-to-end integration tests (see `test/` directory) and automated deployments where you need fully non-interactive provisioning through CI/CD pipelines.
+
 ### Full Featured
 
 All features enabled together, with VPC endpoints for improved security and reduced data transfer costs:
@@ -451,9 +482,9 @@ module "runs-on" {
 | <a name="input_app_cpu"></a> [app\_cpu](#input\_app\_cpu) | CPU units for App Runner service (256, 512, 1024, 2048, 4096) | `number` | `256` | no |
 | <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack (prevents auto-shutdown of failed runner instances) | `bool` | `false` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, App Runner will pull from this private ECR instead of public ECR. | `string` | `""` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.11.0@sha256:875bcd8a36be7be78509a4c8371cdb4bff01af06c49f4a2d2a2647e3bf44bac5"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:dev@sha256:8cc63f3010f1c150684072b3cdd36385eac2aec1622f76cc7432a3717b25eea8"` | no |
 | <a name="input_app_memory"></a> [app\_memory](#input\_app\_memory) | Memory in MB for App Runner service (512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288) | `number` | `512` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service | `string` | `"v2.11.0"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service | `string` | `"production"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts in S3 before expiration | `number` | `10` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Name of the tag key used for cost allocation and tracking | `string` | `"stack"` | no |
@@ -472,6 +503,11 @@ module "runs-on" {
 | <a name="input_force_delete_ecr"></a> [force\_delete\_ecr](#input\_force\_delete\_ecr) | Allow ECR repository to be deleted even when it contains images. Set to true for testing environments. | `bool` | `false` | no |
 | <a name="input_force_destroy_buckets"></a> [force\_destroy\_buckets](#input\_force\_destroy\_buckets) | Allow S3 buckets to be destroyed even when not empty. Set to false for production environments to prevent accidental data loss. | `bool` | `false` | no |
 | <a name="input_github_api_strategy"></a> [github\_api\_strategy](#input\_github\_api\_strategy) | Strategy for GitHub API calls (normal, conservative) | `string` | `"normal"` | no |
+| <a name="input_github_app_client_id"></a> [github\_app\_client\_id](#input\_github\_app\_client\_id) | GitHub App client ID | `string` | `""` | no |
+| <a name="input_github_app_client_secret"></a> [github\_app\_client\_secret](#input\_github\_app\_client\_secret) | GitHub App client secret | `string` | `""` | no |
+| <a name="input_github_app_id"></a> [github\_app\_id](#input\_github\_app\_id) | GitHub App ID. If provided along with other github\_app\_* variables, creates a Secrets Manager secret and skips the web-based GitHub App setup flow. | `number` | `null` | no |
+| <a name="input_github_app_private_key"></a> [github\_app\_private\_key](#input\_github\_app\_private\_key) | GitHub App private key (PEM format) | `string` | `""` | no |
+| <a name="input_github_app_webhook_secret"></a> [github\_app\_webhook\_secret](#input\_github\_app\_webhook\_secret) | GitHub App webhook secret | `string` | `""` | no |
 | <a name="input_github_enterprise_url"></a> [github\_enterprise\_url](#input\_github\_enterprise\_url) | GitHub Enterprise Server URL (optional, leave empty for github.com) | `string` | `""` | no |
 | <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | API key for StepSecurity integration (optional) | `string` | `""` | no |
 | <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 support for runner instances | `bool` | `false` | no |

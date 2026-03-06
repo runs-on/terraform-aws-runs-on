@@ -147,6 +147,7 @@ No modules.
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Stack name for resource naming | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | VPC ID where RunsOn is deployed | `string` | n/a | yes |
+| <a name="input_app_config_json"></a> [app\_config\_json](#input\_app\_config\_json) | GitHub App configuration JSON (app.json contents). If provided, creates a Secrets Manager secret and skips the web-based GitHub App setup flow. | `string` | `""` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image. When specified, App Runner will pull from this private ECR instead of public ECR. | `string` | `""` | no |
 | <a name="input_enable_waf"></a> [enable\_waf](#input\_enable\_waf) | Enable AWS WAF for App Runner service | `bool` | `false` | no |
 | <a name="input_extra_env_vars"></a> [extra\_env\_vars](#input\_extra\_env\_vars) | Additional environment variables to set on the App Runner service | `map(string)` | `{}` | no |

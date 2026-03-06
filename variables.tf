@@ -305,6 +305,39 @@ variable "app_ecr_repository_url" {
   default     = ""
 }
 
+variable "github_app_id" {
+  description = "GitHub App ID. If provided along with other github_app_* variables, creates a Secrets Manager secret and skips the web-based GitHub App setup flow."
+  type        = number
+  default     = null
+}
+
+variable "github_app_private_key" {
+  description = "GitHub App private key (PEM format)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_app_webhook_secret" {
+  description = "GitHub App webhook secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "github_app_client_id" {
+  description = "GitHub App client ID"
+  type        = string
+  default     = ""
+}
+
+variable "github_app_client_secret" {
+  description = "GitHub App client secret"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 ###########################
 # Runner Configuration
 # Used by: core module

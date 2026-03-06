@@ -199,7 +199,10 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = aws_secretsmanager_secret.runs_on_stack_config.arn
+        Resource = compact([
+          aws_secretsmanager_secret.runs_on_stack_config.arn,
+          var.app_config_json != "" ? aws_secretsmanager_secret.runs_on_app_config[0].arn : "",
+        ])
       },
       # ec2:TerminateInstances, StopInstances, StartInstances with tag condition
       {
@@ -406,6 +409,6 @@ resource "aws_apprunner_service" "this" {
   # Ensure ECR access policy is attached before App Runner tries to pull the image
   depends_on = [
     aws_iam_role_policy_attachment.apprunner_ecr_access,
-    aws_secretsmanager_secret_version.runs_on_stack_config
+    aws_secretsmanager_secret_version.runs_on_stack_config,
   ]
 }
