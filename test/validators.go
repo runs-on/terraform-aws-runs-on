@@ -710,7 +710,7 @@ func ValidateRunnerLaunched(t *testing.T, clients *AWSClients, stackName string,
 			},
 			{
 				Name:   aws.String("instance-state-name"),
-				Values: []string{"running", "terminated", "stopped"},
+				Values: []string{"running", "shutting-down", "terminated", "stopped"},
 			},
 		},
 	})
