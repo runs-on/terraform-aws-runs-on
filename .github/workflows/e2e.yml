@@ -1,0 +1,69 @@
+name: E2E Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      enable_efs:
+        description: "Enable EFS"
+        type: boolean
+        default: false
+      enable_ecr:
+        description: "Enable ECR"
+        type: boolean
+        default: false
+      private_mode:
+        description: "Private networking mode"
+        type: choice
+        default: "false"
+        options:
+          - "false"
+          - "true"
+          - "always"
+          - "only"
+
+jobs:
+  e2e:
+    name: "E2E (${{ inputs.enable_efs && 'efs ' || '' }}${{ inputs.enable_ecr && 'ecr ' || '' }}${{ inputs.private_mode != 'false' && format('private={0}', inputs.private_mode) || 'basic' }})"
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup mise
+        uses: jdx/mise-action@v2
+        with:
+          working_directory: test
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Download Go modules
+        working-directory: test
+        run: |
+          go mod tidy
+          go mod download
+
+      - name: Run E2E Test
+        working-directory: test
+        run: |
+          go test -v -timeout 60m -run "TestE2E" ./...
+        env:
+          RUNS_ON_LICENSE_KEY: ${{ secrets.RUNS_ON_LICENSE_KEY }}
+          RUNS_ON_TEST_REPO: runs-on/terraform-aws-runs-on
+          RUNS_ON_TEST_WORKFLOW: test-job.yml
+          GITHUB_APP_ID: ${{ vars.GH_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          GITHUB_APP_WEBHOOK_SECRET: ${{ secrets.GH_APP_WEBHOOK_SECRET }}
+          GITHUB_APP_CLIENT_ID: ${{ vars.GH_APP_CLIENT_ID }}
+          GITHUB_APP_CLIENT_SECRET: ${{ secrets.GH_APP_CLIENT_SECRET }}
+          ENABLE_EFS: ${{ inputs.enable_efs }}
+          ENABLE_ECR: ${{ inputs.enable_ecr }}
+          PRIVATE_MODE: ${{ inputs.private_mode }}
