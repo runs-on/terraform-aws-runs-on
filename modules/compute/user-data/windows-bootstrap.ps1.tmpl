@@ -19,6 +19,7 @@ RUNS_ON_DEBUG="${AppDebug}"
 AWS_REGION="${Region}"
 RUNS_ON_S3_BUCKET_CACHE="${S3BucketCache}"
 RUNS_ON_BOOTSTRAP_TAG="${BootstrapTag}"
+RUNS_ON_APP_TAG="${AppTag}"
 RUNS_ON_AGENT_S3_BUCKET="${AgentS3Bucket}"
 ${EfsEnvLine}
 ${EphemeralRegistryEnvLine}
@@ -31,6 +32,7 @@ function Copy-UrlToFile {
     [string]$Destination
   )
   [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  $ProgressPreference = 'SilentlyContinue'
   Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -ErrorAction Stop
 }
 
@@ -57,7 +59,10 @@ function Invoke-Sc {
 function Invoke-ShutdownHelper {
   if (Test-Path $serviceAgentBin) {
     & $serviceAgentBin --shutdown-helper --env-file $bootstrapEnvPath --status-file $bootstrapStatusPath --log-file $bootstrapLogPath
-    return
+    if ($LASTEXITCODE -eq 0) {
+      return
+    }
+    Write-Output "Agent shutdown helper failed with exit code $LASTEXITCODE, falling back to shell shutdown."
   }
   Write-Output "Bootstrap supervisor is unavailable. Sleeping 60s for troubleshooting/log shipping..."
   Start-Sleep -Seconds 60
