@@ -532,7 +532,13 @@ func getGitHubInstallationClient(appID int64, privateKey, owner string) (*github
 		context.Background(), owner,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find installation for org %s: %w", owner, err)
+		// Fall back to user installation (owner may be a user, not an org)
+		installation, _, err = appClient.Apps.FindUserInstallation(
+			context.Background(), owner,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find installation for org or user %s: %w", owner, err)
+		}
 	}
 
 	itr := ghinstallation.NewFromAppsTransport(appTransport, installation.GetID())
