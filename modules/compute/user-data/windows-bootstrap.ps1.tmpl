@@ -1,12 +1,72 @@
 <powershell>
 Get-Date -format s
-$env:RUNS_ON_RUNNER_MAX_RUNTIME = "${RunnerMaxRuntime}"
-$env:RUNS_ON_LOG_GROUP_NAME = "${EC2InstanceLogGroup}"
-$env:RUNS_ON_DEBUG = "${AppDebug}"
-$env:AWS_REGION = "${Region}"
-$env:RUNS_ON_S3_BUCKET_CACHE = "${S3BucketCache}"
+$runsOnDir = "C:\runs-on"
+$bootstrapEnvPath = "$runsOnDir\bootstrap.env"
+$bootstrapStatusPath = "$runsOnDir\bootstrap-status.env"
+$bootstrapLogPath = "$runsOnDir\output.log"
+$bootstrapBin = "$runsOnDir\bootstrap-${BootstrapTag}.exe"
+$bootstrapUrl = "https://github.com/runs-on/bootstrap/releases/download/${BootstrapTag}/bootstrap-${BootstrapTag}-windows-$env:PROCESSOR_ARCHITECTURE.exe"
+$serviceAgentBin = "$runsOnDir\agent-service.exe"
+$serviceName = "RunsOnBootstrapSupervisor"
+$agentS3Prefix = "${AgentS3Bucket}"
+$agentS3Url = "$agentS3Prefix/agent-windows-$env:PROCESSOR_ARCHITECTURE.exe"
+
+New-Item -ItemType Directory -Force -Path $runsOnDir | Out-Null
+@"
+RUNS_ON_RUNNER_MAX_RUNTIME="${RunnerMaxRuntime}"
+RUNS_ON_LOG_GROUP_NAME="${EC2InstanceLogGroup}"
+RUNS_ON_DEBUG="${AppDebug}"
+AWS_REGION="${Region}"
+RUNS_ON_S3_BUCKET_CACHE="${S3BucketCache}"
+RUNS_ON_BOOTSTRAP_TAG="${BootstrapTag}"
+RUNS_ON_AGENT_S3_BUCKET="${AgentS3Bucket}"
 ${EfsEnvLine}
 ${EphemeralRegistryEnvLine}
+"@ | Set-Content -Path $bootstrapEnvPath -Encoding ascii
+Remove-Item -Path $bootstrapStatusPath -Force -ErrorAction SilentlyContinue
+
+function Copy-UrlToFile {
+  param(
+    [string]$Url,
+    [string]$Destination
+  )
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  Invoke-WebRequest -Uri $Url -OutFile $Destination -UseBasicParsing -ErrorAction Stop
+}
+
+function Invoke-BootstrapSave {
+  param(
+    [string]$BootstrapPath,
+    [string]$S3Url,
+    [string]$Destination
+  )
+  & $BootstrapPath --save $Destination $S3Url
+  if ($LASTEXITCODE -ne 0) {
+    throw "bootstrap --save failed with exit code $LASTEXITCODE"
+  }
+}
+
+function Invoke-Sc {
+  param([string[]]$Arguments)
+  & sc.exe @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "sc.exe $($Arguments -join ' ') failed with exit code $LASTEXITCODE"
+  }
+}
+
+function Invoke-ShutdownHelper {
+  if (Test-Path $serviceAgentBin) {
+    & $serviceAgentBin --shutdown-helper --env-file $bootstrapEnvPath --status-file $bootstrapStatusPath --log-file $bootstrapLogPath
+    return
+  }
+  Write-Output "Bootstrap supervisor is unavailable. Sleeping 60s for troubleshooting/log shipping..."
+  Start-Sleep -Seconds 60
+  if ("${AppDebug}" -ne "true") {
+    Write-Output "user-data: Going to shut down now..."
+    Stop-Computer -Force
+  }
+}
+
 # Enable and start SSM Agent service
 try {
   Set-Service -Name "AmazonSSMAgent" -StartupType Automatic -ErrorAction SilentlyContinue
@@ -15,41 +75,43 @@ try {
 } catch {
   Write-Output "Warning: Failed to start SSM Agent service: $($_.Exception.Message)"
 }
-$bootstrapBin = "C:\runs-on\bootstrap-${BootstrapTag}.exe"
-$bootstrapFailed = $false
-$bootstrapExitCode = 0
+
 try {
-  New-Item -ItemType Directory -Force -Path (Split-Path $bootstrapBin)
-  if (-not (Test-Path $bootstrapBin)) {
-    # Enable TLS 1.2 for Windows Server 2016 compatibility
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    # Disable progress bar for much faster downloads (can be 100x faster)
-    $ProgressPreference = 'SilentlyContinue'
-    Invoke-WebRequest -Uri "https://github.com/runs-on/bootstrap/releases/download/${BootstrapTag}/bootstrap-${BootstrapTag}-windows-$env:PROCESSOR_ARCHITECTURE.exe" -OutFile $bootstrapBin -UseBasicParsing
-  }
-  Add-MpPreference -ExclusionProcess $bootstrapBin
-  & $bootstrapBin --debug=${AppDebug} --exec --post-exec shutdown "${AgentS3Bucket}/agent-windows-$env:PROCESSOR_ARCHITECTURE.exe"
-  $bootstrapExitCode = $LASTEXITCODE
-  if ($bootstrapExitCode -ne 0) {
-    throw "Bootstrap exited with code $bootstrapExitCode"
-  }
+  Add-MpPreference -ExclusionPath $runsOnDir -ErrorAction SilentlyContinue
 } catch {
-  $bootstrapFailed = $true
-  if ($bootstrapExitCode -eq 0) {
-    $bootstrapExitCode = 1
+  Write-Output "Warning: Failed to add Defender exclusion: $($_.Exception.Message)"
+}
+
+try {
+  $existingService = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+  if ($existingService) {
+    Stop-Service -Name $serviceName -Force -ErrorAction SilentlyContinue
+    $existingService.WaitForStatus('Stopped', (New-TimeSpan -Seconds 15))
   }
-  Write-Output "Bootstrap failed: $($_.Exception.Message)"
+
+  if (-not (Test-Path $bootstrapBin)) {
+    Copy-UrlToFile -Url $bootstrapUrl -Destination $bootstrapBin
+  }
+  Remove-Item -Path $serviceAgentBin -Force -ErrorAction SilentlyContinue
+  Invoke-BootstrapSave -BootstrapPath $bootstrapBin -S3Url $agentS3Url -Destination $serviceAgentBin
+
+  $serviceCommand = "`"$serviceAgentBin`" --service --env-file `"$bootstrapEnvPath`" --status-file `"$bootstrapStatusPath`" --log-file `"$bootstrapLogPath`""
+  $helperCommand = "`"$serviceAgentBin`" --shutdown-helper --env-file `"$bootstrapEnvPath`" --status-file `"$bootstrapStatusPath`" --log-file `"$bootstrapLogPath`""
+
+  if ($existingService) {
+    Invoke-Sc -Arguments @("config", $serviceName, "binPath=", $serviceCommand, "start=", "auto")
+  } else {
+    Invoke-Sc -Arguments @("create", $serviceName, "binPath=", $serviceCommand, "start=", "auto")
+  }
+  Invoke-Sc -Arguments @("failureflag", $serviceName, "1")
+  Invoke-Sc -Arguments @("failure", $serviceName, "reset=", "0", "actions=", "run/0/run/0/run/0", "command=", $helperCommand)
+  & sc.exe description $serviceName "Runs the RunsOn agent under SCM so supervisor crashes still power off the instance" | Out-Null
+  Set-Service -Name $serviceName -StartupType Automatic -ErrorAction Stop
+  Start-Service -Name $serviceName -ErrorAction Stop
+} catch {
+  Write-Output "Bootstrap supervisor setup failed: $($_.Exception.Message)"
+  Invoke-ShutdownHelper
   throw
-} finally {
-  if ($bootstrapFailed) {
-    Write-Output "Bootstrap failed (exit code $bootstrapExitCode). Sleeping 60s for troubleshooting/log shipping..."
-    Start-Sleep -Seconds 60
-  }
-  if ($env:RUNS_ON_DEBUG -ne "true") {
-    Write-Output "user-data: Going to shut down now..."
-    Stop-Computer -Force
-  }
 }
 </powershell>
 <detach>true</detach>
-<persist>true</persist>

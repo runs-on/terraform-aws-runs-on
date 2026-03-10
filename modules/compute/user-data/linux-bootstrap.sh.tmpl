@@ -17,27 +17,19 @@ EOF
 cat <<'EOF' > /usr/local/bin/runs-on-bootstrap.sh
 #!/bin/bash
 set -euo pipefail
+exec > >(tee -a /runs-on/output.log /var/log/cloud-init-output.log) 2>&1
 
 set -a
 . /etc/runs-on/bootstrap.env
 set +a
 
+STATUS_FILE="/runs-on/bootstrap-status.env"
 BOOTSTRAP_BIN="/usr/local/bin/runs-on-bootstrap-$RUNS_ON_BOOTSTRAP_TAG"
 AGENT_BINARY_URL="$RUNS_ON_AGENT_S3_BUCKET/agent-linux-$(uname -m)"
 
-_the_end() {
-  exit_code=$?
-  if [ "$exit_code" -ne 0 ] ; then
-    echo "Bootstrap exited with error ($exit_code). Sleeping 60s for troubleshooting/log shipping..."
-    sleep 60
-  fi
-
-  if [ "$RUNS_ON_DEBUG" != "true" ] ; then
-    echo "THE END"
-    shutdown -h now
-  fi
-}
-trap _the_end EXIT INT TERM
+cat <<'STATUS' > "$STATUS_FILE"
+RUNS_ON_BOOTSTRAP_STATUS=running
+STATUS
 
 if [ ! -f "$BOOTSTRAP_BIN" ]; then
   time curl -L --connect-timeout 3 --max-time 15 --retry 5 -s \
@@ -46,9 +38,55 @@ if [ ! -f "$BOOTSTRAP_BIN" ]; then
 fi
 
 chmod a+x "$BOOTSTRAP_BIN"
+set +e
 "$BOOTSTRAP_BIN" --debug="$RUNS_ON_DEBUG" --exec --post-exec shutdown "$AGENT_BINARY_URL"
+exit_code=$?
+set -e
+
+cat <<STATUS > "$STATUS_FILE.tmp"
+RUNS_ON_BOOTSTRAP_STATUS=completed
+RUNS_ON_BOOTSTRAP_EXIT_CODE=$exit_code
+STATUS
+mv "$STATUS_FILE.tmp" "$STATUS_FILE"
+
+exit "$exit_code"
 EOF
 chmod a+x /usr/local/bin/runs-on-bootstrap.sh
+
+cat <<'EOF' > /usr/local/bin/runs-on-bootstrap-shutdown.sh
+#!/bin/bash
+set -euo pipefail
+
+ENV_FILE="/etc/runs-on/bootstrap.env"
+STATUS_FILE="/runs-on/bootstrap-status.env"
+AGENT_BINARY="/runs-on/agent"
+
+set -a
+if [ -f "$ENV_FILE" ]; then
+  . "$ENV_FILE"
+fi
+set +a
+
+if [ "$(systemctl is-system-running 2>/dev/null || true)" = "stopping" ]; then
+  echo "System is already stopping, skipping bootstrap shutdown helper."
+  exit 0
+fi
+
+if [ -x "$AGENT_BINARY" ]; then
+  if "$AGENT_BINARY" --shutdown-helper --env-file "$ENV_FILE" --status-file "$STATUS_FILE" --log-file /runs-on/output.log; then
+    exit 0
+  fi
+  echo "Agent shutdown helper failed, falling back to shell shutdown."
+else
+  echo "Agent shutdown helper is unavailable, falling back to shell shutdown."
+fi
+
+if [ "${RUNS_ON_DEBUG:-false}" != "true" ]; then
+  sleep 60
+  shutdown -h now
+fi
+EOF
+chmod a+x /usr/local/bin/runs-on-bootstrap-shutdown.sh
 
 cat <<'EOF' > /etc/systemd/system/runs-on-bootstrap.service
 [Unit]
@@ -58,8 +96,9 @@ Wants=network-online.target
 Requires=local-fs.target
 
 [Service]
-Type=simple
-ExecStart=/bin/bash -lc '/usr/local/bin/runs-on-bootstrap.sh 2>&1 | tee -a /runs-on/output.log /var/log/cloud-init-output.log'
+Type=exec
+ExecStart=/usr/local/bin/runs-on-bootstrap.sh
+ExecStopPost=/usr/local/bin/runs-on-bootstrap-shutdown.sh
 StandardOutput=journal+console
 StandardError=journal+console
 Restart=no
@@ -69,6 +108,7 @@ WantedBy=multi-user.target
 EOF
 
 if ! systemctl --no-block enable --now runs-on-bootstrap.service; then
-  echo "Failed to enable/start runs-on-bootstrap.service via systemd, falling back to inline bootstrap."
-  /usr/local/bin/runs-on-bootstrap.sh 2>&1 | tee -a /runs-on/output.log /var/log/cloud-init-output.log
+  echo "Failed to enable/start runs-on-bootstrap.service via systemd, shutting down."
+  /usr/local/bin/runs-on-bootstrap-shutdown.sh || true
+  exit 1
 fi

@@ -23,8 +23,8 @@ locals {
     S3BucketCache            = var.cache_bucket_name
     BootstrapTag             = var.bootstrap_tag
     AgentS3Bucket            = "s3://${var.config_bucket_name}/agents/${var.app_tag}"
-    EfsEnvLine               = var.efs_file_system_id != "" ? "$env:RUNS_ON_EFS_ID = \"${var.efs_file_system_id}\"" : ""
-    EphemeralRegistryEnvLine = var.ephemeral_registry_uri != "" ? "$env:RUNS_ON_ECR_CACHE = \"${var.ephemeral_registry_uri}\"" : ""
+    EfsEnvLine               = var.efs_file_system_id != "" ? "RUNS_ON_EFS_ID=\"${var.efs_file_system_id}\"" : ""
+    EphemeralRegistryEnvLine = var.ephemeral_registry_uri != "" ? "RUNS_ON_ECR_CACHE=\"${var.ephemeral_registry_uri}\"" : ""
   }
 }
 
