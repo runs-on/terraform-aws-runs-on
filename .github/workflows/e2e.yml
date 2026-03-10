@@ -62,7 +62,7 @@ jobs:
           GITHUB_APP_ID: ${{ vars.GH_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
           GITHUB_APP_WEBHOOK_SECRET: ${{ secrets.GH_APP_WEBHOOK_SECRET }}
-          GITHUB_APP_CLIENT_ID: ${{ vars.GH_APP_CLIENT_ID }}
+          GITHUB_APP_CLIENT_ID: ${{ secrets.GH_APP_CLIENT_ID }}
           GITHUB_APP_CLIENT_SECRET: ${{ secrets.GH_APP_CLIENT_SECRET }}
           ENABLE_EFS: ${{ inputs.enable_efs }}
           ENABLE_ECR: ${{ inputs.enable_ecr }}
