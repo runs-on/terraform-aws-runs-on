@@ -219,12 +219,16 @@ func MustGetAWSConfig(ctx context.Context) aws.Config {
 func runScenario(t *testing.T, cfg ScenarioConfig, validate func(t *testing.T, r ScenarioResult)) {
 	t.Parallel()
 
+	vpcLogger, moduleLogger, dumpErrors := newTerraformLoggerPair(t)
+	defer dumpErrors()
+
 	// Deploy VPC fixture
 	vpcOptions := &terraform.Options{
 		TerraformDir:    "./fixtures/vpc",
 		TerraformBinary: "tofu",
 		Vars:            cfg.ToVPCVars(),
 		NoColor:         true,
+		Logger:          vpcLogger,
 	}
 	defer terraform.Destroy(t, vpcOptions)
 	terraform.InitAndApply(t, vpcOptions)
@@ -240,6 +244,7 @@ func runScenario(t *testing.T, cfg ScenarioConfig, validate func(t *testing.T, r
 		Vars:            cfg.ToModuleVars(vpcID, publicSubnets, privateSubnets),
 		EnvVars:         cfg.ToModuleEnvVars(),
 		NoColor:         true,
+		Logger:          moduleLogger,
 	}
 	defer terraform.Destroy(t, moduleOptions)
 	terraform.InitAndApply(t, moduleOptions)

@@ -51,9 +51,9 @@ Tests require AWS credentials with permissions to create:
 
 The `github_organization` module variable is automatically extracted from `RUNS_ON_TEST_REPO` (e.g., `my-org/my-repo` → `my-org`), then falls back to `GITHUB_ORG`, then defaults to `test-org`.
 
-### Integration Tests (End-to-End)
+### E2E Tests
 
-These additional variables are required for `TestIntegrationEndToEnd`. Authentication uses a GitHub App installation token — no separate PAT is needed.
+These additional variables are required for `TestE2E`. Authentication uses a GitHub App installation token — no separate PAT is needed.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
@@ -65,7 +65,7 @@ These additional variables are required for `TestIntegrationEndToEnd`. Authentic
 | `GITHUB_APP_CLIENT_ID` | Yes | GitHub App OAuth client ID |
 | `GITHUB_APP_CLIENT_SECRET` | Yes | GitHub App OAuth client secret |
 
-Optional feature flags for integration tests:
+Optional feature flags for E2E tests:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -146,9 +146,9 @@ go test -v -timeout 60m -run "TestScenarioPrivateNetworking" ./...
 
 Runs the same validations as Basic, plus private subnet isolation and NAT gateway connectivity.
 
-### End-to-End Integration Test
+### End-to-End Test
 
-Run the fully automated integration test that deploys infrastructure, wires up a GitHub App, dispatches a workflow, and verifies a runner processes the job:
+Run the fully automated E2E test that deploys infrastructure, wires up a GitHub App, dispatches a workflow, and verifies a runner processes the job:
 
 ```bash
 export RUNS_ON_LICENSE_KEY="your-license-key"
@@ -160,8 +160,10 @@ export GITHUB_APP_WEBHOOK_SECRET="your-webhook-secret"
 export GITHUB_APP_CLIENT_ID="Iv1.xxxx"
 export GITHUB_APP_CLIENT_SECRET="xxxx"
 
-go test -v -timeout 60m -run "TestIntegrationEndToEnd" ./...
+go test -v -timeout 60m -run "TestE2E" ./...
 ```
+
+This test can also be triggered via the `E2E Test` GitHub Actions workflow (`e2e.yml`) with configurable scenario inputs (EFS, ECR, private mode).
 
 The test flow:
 
@@ -262,9 +264,9 @@ Deploys with all features enabled (NAT + EFS + ECR):
 
 **Duration**: 45-60 minutes | **Cost**: ~$3-5
 
-### TestIntegrationEndToEnd
+### TestE2E
 
-Fully automated end-to-end test with a real GitHub Actions workflow:
+Fully automated E2E test with a real GitHub Actions workflow:
 
 | Step | What happens |
 |------|-------------|
@@ -282,7 +284,7 @@ Fully automated end-to-end test with a real GitHub Actions workflow:
 ```
 test/
 ├── scenarios_test.go    # Infrastructure test scenarios (Basic, FullFeatured, PrivateNetworking)
-├── integration_test.go  # End-to-end integration test with GitHub Actions
+├── e2e_test.go          # End-to-end test with GitHub Actions
 ├── plan_test.go         # Plan-only validation tests (no AWS resources)
 ├── helpers.go           # Scenario harness, config types, AWS/GitHub helpers
 ├── validators.go        # Composable validation functions (security, compliance, wiring, tagging, functional)
@@ -347,7 +349,7 @@ All cleanup runs via `defer`, so infrastructure is destroyed even if tests fail.
 | `ValidatePrivateNetworkConnectivity` | Tests outbound HTTPS via NAT gateway |
 | `ValidateInstanceHasNoPublicIP` | Verifies private subnet isolation |
 
-### Integration
+### E2E
 
 | Function | Description |
 |----------|-------------|
