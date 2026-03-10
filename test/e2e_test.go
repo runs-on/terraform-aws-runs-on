@@ -28,22 +28,22 @@ import (
 //   - RUNS_ON_TEST_REPO: Repository in "owner/repo" format
 //   - RUNS_ON_TEST_WORKFLOW: Workflow file name (e.g., "test.yml")
 //   - RUNS_ON_LICENSE_KEY: RunsOn license key
-//   - GITHUB_APP_ID: GitHub App ID (numeric)
-//   - GITHUB_APP_PRIVATE_KEY: GitHub App private key (PEM format)
-//   - GITHUB_APP_WEBHOOK_SECRET: GitHub App webhook secret
-//   - GITHUB_APP_CLIENT_ID: GitHub App OAuth client ID
-//   - GITHUB_APP_CLIENT_SECRET: GitHub App OAuth client secret
+//   - GH_APP_ID: GitHub App ID (numeric)
+//   - GH_APP_PRIVATE_KEY: GitHub App private key (PEM format)
+//   - GH_APP_WEBHOOK_SECRET: GitHub App webhook secret
+//   - GH_APP_CLIENT_ID: GitHub App OAuth client ID
+//   - GH_APP_CLIENT_SECRET: GitHub App OAuth client secret
 func TestE2E(t *testing.T) {
 	// Check required env vars
 	requiredEnvVars := []string{
 		"RUNS_ON_TEST_REPO",
 		"RUNS_ON_TEST_WORKFLOW",
 		"RUNS_ON_LICENSE_KEY",
-		"GITHUB_APP_ID",
-		"GITHUB_APP_PRIVATE_KEY",
-		"GITHUB_APP_WEBHOOK_SECRET",
-		"GITHUB_APP_CLIENT_ID",
-		"GITHUB_APP_CLIENT_SECRET",
+		"GH_APP_ID",
+		"GH_APP_PRIVATE_KEY",
+		"GH_APP_WEBHOOK_SECRET",
+		"GH_APP_CLIENT_ID",
+		"GH_APP_CLIENT_SECRET",
 	}
 	for _, envVar := range requiredEnvVars {
 		if os.Getenv(envVar) == "" {
@@ -52,8 +52,8 @@ func TestE2E(t *testing.T) {
 	}
 
 	// Parse GitHub App ID
-	appID, err := strconv.ParseInt(os.Getenv("GITHUB_APP_ID"), 10, 64)
-	require.NoError(t, err, "GITHUB_APP_ID must be a valid integer")
+	appID, err := strconv.ParseInt(os.Getenv("GH_APP_ID"), 10, 64)
+	require.NoError(t, err, "GH_APP_ID must be a valid integer")
 
 	testRepo := os.Getenv("RUNS_ON_TEST_REPO")
 	testWorkflow := os.Getenv("RUNS_ON_TEST_WORKFLOW")
@@ -61,10 +61,10 @@ func TestE2E(t *testing.T) {
 	// Build config with GitHub App credentials
 	cfg := DefaultScenarioConfig()
 	cfg.GithubAppID = appID
-	cfg.GithubAppPrivateKey = os.Getenv("GITHUB_APP_PRIVATE_KEY")
-	cfg.GithubAppWebhookSecret = os.Getenv("GITHUB_APP_WEBHOOK_SECRET")
-	cfg.GithubAppClientID = os.Getenv("GITHUB_APP_CLIENT_ID")
-	cfg.GithubAppClientSecret = os.Getenv("GITHUB_APP_CLIENT_SECRET")
+	cfg.GithubAppPrivateKey = os.Getenv("GH_APP_PRIVATE_KEY")
+	cfg.GithubAppWebhookSecret = os.Getenv("GH_APP_WEBHOOK_SECRET")
+	cfg.GithubAppClientID = os.Getenv("GH_APP_CLIENT_ID")
+	cfg.GithubAppClientSecret = os.Getenv("GH_APP_CLIENT_SECRET")
 
 	// Scenario config from env vars — controls which features to deploy
 	cfg.EnableEFS = os.Getenv("ENABLE_EFS") == "true"

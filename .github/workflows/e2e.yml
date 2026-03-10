@@ -59,11 +59,11 @@ jobs:
           RUNS_ON_LICENSE_KEY: ${{ secrets.RUNS_ON_LICENSE_KEY }}
           RUNS_ON_TEST_REPO: runs-on/terraform-aws-runs-on
           RUNS_ON_TEST_WORKFLOW: test-job.yml
-          GITHUB_APP_ID: ${{ vars.GH_APP_ID }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
-          GITHUB_APP_WEBHOOK_SECRET: ${{ secrets.GH_APP_WEBHOOK_SECRET }}
-          GITHUB_APP_CLIENT_ID: ${{ vars.GH_APP_CLIENT_ID }}
-          GITHUB_APP_CLIENT_SECRET: ${{ secrets.GH_APP_CLIENT_SECRET }}
+          GH_APP_ID: ${{ vars.GH_APP_ID }}
+          GH_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          GH_APP_WEBHOOK_SECRET: ${{ secrets.GH_APP_WEBHOOK_SECRET }}
+          GH_APP_CLIENT_ID: ${{ secrets.GH_APP_CLIENT_ID }}
+          GH_APP_CLIENT_SECRET: ${{ secrets.GH_APP_CLIENT_SECRET }}
           ENABLE_EFS: ${{ inputs.enable_efs }}
           ENABLE_ECR: ${{ inputs.enable_ecr }}
           PRIVATE_MODE: ${{ inputs.private_mode }}
