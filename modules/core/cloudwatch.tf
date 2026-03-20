@@ -160,7 +160,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_read.tokens as tokens, rate_limiters.ec2_read.burst as burst\n| stats avg(tokens) as avg_tokens, avg(burst) as avg_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_read.tokens as limiter_tokens, rate_limiters.ec2_read.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "EC2 Read"
           view   = "timeSeries"
@@ -178,7 +178,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_run.tokens as tokens, rate_limiters.ec2_run.burst as burst\n| stats avg(tokens) as avg_tokens, avg(burst) as avg_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_run.tokens as limiter_tokens, rate_limiters.ec2_run.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "EC2 Run"
           view   = "timeSeries"
@@ -196,7 +196,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_terminate.tokens as tokens, rate_limiters.ec2_terminate.burst as burst\n| stats avg(tokens) as avg_tokens, avg(burst) as avg_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_terminate.tokens as limiter_tokens, rate_limiters.ec2_terminate.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "EC2 Terminate"
           view   = "timeSeries"
@@ -214,7 +214,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_mutating.tokens as tokens, rate_limiters.ec2_mutating.burst as burst\n| stats avg(tokens) as avg_tokens, avg(burst) as avg_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_mutating.tokens as limiter_tokens, rate_limiters.ec2_mutating.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc" # gitleaks:allow
           region = var.region
           title  = "EC2 Mutating"
           view   = "timeSeries"
@@ -232,7 +232,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.s3.tokens as tokens, rate_limiters.s3.burst as burst\n| stats avg(tokens) as avg_tokens, avg(burst) as avg_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.s3.tokens as limiter_tokens, rate_limiters.s3.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc" # gitleaks:allow
           region = var.region
           title  = "S3 API"
           view   = "timeSeries"
@@ -250,7 +250,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.github.tokens as tokens, rate_limiters.github.burst as burst\n| stats avg(tokens) as avg_tokens, avg(burst) as avg_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.apprunner_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.github.tokens as limiter_tokens, rate_limiters.github.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "GitHub API"
           view   = "timeSeries"

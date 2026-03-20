@@ -95,4 +95,3 @@ tags = {
 
 # IAM Permissions Boundary (if required by your organization)
 # permission_boundary_arn = "arn:aws:iam::123456789012:policy/YourPermissionBoundary"
-

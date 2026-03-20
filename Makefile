@@ -1,18 +1,17 @@
-# Version for this terraform module (follows RunsOn version with -rN suffix)
-# e.g., v2.11.0-r1 means compatible with RunsOn v2.11.0, terraform revision 1
-VERSION=v2.12.0-r1
-REGISTRY=public.ecr.aws/c5h5o9k1/runs-on/runs-on
-APP_VERSION=$(shell echo $(VERSION) | sed 's/-r[0-9]*//')
+VERSION ?= $(shell if [ -f ../VERSION ]; then tr -d '\n' < ../VERSION; elif [ -f VERSION ]; then tr -d '\n' < VERSION; elif git describe --tags --exact-match >/dev/null 2>&1; then git describe --tags --exact-match; else echo dev; fi)
 
 # Dev deploy config
-DEV_VPC_DIR=test/fixtures/vpc
-DEV_TFVARS=dev.tfvars
+DEV_VPC_DIR = test/fixtures/vpc
+DEV_TFVARS = dev.tfvars
 DEV_STACK_NAME ?= runs-on-tf
+TEST_GO = cd test && mise exec -- go
+TEST_WITH_CI_IMAGE = $(TEST_GO) run ./cmd/with-ci-image
 
-.PHONY: help init validate fmt fmt-check lint security quick docs clean \
+.PHONY: help init validate fmt fmt-check lint security quick docs clean sync-metadata \
 	test test-plan test-basic test-private test-full test-integration test-short test-all \
+	test-basic-ci-image test-private-ci-image test-full-ci-image test-integration-ci-image \
 	dev-vpc dev-apply dev-destroy dev-output \
-	image-sync image-check readme-sync check pre-release tag release
+	check
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -29,74 +28,79 @@ fmt: ## Format OpenTofu files
 	@echo "Formatting OpenTofu files..."
 	@tofu fmt -recursive
 
-fmt-check: ## Check if files are formatted
+fmt-check: ## Check if OpenTofu files are formatted
 	@echo "Checking OpenTofu formatting..."
 	@tofu fmt -check -recursive
 
 lint: ## Run TFLint
 	@echo "Linting Terraform..."
-	@if command -v tflint >/dev/null 2>&1; then \
-		tflint --init; \
-		tflint --recursive || true; \
-	else \
-		echo "tflint not installed, skipping..."; \
-	fi
+	@tflint --init
+	@tflint --recursive --minimum-failure-severity=error
 
-security: ## Run tfsec security scan
+security: ## Run tfsec
 	@echo "Running security scan..."
-	@if command -v tfsec >/dev/null 2>&1; then \
-		tfsec . --concise-output; \
-	else \
-		echo "tfsec not installed, skipping..."; \
-	fi
+	@tfsec . --concise-output
 
-quick: fmt-check validate lint ## Run all fast checks
-	@echo "All fast checks passed!"
+quick: fmt-check validate lint ## Run fast local checks
+	@echo "All fast checks passed."
 
-docs: ## Generate documentation for all modules
+docs: ## Regenerate root and module READMEs with terraform-docs
 	@echo "Generating documentation..."
-	@if command -v terraform-docs >/dev/null 2>&1; then \
-		terraform-docs markdown table --output-file README.md .; \
-		find modules -name "*.tf" -type f -exec dirname {} \; | sort -u | while read dir; do \
-			if [ -f "$$dir/main.tf" ]; then \
-				echo "Generating docs for $$dir"; \
-				terraform-docs markdown table --output-file README.md "$$dir"; \
-			fi \
-		done; \
-	else \
-		echo "terraform-docs not installed. Install with: brew install terraform-docs"; \
-		exit 1; \
-	fi
+	@terraform-docs markdown table --output-file README.md .
+	@find modules -name main.tf -type f | sort | while read file; do \
+		dir=$$(dirname "$$file"); \
+		echo "Generating docs for $$dir"; \
+		terraform-docs markdown table --output-file README.md "$$dir"; \
+	done
 
-test: test-plan ## Run plan tests (free, no AWS resources)
+sync-metadata: ## Sync release-facing metadata from the monorepo root VERSION
+	@cd .. && mise exec -- go run ./cmd/releasectl metadata sync
+
+test: test-plan ## Run plan-only tests
 
 test-plan: ## Run plan-only validation tests (free, ~2min)
 	@echo "Running TestPlan*..."
-	cd test && mise exec -- go test -v -timeout 15m -run "TestPlan" ./...
+	$(TEST_GO) test -v -timeout 15m -run "TestPlan" ./...
 
 test-basic: ## Run basic infrastructure scenario (~45min, requires AWS + RUNS_ON_LICENSE_KEY)
 	@echo "Running TestScenarioBasic..."
-	cd test && mise exec -- go test -v -timeout 45m -run "TestScenarioBasic" ./...
+	$(TEST_GO) test -v -timeout 45m -run "TestScenarioBasic" ./...
+
+test-basic-ci-image: ## Build/push a runs-on-ci image, export test vars, then run TestScenarioBasic
+	@echo "Running TestScenarioBasic with a fresh runs-on-ci image..."
+	$(TEST_WITH_CI_IMAGE) --scenario basic -- make -C terraform test-basic
 
 test-private: ## Run private networking scenario (~60min, requires NAT gateway)
 	@echo "Running TestScenarioPrivateNetworking..."
-	cd test && mise exec -- go test -v -timeout 60m -run "TestScenarioPrivateNetworking" ./...
+	$(TEST_GO) test -v -timeout 60m -run "TestScenarioPrivateNetworking" ./...
+
+test-private-ci-image: ## Build/push a runs-on-ci image, export test vars, then run TestScenarioPrivateNetworking
+	@echo "Running TestScenarioPrivateNetworking with a fresh runs-on-ci image..."
+	$(TEST_WITH_CI_IMAGE) --scenario private -- make -C terraform test-private
 
 test-full: ## Run full-featured scenario with EFS+ECR+NAT (~90min)
 	@echo "Running TestScenarioFullFeatured..."
-	cd test && mise exec -- go test -v -timeout 90m -run "TestScenarioFullFeatured" ./...
+	$(TEST_GO) test -v -timeout 90m -run "TestScenarioFullFeatured" ./...
+
+test-full-ci-image: ## Build/push a runs-on-ci image, export test vars, then run TestScenarioFullFeatured
+	@echo "Running TestScenarioFullFeatured with a fresh runs-on-ci image..."
+	$(TEST_WITH_CI_IMAGE) --scenario full -- make -C terraform test-full
 
 test-integration: ## Run end-to-end integration test (~60min, requires GitHub App credentials)
 	@echo "Running TestIntegrationEndToEnd..."
-	cd test && mise exec -- go test -v -timeout 60m -run "TestIntegrationEndToEnd" ./...
+	$(TEST_GO) test -v -timeout 60m -run "TestIntegrationEndToEnd" ./...
+
+test-integration-ci-image: ## Build/push a runs-on-ci image, export test vars, then run TestIntegrationEndToEnd
+	@echo "Running TestIntegrationEndToEnd with a fresh runs-on-ci image..."
+	$(TEST_WITH_CI_IMAGE) --scenario integration -- make -C terraform test-integration
 
 test-short: ## Run all tests, skip expensive NAT-dependent scenarios
 	@echo "Running short tests..."
-	cd test && mise exec -- go test -v -short -timeout 60m ./...
+	$(TEST_GO) test -v -short -timeout 60m ./...
 
 test-all: ## Run all test scenarios (expensive, ~120min)
 	@echo "Running all test scenarios..."
-	cd test && mise exec -- go test -v -timeout 120m ./...
+	$(TEST_GO) test -v -timeout 120m ./...
 
 dev-vpc: ## Deploy dev VPC (run once, then use dev-apply)
 	@echo "Deploying dev VPC (stack: $(DEV_STACK_NAME))..."
@@ -106,7 +110,7 @@ dev-vpc: ## Deploy dev VPC (run once, then use dev-apply)
 	@echo ""
 	@echo "VPC ready. Now run: make dev-apply"
 
-dev-apply: ## Deploy RunsOn root module on dev VPC
+dev-apply: ## Deploy RunsOn root module on the dev VPC
 	@if [ ! -f "$(DEV_TFVARS)" ]; then \
 		echo "Error: $(DEV_TFVARS) not found."; \
 		echo "Copy dev.tfvars.example to dev.tfvars and fill in your values."; \
@@ -120,7 +124,7 @@ dev-apply: ## Deploy RunsOn root module on dev VPC
 		-var="public_subnet_ids=$$(cd $(DEV_VPC_DIR) && tofu output -json public_subnets)" \
 		-var="private_subnet_ids=$$(cd $(DEV_VPC_DIR) && tofu output -json private_subnets)"
 
-dev-destroy: ## Destroy RunsOn and dev VPC
+dev-destroy: ## Destroy RunsOn and the dev VPC
 	@echo "Destroying RunsOn..."
 	-tofu destroy \
 		-var-file="$(DEV_TFVARS)" \
@@ -134,80 +138,15 @@ dev-destroy: ## Destroy RunsOn and dev VPC
 dev-output: ## Show dev deployment outputs
 	@tofu output
 
-clean: ## Clean up OpenTofu files
+clean: ## Remove local OpenTofu state and cache directories
 	@echo "Cleaning up..."
 	@find . -type d -name ".terraform" -exec rm -rf {} + 2>/dev/null || true
 	@find . -type f -name "*.tfstate*" -delete 2>/dev/null || true
 	@find . -type f -name "tfplan" -delete 2>/dev/null || true
-	@find . -type f -name ".terraform.lock.hcl" -delete 2>/dev/null || true
 
-image-sync: ## Sync app_image and app_tag defaults to match VERSION
-	@IMAGE_REF="$(REGISTRY):$(APP_VERSION)" && \
-	echo "Resolving digest for $$IMAGE_REF..." && \
-	DIGEST=$$(docker buildx imagetools inspect "$$IMAGE_REF" --format '{{json .}}' 2>/dev/null | jq -r '.manifest.digest // empty' || echo "") && \
-	if [ -z "$$DIGEST" ]; then \
-		echo "Error: Could not resolve digest for $$IMAGE_REF"; \
-		exit 1; \
-	fi && \
-	FULL_IMAGE="$(REGISTRY):$(APP_VERSION)@$$DIGEST" && \
-	echo "Updating app_image to $$FULL_IMAGE" && \
-	sed -i.bak 's|default *= *"public.ecr.aws/c5h5o9k1/runs-on/runs-on:[^"]*"|default     = "'$$FULL_IMAGE'"|' variables.tf && \
-	rm -f variables.tf.bak && \
-	sed -i.bak '/variable "app_tag"/,/^}/{s|default *= *"[^"]*"|default     = "$(APP_VERSION)"|;}' variables.tf && \
-	rm -f variables.tf.bak && \
-	echo "✓ app_image: $$FULL_IMAGE" && \
-	echo "✓ app_tag: $(APP_VERSION)"
-
-image-check: ## Verify app_image is not pointing to dev
-	@IMAGE=$$(grep -A3 'variable "app_image"' variables.tf | grep default | sed 's/.*"\(.*\)"/\1/') && \
-	if echo "$$IMAGE" | grep -q ':dev@'; then \
-		echo "Error: app_image still points to dev. Run 'make image-sync' first."; \
-		exit 1; \
-	fi && \
-	echo "✓ app_image: $$IMAGE"
-
-check: ## Validate version format
-	@if ! echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+-r[0-9]+$$'; then \
-		echo "Error: VERSION must be format vX.Y.Z-rN (e.g., v2.11.0-r1)"; \
+check: ## Validate version format against root release tags
+	@if ! echo "$(VERSION)" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "Error: VERSION must be format vX.Y.Z (e.g., v2.12.1)"; \
 		exit 1; \
 	fi
 	@echo "Version $(VERSION) is valid"
-
-pre-release: ## Check for uncommitted changes before release
-	@if ! git diff-index --quiet HEAD --; then \
-		echo "Error: You have uncommitted changes. Commit or stash them first."; \
-		git status --short; \
-		exit 1; \
-	fi
-	@if ! git diff-index --quiet --cached HEAD --; then \
-		echo "Error: You have staged changes. Commit them first."; \
-		git status --short; \
-		exit 1; \
-	fi
-
-tag: check quick docs image-check readme-sync ## Create git tag for release
-	@if ! git diff --quiet README.md docs/*.md modules/*/README.md 2>/dev/null; then \
-		echo "Auto-committing doc changes..."; \
-		git add README.md docs/*.md modules/*/README.md; \
-		git commit -m "docs: update for $(VERSION)"; \
-	fi
-	$(MAKE) pre-release
-	git tag -m "$(VERSION)" "$(VERSION)"
-
-release: ## Push tags and create GitHub release
-	git push origin --tags
-	gh release create $(VERSION) --generate-notes --draft
-	@echo ""
-	@echo "Draft release created for $(VERSION)"
-	@echo "Review and publish at: https://github.com/runs-on/terraform-aws-runs-on/releases"
-
-readme-sync: ## Update version references in README.md and docs/
-	@echo "Updating version to $(VERSION)..."
-	@for f in README.md docs/*.md; do \
-		if [ -f "$$f" ]; then \
-			sed -i.bak 's|version = "v[0-9]*\.[0-9]*\.[0-9]*-r[0-9]*"|version = "$(VERSION)"|g' "$$f" && \
-			rm -f "$$f.bak"; \
-		fi \
-	done && \
-	UPDATED=$$(grep -rc 'version = "$(VERSION)"' README.md docs/*.md 2>/dev/null | awk -F: '{s+=$$2}END{print s}') && \
-	echo "✓ Updated $$UPDATED version references"

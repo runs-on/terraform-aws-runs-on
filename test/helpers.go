@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-github/v68/github"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/joho/godotenv"
+	"github.com/runs-on/terraform-aws-runs-on/test/internal/validationimage"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,7 +67,7 @@ type ScenarioConfig struct {
 	PrivateMode string // "false", "true", "always", "only" — implies EnableNAT when not "false"
 	AWSRegion   string
 
-	// App version overrides (optional - empty means use module defaults)
+	// App version overrides are injected by the caller or the ci-image Make targets.
 	AppImage         string
 	AppTag           string
 	AppECRRepository string // private ECR image URL (overrides AppImage when set)
@@ -94,13 +95,29 @@ func DefaultScenarioConfig() ScenarioConfig {
 	return ScenarioConfig{
 		TestID:              GetTestID(),
 		GithubOrg:           getGithubOrg(),
-		LicenseKey:          GetOptionalEnv("RUNS_ON_LICENSE_KEY", "test-license"),
+		LicenseKey:          strings.TrimSpace(os.Getenv("RUNS_ON_LICENSE_KEY")),
 		AWSRegion:           GetOptionalEnv("AWS_REGION", "us-east-1"),
-		AppImage:            os.Getenv("RUNS_ON_APP_IMAGE"),
-		AppTag:              os.Getenv("RUNS_ON_APP_TAG"),
+		AppImage:            strings.TrimSpace(os.Getenv("RUNS_ON_APP_IMAGE")),
+		AppTag:              strings.TrimSpace(os.Getenv("RUNS_ON_APP_TAG")),
 		AppECRRepository:    os.Getenv("RUNS_ON_APP_ECR_URL"),
 		ForceDestroyBuckets: true,
 	}
+}
+
+func requireValidationEnv(t *testing.T, scenario string, mode validationimage.EnvMode) {
+	t.Helper()
+
+	required, err := validationimage.RequiredEnvVars(scenario, mode)
+	require.NoError(t, err)
+
+	missing := validationimage.MissingEnvVars(required, os.Getenv)
+	require.Emptyf(
+		t,
+		missing,
+		"missing required env vars for %s validation: %s",
+		scenario,
+		strings.Join(missing, ", "),
+	)
 }
 
 // getGithubOrg extracts the GitHub organization from RUNS_ON_TEST_REPO or GITHUB_ORG.

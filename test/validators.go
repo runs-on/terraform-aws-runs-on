@@ -71,7 +71,7 @@ type ScenarioResult struct {
 	Outputs        map[string]string
 }
 
-func (r ScenarioResult) StackName() string      { return r.Outputs["stack_name"] }
+func (r ScenarioResult) StackName() string       { return r.Outputs["stack_name"] }
 func (r ScenarioResult) AppRunnerURL() string    { return r.Outputs["apprunner_service_url"] }
 func (r ScenarioResult) ConfigBucket() string    { return r.Outputs["config_bucket_name"] }
 func (r ScenarioResult) CacheBucket() string     { return r.Outputs["cache_bucket_name"] }

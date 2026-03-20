@@ -13,11 +13,12 @@ The tests deploy **real AWS infrastructure** to validate the module's functional
 - Go 1.26+
 - OpenTofu 1.9+ (or Terraform 1.57+)
 - AWS CLI v2
+- Docker with Buildx support for `*-ci-image` targets
 
 Install all tools automatically using [mise](https://mise.jdx.dev/):
 
 ```bash
-cd test
+cd ../..
 mise install
 ```
 
@@ -46,10 +47,12 @@ Tests require AWS credentials with permissions to create:
 | `RUNS_ON_LICENSE_KEY` | Yes | - | RunsOn license key |
 | `AWS_REGION` | No | `us-east-1` | AWS region for deployments |
 | `GITHUB_ORG` | No | `test-org` | Override GitHub organization name |
-| `RUNS_ON_APP_IMAGE` | No | - | Override App Runner image |
-| `RUNS_ON_APP_TAG` | No | - | Override App Runner image tag |
+| `RUNS_ON_APP_IMAGE` | Yes for raw scenario runs | - | App Runner image under test |
+| `RUNS_ON_APP_TAG` | Yes for raw scenario runs | - | App Runner image tag under test |
 
 The `github_organization` module variable is automatically extracted from `RUNS_ON_TEST_REPO` (e.g., `my-org/my-repo` → `my-org`), then falls back to `GITHUB_ORG`, then defaults to `test-org`.
+
+If you use `make test-*-ci-image` from [`../Makefile`](../Makefile), the target builds a fresh `runs-on-ci` image and sets `RUNS_ON_APP_IMAGE` / `RUNS_ON_APP_TAG` for you. If you run `go test` or the raw `make test-basic` style targets directly, you must provide those variables yourself.
 
 ### Integration Tests (End-to-End)
 
@@ -95,13 +98,23 @@ go test -v -timeout 15m -run "TestPlan" ./...
 
 These tests validate that feature flags control which resources appear in the plan output (EFS, ECR, VPC connector, security groups).
 
+They are image-free, but the current module/provider setup still initializes the AWS provider. In practice, that means local `TestPlan*` runs may still require valid AWS credentials even though they do not create infrastructure.
+
 ### Basic Scenario (Infrastructure Tests)
 
-Run the basic scenario with just a license key:
+Run the basic scenario against a fresh `runs-on-ci` image:
+
+```bash
+make -C .. test-basic-ci-image
+```
+
+Run the raw basic scenario with explicit image vars:
 
 ```bash
 cd test
 export RUNS_ON_LICENSE_KEY="your-license-key"
+export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on-ci:your-tag"
+export RUNS_ON_APP_TAG="your-tag"
 
 go test -v -timeout 45m -run "TestScenarioBasic" ./...
 ```
@@ -121,7 +134,11 @@ This deploys infrastructure and runs all validations:
 Test all optional features (NAT gateway, EFS, ECR):
 
 ```bash
+make -C .. test-full-ci-image
+
 export RUNS_ON_LICENSE_KEY="your-license-key"
+export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on-ci:your-tag"
+export RUNS_ON_APP_TAG="your-tag"
 
 go test -v -timeout 90m -run "TestScenarioFullFeatured" ./...
 ```
@@ -139,7 +156,11 @@ This scenario additionally:
 Test deployment with private networking enabled:
 
 ```bash
+make -C .. test-private-ci-image
+
 export RUNS_ON_LICENSE_KEY="your-license-key"
+export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on-ci:your-tag"
+export RUNS_ON_APP_TAG="your-tag"
 
 go test -v -timeout 60m -run "TestScenarioPrivateNetworking" ./...
 ```
@@ -151,7 +172,11 @@ Runs the same validations as Basic, plus private subnet isolation and NAT gatewa
 Run the fully automated integration test that deploys infrastructure, wires up a GitHub App, dispatches a workflow, and verifies a runner processes the job:
 
 ```bash
+make -C .. test-integration-ci-image
+
 export RUNS_ON_LICENSE_KEY="your-license-key"
+export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on-ci:your-tag"
+export RUNS_ON_APP_TAG="your-tag"
 export RUNS_ON_TEST_REPO="my-org/my-test-repo"
 export RUNS_ON_TEST_WORKFLOW="test.yml"
 export GITHUB_APP_ID="123456"
@@ -182,8 +207,8 @@ Override the App Runner image and tag:
 
 ```bash
 export RUNS_ON_LICENSE_KEY="your-license-key"
-export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.11.0"
-export RUNS_ON_APP_TAG="v2.11.0"
+export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.1"
+export RUNS_ON_APP_TAG="v2.12.1"
 
 go test -v -timeout 45m -run "TestScenarioBasic" ./...
 ```

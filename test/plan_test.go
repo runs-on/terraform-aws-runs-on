@@ -24,6 +24,8 @@ func planVars(overrides map[string]interface{}) map[string]interface{} {
 		"enable_waf":                         false,
 		"private_mode":                       "false",
 		"security_group_ids":                 []string{},
+		"app_image":                          "public.ecr.aws/c5h5o9k1/runs-on/runs-on:test",
+		"app_tag":                            "test",
 		"force_destroy_buckets":              true,
 		"force_delete_ecr":                   true,
 		"prevent_destroy_optional_resources": false,

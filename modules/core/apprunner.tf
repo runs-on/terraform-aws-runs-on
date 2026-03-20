@@ -122,7 +122,6 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         Action = [
           "ec2:DescribeImages",
           "ec2:DescribeInstances",
-          "ec2:DescribeInstanceTypes",
           "ec2:DescribeSubnets",
           "ec2:DescribeRouteTables",
           "ec2:DescribeVolumes",

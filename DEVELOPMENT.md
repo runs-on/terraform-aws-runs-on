@@ -1,96 +1,61 @@
 # Development Guide
 
+This Terraform module lives inside the RunsOn monorepo. The downstream repository `runs-on/terraform-aws-runs-on` is a passive mirror published from here.
+
 ## Prerequisites
 
-Install development tools (macOS):
+Install the monorepo toolchain from the repository root:
+
 ```bash
-make install-tools
+cd .. && mise install
 ```
 
-Or manually install: `opentofu`, `tflint`, `tfsec`, `terraform-docs`
+That root toolchain covers both Terraform and Terratest commands in this subtree.
 
-For tests, install [mise](https://mise.jdx.dev/) to manage Go version:
+## Common Commands
+
 ```bash
-cd test && mise install
+make fmt          # Format all .tf files
+make validate     # Validate OpenTofu syntax
+make lint         # Run TFLint
+make security     # Run tfsec
+make docs         # Regenerate README tables with terraform-docs
+make quick        # fmt-check + validate + lint
+make test-plan    # Free Terratest plan checks
 ```
 
-## Development Workflow
+## Versioning And Release
 
-### Quick Checks
-```bash
-make quick       # fmt-check + validate + lint
-make pre-commit  # quick + security scan
-```
-
-### Individual Commands
-```bash
-make fmt         # Format all .tf files
-make validate    # Validate OpenTofu syntax
-make lint        # Run TFLint
-make security    # Run tfsec
-make docs        # Regenerate module READMEs
-```
+- The canonical release version comes from the repository root [`../VERSION`](../VERSION).
+- Use `make sync-metadata` or root `make sync-metadata` to refresh Terraform release-facing docs after a version bump.
+- The monorepo copy intentionally leaves `app_image` and `app_tag` blank by default.
+- The mirrored public repo gets the released `app_image` and `app_tag` injected during mirror publication after the release image is built.
+- Do not create tags or GitHub releases from `terraform/`; use root `releasectl release final`.
 
 ## Testing
 
-Tests use [Terratest](https://terratest.gruntwork.io/) and deploy real AWS infrastructure. See [test/README.md](test/README.md) for detailed documentation.
+Tests in [`test/`](./test) use Terratest and deploy real AWS infrastructure. See [`test/README.md`](./test/README.md) for required environment variables, scenario costs, and cleanup expectations.
 
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `AWS_ACCESS_KEY_ID` | Yes | AWS credentials |
-| `AWS_SECRET_ACCESS_KEY` | Yes | AWS credentials |
-| `RUNS_ON_LICENSE_KEY` | Yes | RunsOn license key |
-| `AWS_REGION` | No | Defaults to `us-east-1` |
-| `RUNS_ON_TEST_REPO` | No | For integration tests (`owner/repo` format) |
-| `RUNS_ON_TEST_WORKFLOW` | No | For integration tests (workflow file name) |
-| `GITHUB_TOKEN` | No | For integration tests |
-
-### Running Tests
+Useful targets:
 
 ```bash
-# Run basic scenario (default)
-make test
-
-# Run specific scenarios
-make test-basic    # Standard deployment (~$1-2, 30-45 min)
-make test-full     # All features: NAT + EFS + ECR (~$3-5, 45-60 min)
-
-# Run all scenarios
-make test-all
-
-# Skip expensive scenarios
+make test-basic-ci-image
+make test-basic
+make test-private-ci-image
+make test-private
+make test-full-ci-image
+make test-full
+make test-integration-ci-image
+make test-integration
 make test-short
+make test-all
 ```
 
-### Test Scenarios
-
-| Command | Test | Cost |
-|---------|------|------|
-| `make test-basic` | `TestScenarioBasic` | Low |
-| `make test-full` | `TestScenarioFullFeatured` | High (NAT + EFS + ECR) |
-
-### Test Structure
-
-Each scenario test:
-1. Deploys a VPC fixture (`test/fixtures/vpc/`)
-2. Deploys the runs-on root module
-3. Runs validations:
-   - **Output validations** - Check expected outputs exist
-   - **Security validations** - S3 encryption, public access blocking, IAM permissions
-   - **Compliance validations** - Versioning, log retention
-   - **Functional validations** - Launch EC2, verify S3/EFS/ECR access via SSM
-4. Cleans up (deferred destroy)
-
-### Test Helpers
-
-Key files in `test/`:
-- `scenarios_test.go` - Test scenarios
-- `helpers.go` - AWS SDK helpers, validation functions, SSM command execution
+- `make test-*-ci-image` builds and pushes a fresh `runs-on-ci` image, exports `RUNS_ON_APP_IMAGE` and `RUNS_ON_APP_TAG`, then runs the underlying Terratest target.
+- `make test-basic`, `make test-private`, `make test-full`, and `make test-integration` are raw Terratest entrypoints. They expect the required environment variables to already be set and fail fast if they are missing.
 
 ## Cleanup
 
 ```bash
-make clean  # Remove .terraform, tfstate, tfplan files
+make clean
 ```

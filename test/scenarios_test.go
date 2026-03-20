@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/runs-on/terraform-aws-runs-on/test/internal/validationimage"
 )
 
 // TestScenarioBasic tests the basic deployment scenario with all validations.
 func TestScenarioBasic(t *testing.T) {
+	requireValidationEnv(t, validationimage.ScenarioBasic, validationimage.EnvModeDirect)
+
 	cfg := DefaultScenarioConfig()
 
 	runScenario(t, cfg, func(t *testing.T, r ScenarioResult) {
@@ -35,6 +39,8 @@ func TestScenarioFullFeatured(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping expensive full-featured test (requires NAT + EFS + ECR)")
 	}
+
+	requireValidationEnv(t, validationimage.ScenarioFull, validationimage.EnvModeDirect)
 
 	cfg := DefaultScenarioConfig()
 	cfg.EnableNAT = true
@@ -68,6 +74,8 @@ func TestScenarioPrivateNetworking(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping expensive private networking test")
 	}
+
+	requireValidationEnv(t, validationimage.ScenarioPrivate, validationimage.EnvModeDirect)
 
 	cfg := DefaultScenarioConfig()
 	cfg.EnableNAT = true

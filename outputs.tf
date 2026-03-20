@@ -248,5 +248,3 @@ WARNING
     Read more on https://runs-on.com/docs or visit https://runs-on.com/guides/troubleshoot/ to fix common issues.
   EOT
 }
-
-

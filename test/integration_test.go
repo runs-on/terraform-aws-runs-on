@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v68/github"
+	"github.com/runs-on/terraform-aws-runs-on/test/internal/validationimage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,22 +35,7 @@ import (
 //   - GITHUB_APP_CLIENT_ID: GitHub App OAuth client ID
 //   - GITHUB_APP_CLIENT_SECRET: GitHub App OAuth client secret
 func TestIntegrationEndToEnd(t *testing.T) {
-	// Check required env vars
-	requiredEnvVars := []string{
-		"RUNS_ON_TEST_REPO",
-		"RUNS_ON_TEST_WORKFLOW",
-		"RUNS_ON_LICENSE_KEY",
-		"GITHUB_APP_ID",
-		"GITHUB_APP_PRIVATE_KEY",
-		"GITHUB_APP_WEBHOOK_SECRET",
-		"GITHUB_APP_CLIENT_ID",
-		"GITHUB_APP_CLIENT_SECRET",
-	}
-	for _, envVar := range requiredEnvVars {
-		if os.Getenv(envVar) == "" {
-			t.Skipf("Skipping integration test: %s not set", envVar)
-		}
-	}
+	requireValidationEnv(t, validationimage.ScenarioIntegration, validationimage.EnvModeDirect)
 
 	// Parse GitHub App ID
 	appID, err := strconv.ParseInt(os.Getenv("GITHUB_APP_ID"), 10, 64)
