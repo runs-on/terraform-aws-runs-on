@@ -121,6 +121,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         Effect = "Allow"
         Action = [
           "ec2:DescribeImages",
+          "ec2:DescribeInstanceTypes",
           "ec2:DescribeInstances",
           "ec2:DescribeSubnets",
           "ec2:DescribeRouteTables",
