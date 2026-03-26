@@ -52,9 +52,13 @@ No modules.
 | [aws_iam_role_policy_attachment.ec2_ecr_public](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.ec2_ssm](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_launch_template.linux_default](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
+| [aws_launch_template.linux_default_nested](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
 | [aws_launch_template.linux_private](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
+| [aws_launch_template.linux_private_nested](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
 | [aws_launch_template.windows_default](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
+| [aws_launch_template.windows_default_nested](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
 | [aws_launch_template.windows_private](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
+| [aws_launch_template.windows_private_nested](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/launch_template) | resource |
 | [aws_resourcegroups_group.ec2_instances](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/resourcegroups_group) | resource |
 
 ## Inputs
@@ -99,12 +103,20 @@ No modules.
 | <a name="output_ec2_instance_role_name"></a> [ec2\_instance\_role\_name](#output\_ec2\_instance\_role\_name) | Name of the EC2 instance IAM role |
 | <a name="output_launch_template_linux_default_id"></a> [launch\_template\_linux\_default\_id](#output\_launch\_template\_linux\_default\_id) | ID of the Linux default launch template in format ID:Version |
 | <a name="output_launch_template_linux_default_latest_version"></a> [launch\_template\_linux\_default\_latest\_version](#output\_launch\_template\_linux\_default\_latest\_version) | Latest version of the Linux default launch template |
+| <a name="output_launch_template_linux_default_nested_id"></a> [launch\_template\_linux\_default\_nested\_id](#output\_launch\_template\_linux\_default\_nested\_id) | ID of the Linux default nested launch template in format ID:Version |
+| <a name="output_launch_template_linux_default_nested_latest_version"></a> [launch\_template\_linux\_default\_nested\_latest\_version](#output\_launch\_template\_linux\_default\_nested\_latest\_version) | Latest version of the Linux default nested launch template |
 | <a name="output_launch_template_linux_private_id"></a> [launch\_template\_linux\_private\_id](#output\_launch\_template\_linux\_private\_id) | ID of the Linux private launch template in format ID:Version |
 | <a name="output_launch_template_linux_private_latest_version"></a> [launch\_template\_linux\_private\_latest\_version](#output\_launch\_template\_linux\_private\_latest\_version) | Latest version of the Linux private launch template |
+| <a name="output_launch_template_linux_private_nested_id"></a> [launch\_template\_linux\_private\_nested\_id](#output\_launch\_template\_linux\_private\_nested\_id) | ID of the Linux private nested launch template in format ID:Version |
+| <a name="output_launch_template_linux_private_nested_latest_version"></a> [launch\_template\_linux\_private\_nested\_latest\_version](#output\_launch\_template\_linux\_private\_nested\_latest\_version) | Latest version of the Linux private nested launch template |
 | <a name="output_launch_template_windows_default_id"></a> [launch\_template\_windows\_default\_id](#output\_launch\_template\_windows\_default\_id) | ID of the Windows default launch template in format ID:Version |
 | <a name="output_launch_template_windows_default_latest_version"></a> [launch\_template\_windows\_default\_latest\_version](#output\_launch\_template\_windows\_default\_latest\_version) | Latest version of the Windows default launch template |
+| <a name="output_launch_template_windows_default_nested_id"></a> [launch\_template\_windows\_default\_nested\_id](#output\_launch\_template\_windows\_default\_nested\_id) | ID of the Windows default nested launch template in format ID:Version |
+| <a name="output_launch_template_windows_default_nested_latest_version"></a> [launch\_template\_windows\_default\_nested\_latest\_version](#output\_launch\_template\_windows\_default\_nested\_latest\_version) | Latest version of the Windows default nested launch template |
 | <a name="output_launch_template_windows_private_id"></a> [launch\_template\_windows\_private\_id](#output\_launch\_template\_windows\_private\_id) | ID of the Windows private launch template in format ID:Version |
 | <a name="output_launch_template_windows_private_latest_version"></a> [launch\_template\_windows\_private\_latest\_version](#output\_launch\_template\_windows\_private\_latest\_version) | Latest version of the Windows private launch template |
+| <a name="output_launch_template_windows_private_nested_id"></a> [launch\_template\_windows\_private\_nested\_id](#output\_launch\_template\_windows\_private\_nested\_id) | ID of the Windows private nested launch template in format ID:Version |
+| <a name="output_launch_template_windows_private_nested_latest_version"></a> [launch\_template\_windows\_private\_nested\_latest\_version](#output\_launch\_template\_windows\_private\_nested\_latest\_version) | Latest version of the Windows private nested launch template |
 | <a name="output_log_group_arn"></a> [log\_group\_arn](#output\_log\_group\_arn) | ARN of the CloudWatch log group |
 | <a name="output_log_group_name"></a> [log\_group\_name](#output\_log\_group\_name) | Name of the CloudWatch log group |
 | <a name="output_resource_group_arn"></a> [resource\_group\_arn](#output\_resource\_group\_arn) | ARN of the EC2 resource group |

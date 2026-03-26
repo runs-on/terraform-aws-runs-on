@@ -281,6 +281,7 @@ resource "aws_iam_role_policy" "apprunner_permissions" {
         Action = [
           "sqs:SendMessage",
           "sqs:ReceiveMessage",
+          "sqs:ChangeMessageVisibility",
           "sqs:DeleteMessage",
           "sqs:GetQueueAttributes"
         ]

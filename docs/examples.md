@@ -7,7 +7,7 @@ Standard deployment with smart defaults:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -63,7 +63,7 @@ module "vpc" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -82,7 +82,7 @@ See [Private Networking](private-networking.md) for details on mode options.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -103,7 +103,7 @@ Enable shared persistent storage across all runners:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -123,7 +123,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -143,7 +143,7 @@ See [WAF](waf.md) for setup order and important warnings.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -164,7 +164,7 @@ See [GitHub App Config](github-app-config.md) for details.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -218,7 +218,7 @@ module "vpc" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

@@ -20,7 +20,7 @@ If you need ongoing browser access (e.g., for the metrics dashboard), add your I
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

@@ -27,7 +27,7 @@ try {
     $ProgressPreference = 'SilentlyContinue'
     Invoke-WebRequest -Uri "https://github.com/runs-on/bootstrap/releases/download/${BootstrapTag}/bootstrap-${BootstrapTag}-windows-$env:PROCESSOR_ARCHITECTURE.exe" -OutFile $bootstrapBin -UseBasicParsing
   }
-  Add-MpPreference -ExclusionProcess $bootstrapBin
+  Add-MpPreference -ExclusionProcess $bootstrapBin -ErrorAction SilentlyContinue
   & $bootstrapBin --debug=${AppDebug} --exec --post-exec shutdown "${AgentS3Bucket}/agent-windows-$env:PROCESSOR_ARCHITECTURE.exe"
   $bootstrapExitCode = $LASTEXITCODE
   if ($bootstrapExitCode -ne 0) {

@@ -5,6 +5,7 @@ go 1.26.1
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.3
 	github.com/aws/aws-sdk-go-v2/config v1.32.3
+	github.com/aws/aws-sdk-go-v2/service/apprunner v1.39.12
 	github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs v1.62.2
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.289.1
 	github.com/aws/aws-sdk-go-v2/service/iam v1.52.3

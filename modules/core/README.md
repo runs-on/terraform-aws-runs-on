@@ -120,9 +120,13 @@ No modules.
 | <a name="input_github_organization"></a> [github\_organization](#input\_github\_organization) | GitHub organization or username | `string` | n/a | yes |
 | <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | StepSecurity integration API key | `string` | n/a | yes |
 | <a name="input_launch_template_linux_default_id"></a> [launch\_template\_linux\_default\_id](#input\_launch\_template\_linux\_default\_id) | ID of the Linux default launch template | `string` | n/a | yes |
+| <a name="input_launch_template_linux_default_nested_id"></a> [launch\_template\_linux\_default\_nested\_id](#input\_launch\_template\_linux\_default\_nested\_id) | ID of the Linux default nested launch template | `string` | n/a | yes |
 | <a name="input_launch_template_linux_private_id"></a> [launch\_template\_linux\_private\_id](#input\_launch\_template\_linux\_private\_id) | ID of the Linux private launch template | `string` | n/a | yes |
+| <a name="input_launch_template_linux_private_nested_id"></a> [launch\_template\_linux\_private\_nested\_id](#input\_launch\_template\_linux\_private\_nested\_id) | ID of the Linux private nested launch template | `string` | n/a | yes |
 | <a name="input_launch_template_windows_default_id"></a> [launch\_template\_windows\_default\_id](#input\_launch\_template\_windows\_default\_id) | ID of the Windows default launch template | `string` | n/a | yes |
+| <a name="input_launch_template_windows_default_nested_id"></a> [launch\_template\_windows\_default\_nested\_id](#input\_launch\_template\_windows\_default\_nested\_id) | ID of the Windows default nested launch template | `string` | n/a | yes |
 | <a name="input_launch_template_windows_private_id"></a> [launch\_template\_windows\_private\_id](#input\_launch\_template\_windows\_private\_id) | ID of the Windows private launch template | `string` | n/a | yes |
+| <a name="input_launch_template_windows_private_nested_id"></a> [launch\_template\_windows\_private\_nested\_id](#input\_launch\_template\_windows\_private\_nested\_id) | ID of the Windows private nested launch template | `string` | n/a | yes |
 | <a name="input_license_key"></a> [license\_key](#input\_license\_key) | RunsOn license key obtained from runs-on.com | `string` | n/a | yes |
 | <a name="input_logger_level"></a> [logger\_level](#input\_logger\_level) | Log level: debug, info, warn, or error | `string` | n/a | yes |
 | <a name="input_otel_exporter_endpoint"></a> [otel\_exporter\_endpoint](#input\_otel\_exporter\_endpoint) | OpenTelemetry exporter endpoint | `string` | n/a | yes |

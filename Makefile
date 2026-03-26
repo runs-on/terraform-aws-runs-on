@@ -7,7 +7,7 @@ DEV_STACK_NAME ?= runs-on-tf
 TEST_GO = cd test && mise exec -- go
 TEST_WITH_CI_IMAGE = $(TEST_GO) run ./cmd/with-ci-image
 
-.PHONY: help init validate fmt fmt-check lint security quick docs clean sync-metadata \
+.PHONY: help init validate fmt fmt-check lint quick docs clean sync-metadata \
 	test test-plan test-basic test-private test-full test-integration test-short test-all \
 	test-basic-ci-image test-private-ci-image test-full-ci-image test-integration-ci-image \
 	dev-vpc dev-apply dev-destroy dev-output \
@@ -36,10 +36,6 @@ lint: ## Run TFLint
 	@echo "Linting Terraform..."
 	@tflint --init
 	@tflint --recursive --minimum-failure-severity=error
-
-security: ## Run tfsec
-	@echo "Running security scan..."
-	@tfsec . --concise-output
 
 quick: fmt-check validate lint ## Run fast local checks
 	@echo "All fast checks passed."

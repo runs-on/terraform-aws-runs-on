@@ -31,6 +31,16 @@ output "launch_template_linux_default_latest_version" {
   value       = aws_launch_template.linux_default.latest_version
 }
 
+output "launch_template_linux_default_nested_id" {
+  description = "ID of the Linux default nested launch template in format ID:Version"
+  value       = "${aws_launch_template.linux_default_nested.id}:${aws_launch_template.linux_default_nested.latest_version}"
+}
+
+output "launch_template_linux_default_nested_latest_version" {
+  description = "Latest version of the Linux default nested launch template"
+  value       = aws_launch_template.linux_default_nested.latest_version
+}
+
 output "launch_template_windows_default_id" {
   description = "ID of the Windows default launch template in format ID:Version"
   value       = "${aws_launch_template.windows_default.id}:${aws_launch_template.windows_default.latest_version}"
@@ -39,6 +49,16 @@ output "launch_template_windows_default_id" {
 output "launch_template_windows_default_latest_version" {
   description = "Latest version of the Windows default launch template"
   value       = aws_launch_template.windows_default.latest_version
+}
+
+output "launch_template_windows_default_nested_id" {
+  description = "ID of the Windows default nested launch template in format ID:Version"
+  value       = "${aws_launch_template.windows_default_nested.id}:${aws_launch_template.windows_default_nested.latest_version}"
+}
+
+output "launch_template_windows_default_nested_latest_version" {
+  description = "Latest version of the Windows default nested launch template"
+  value       = aws_launch_template.windows_default_nested.latest_version
 }
 
 output "launch_template_linux_private_id" {
@@ -51,6 +71,16 @@ output "launch_template_linux_private_latest_version" {
   value       = aws_launch_template.linux_private.latest_version
 }
 
+output "launch_template_linux_private_nested_id" {
+  description = "ID of the Linux private nested launch template in format ID:Version"
+  value       = "${aws_launch_template.linux_private_nested.id}:${aws_launch_template.linux_private_nested.latest_version}"
+}
+
+output "launch_template_linux_private_nested_latest_version" {
+  description = "Latest version of the Linux private nested launch template"
+  value       = aws_launch_template.linux_private_nested.latest_version
+}
+
 output "launch_template_windows_private_id" {
   description = "ID of the Windows private launch template in format ID:Version"
   value       = "${aws_launch_template.windows_private.id}:${aws_launch_template.windows_private.latest_version}"
@@ -59,6 +89,16 @@ output "launch_template_windows_private_id" {
 output "launch_template_windows_private_latest_version" {
   description = "Latest version of the Windows private launch template"
   value       = aws_launch_template.windows_private.latest_version
+}
+
+output "launch_template_windows_private_nested_id" {
+  description = "ID of the Windows private nested launch template in format ID:Version"
+  value       = "${aws_launch_template.windows_private_nested.id}:${aws_launch_template.windows_private_nested.latest_version}"
+}
+
+output "launch_template_windows_private_nested_latest_version" {
+  description = "Latest version of the Windows private nested launch template"
+  value       = aws_launch_template.windows_private_nested.latest_version
 }
 
 output "log_group_name" {

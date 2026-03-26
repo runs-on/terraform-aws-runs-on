@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/apprunner"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatchlogs"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	ec2types "github.com/aws/aws-sdk-go-v2/service/ec2/types"
@@ -19,7 +20,6 @@ import (
 	tagtypes "github.com/aws/aws-sdk-go-v2/service/resourcegroupstaggingapi/types"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
-	smtypes "github.com/aws/aws-sdk-go-v2/service/secretsmanager/types"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/assert"
@@ -33,6 +33,7 @@ import (
 // AWSClients holds shared AWS SDK clients, created once per scenario.
 type AWSClients struct {
 	Config         aws.Config
+	AppRunner      *apprunner.Client
 	S3             *s3.Client
 	IAM            *iam.Client
 	EC2            *ec2.Client
@@ -47,6 +48,7 @@ func NewAWSClients(ctx context.Context) *AWSClients {
 	cfg := MustGetAWSConfig(ctx)
 	return &AWSClients{
 		Config:         cfg,
+		AppRunner:      apprunner.NewFromConfig(cfg),
 		S3:             s3.NewFromConfig(cfg),
 		IAM:            iam.NewFromConfig(cfg),
 		EC2:            ec2.NewFromConfig(cfg),
@@ -72,6 +74,7 @@ type ScenarioResult struct {
 }
 
 func (r ScenarioResult) StackName() string       { return r.Outputs["stack_name"] }
+func (r ScenarioResult) AppRunnerARN() string    { return r.Outputs["apprunner_service_arn"] }
 func (r ScenarioResult) AppRunnerURL() string    { return r.Outputs["apprunner_service_url"] }
 func (r ScenarioResult) ConfigBucket() string    { return r.Outputs["config_bucket_name"] }
 func (r ScenarioResult) CacheBucket() string     { return r.Outputs["cache_bucket_name"] }
@@ -741,28 +744,32 @@ func ValidateRunnerLaunched(t *testing.T, clients *AWSClients, stackName string,
 // StackConfig represents the JSON structure stored in Secrets Manager
 // by the core module (modules/core/main.tf lines 43-91).
 type StackConfig struct {
-	AwsAccountId                 string   `json:"AwsAccountId"`
-	StackName                    string   `json:"StackName"`
-	Region                       string   `json:"Region"`
-	VPCId                        string   `json:"VPCId"`
-	BucketConfig                 string   `json:"BucketConfig"`
-	BucketCache                  string   `json:"BucketCache"`
-	InstanceRoleName             string   `json:"InstanceRoleName"`
-	LaunchTemplateLinuxDefault   string   `json:"LaunchTemplateLinuxDefault"`
-	LaunchTemplateWindowsDefault string   `json:"LaunchTemplateWindowsDefault"`
-	LaunchTemplateLinuxPrivate   string   `json:"LaunchTemplateLinuxPrivate"`
-	LaunchTemplateWindowsPrivate string   `json:"LaunchTemplateWindowsPrivate"`
-	Queue                        string   `json:"Queue"`
-	QueueJobs                    string   `json:"QueueJobs"`
-	QueueGithub                  string   `json:"QueueGithub"`
-	QueuePool                    string   `json:"QueuePool"`
-	QueueHousekeeping            string   `json:"QueueHousekeeping"`
-	QueueTermination             string   `json:"QueueTermination"`
-	QueueEvents                  string   `json:"QueueEvents"`
-	LocksTable                   string   `json:"LocksTable"`
-	WorkflowJobsTable            string   `json:"WorkflowJobsTable"`
-	TopicArn                     string   `json:"TopicArn"`
-	PublicSubnetIds              []string `json:"PublicSubnetIds"`
+	AwsAccountId                       string   `json:"AwsAccountId"`
+	StackName                          string   `json:"StackName"`
+	Region                             string   `json:"Region"`
+	VPCId                              string   `json:"VPCId"`
+	BucketConfig                       string   `json:"BucketConfig"`
+	BucketCache                        string   `json:"BucketCache"`
+	InstanceRoleName                   string   `json:"InstanceRoleName"`
+	LaunchTemplateLinuxDefault         string   `json:"LaunchTemplateLinuxDefault"`
+	LaunchTemplateLinuxDefaultNested   string   `json:"LaunchTemplateLinuxDefaultNested"`
+	LaunchTemplateWindowsDefault       string   `json:"LaunchTemplateWindowsDefault"`
+	LaunchTemplateWindowsDefaultNested string   `json:"LaunchTemplateWindowsDefaultNested"`
+	LaunchTemplateLinuxPrivate         string   `json:"LaunchTemplateLinuxPrivate"`
+	LaunchTemplateLinuxPrivateNested   string   `json:"LaunchTemplateLinuxPrivateNested"`
+	LaunchTemplateWindowsPrivate       string   `json:"LaunchTemplateWindowsPrivate"`
+	LaunchTemplateWindowsPrivateNested string   `json:"LaunchTemplateWindowsPrivateNested"`
+	Queue                              string   `json:"Queue"`
+	QueueJobs                          string   `json:"QueueJobs"`
+	QueueGithub                        string   `json:"QueueGithub"`
+	QueuePool                          string   `json:"QueuePool"`
+	QueueHousekeeping                  string   `json:"QueueHousekeeping"`
+	QueueTermination                   string   `json:"QueueTermination"`
+	QueueEvents                        string   `json:"QueueEvents"`
+	LocksTable                         string   `json:"LocksTable"`
+	WorkflowJobsTable                  string   `json:"WorkflowJobsTable"`
+	TopicArn                           string   `json:"TopicArn"`
+	PublicSubnetIds                    []string `json:"PublicSubnetIds"`
 }
 
 func runWiringValidations(t *testing.T, clients *AWSClients, r ScenarioResult) {
@@ -777,24 +784,29 @@ func ValidateStackConfig(t *testing.T, clients *AWSClients, r ScenarioResult) {
 	ctx := context.Background()
 	stackName := r.StackName()
 
-	// Find the secret by prefix (name includes image digest which varies)
-	listResult, err := clients.SecretsManager.ListSecrets(ctx, &secretsmanager.ListSecretsInput{
-		Filters: []smtypes.Filter{
-			{
-				Key:    smtypes.FilterNameStringTypeName,
-				Values: []string{fmt.Sprintf("/runs-on/%s/config/", stackName)},
-			},
-		},
+	describeResult, err := clients.AppRunner.DescribeService(ctx, &apprunner.DescribeServiceInput{
+		ServiceArn: aws.String(r.AppRunnerARN()),
 	})
-	require.NoError(t, err, "Failed to list secrets for stack %s", stackName)
-	require.NotEmpty(t, listResult.SecretList, "No config secret found for stack %s", stackName)
+	require.NoError(t, err, "Failed to describe App Runner service")
+	require.NotNil(t, describeResult.Service, "App Runner service should be present")
+	require.NotNil(t, describeResult.Service.SourceConfiguration, "App Runner source configuration should be present")
+	require.NotNil(t, describeResult.Service.SourceConfiguration.ImageRepository, "App Runner image repository should be present")
+	require.NotNil(t, describeResult.Service.SourceConfiguration.ImageRepository.ImageConfiguration, "App Runner image configuration should be present")
 
-	// Get the secret value
-	secretARN := *listResult.SecretList[0].ARN
+	stackConfigSecretARN := describeResult.Service.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables["RUNS_ON_STACK_CONFIG_SECRET_ARN"]
+	stackConfigSecretVersion := describeResult.Service.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables["RUNS_ON_STACK_CONFIG_SECRET_VERSION"]
+	require.NotEmpty(t, stackConfigSecretARN, "App Runner should be pinned to a stack config secret ARN")
+	require.NotEmpty(t, stackConfigSecretVersion, "App Runner should be pinned to a stack config secret version")
+	assert.Contains(t, stackConfigSecretARN, fmt.Sprintf("/runs-on/%s/config", stackName), "App Runner should reference the stable stack config secret for this stack")
+
 	getResult, err := clients.SecretsManager.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
-		SecretId: aws.String(secretARN),
+		SecretId:  aws.String(stackConfigSecretARN),
+		VersionId: aws.String(stackConfigSecretVersion),
 	})
-	require.NoError(t, err, "Failed to get secret value")
+	require.NoError(t, err, "Failed to get the pinned stack config secret version")
+	require.NotNil(t, getResult.SecretString, "Pinned stack config secret version should have a string value")
+	require.NotNil(t, getResult.VersionId, "Pinned stack config secret version should have a version ID")
+	assert.Equal(t, stackConfigSecretVersion, aws.ToString(getResult.VersionId), "Secrets Manager should return the exact pinned stack config version")
 
 	// Parse JSON
 	var config StackConfig
@@ -812,12 +824,20 @@ func ValidateStackConfig(t *testing.T, clients *AWSClients, r ScenarioResult) {
 		"Stack config InstanceRoleName should match compute module output")
 	assert.Equal(t, r.Outputs["launch_template_linux_default_id"], config.LaunchTemplateLinuxDefault,
 		"Stack config LaunchTemplateLinuxDefault should match compute output")
+	assert.Equal(t, r.Outputs["launch_template_linux_default_nested_id"], config.LaunchTemplateLinuxDefaultNested,
+		"Stack config LaunchTemplateLinuxDefaultNested should match compute output")
 	assert.Equal(t, r.Outputs["launch_template_windows_default_id"], config.LaunchTemplateWindowsDefault,
 		"Stack config LaunchTemplateWindowsDefault should match compute output")
+	assert.Equal(t, r.Outputs["launch_template_windows_default_nested_id"], config.LaunchTemplateWindowsDefaultNested,
+		"Stack config LaunchTemplateWindowsDefaultNested should match compute output")
 	assert.Equal(t, r.Outputs["launch_template_linux_private_id"], config.LaunchTemplateLinuxPrivate,
 		"Stack config LaunchTemplateLinuxPrivate should match compute output")
+	assert.Equal(t, r.Outputs["launch_template_linux_private_nested_id"], config.LaunchTemplateLinuxPrivateNested,
+		"Stack config LaunchTemplateLinuxPrivateNested should match compute output")
 	assert.Equal(t, r.Outputs["launch_template_windows_private_id"], config.LaunchTemplateWindowsPrivate,
 		"Stack config LaunchTemplateWindowsPrivate should match compute output")
+	assert.Equal(t, r.Outputs["launch_template_windows_private_nested_id"], config.LaunchTemplateWindowsPrivateNested,
+		"Stack config LaunchTemplateWindowsPrivateNested should match compute output")
 
 	// Validate core module internal wiring (SQS queues exist)
 	assert.NotEmpty(t, config.Queue, "Stack config Queue should not be empty")

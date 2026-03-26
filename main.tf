@@ -178,13 +178,17 @@ module "core" {
   cache_bucket_arn   = module.storage.cache_bucket_arn
 
   # Compute dependencies
-  ec2_instance_role_name             = module.compute.ec2_instance_role_name
-  ec2_instance_role_arn              = module.compute.ec2_instance_role_arn
-  ec2_instance_log_group_arn         = module.compute.log_group_arn
-  launch_template_linux_default_id   = module.compute.launch_template_linux_default_id
-  launch_template_windows_default_id = module.compute.launch_template_windows_default_id
-  launch_template_linux_private_id   = module.compute.launch_template_linux_private_id
-  launch_template_windows_private_id = module.compute.launch_template_windows_private_id
+  ec2_instance_role_name                    = module.compute.ec2_instance_role_name
+  ec2_instance_role_arn                     = module.compute.ec2_instance_role_arn
+  ec2_instance_log_group_arn                = module.compute.log_group_arn
+  launch_template_linux_default_id          = module.compute.launch_template_linux_default_id
+  launch_template_linux_default_nested_id   = module.compute.launch_template_linux_default_nested_id
+  launch_template_windows_default_id        = module.compute.launch_template_windows_default_id
+  launch_template_windows_default_nested_id = module.compute.launch_template_windows_default_nested_id
+  launch_template_linux_private_id          = module.compute.launch_template_linux_private_id
+  launch_template_linux_private_nested_id   = module.compute.launch_template_linux_private_nested_id
+  launch_template_windows_private_id        = module.compute.launch_template_windows_private_id
+  launch_template_windows_private_nested_id = module.compute.launch_template_windows_private_nested_id
 
   # App Runner configuration
   app_image        = var.app_image

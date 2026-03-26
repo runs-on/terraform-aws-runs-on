@@ -112,8 +112,18 @@ variable "launch_template_linux_default_id" {
   type        = string
 }
 
+variable "launch_template_linux_default_nested_id" {
+  description = "ID of the Linux default nested launch template"
+  type        = string
+}
+
 variable "launch_template_windows_default_id" {
   description = "ID of the Windows default launch template"
+  type        = string
+}
+
+variable "launch_template_windows_default_nested_id" {
+  description = "ID of the Windows default nested launch template"
   type        = string
 }
 
@@ -122,8 +132,18 @@ variable "launch_template_linux_private_id" {
   type        = string
 }
 
+variable "launch_template_linux_private_nested_id" {
+  description = "ID of the Linux private nested launch template"
+  type        = string
+}
+
 variable "launch_template_windows_private_id" {
   description = "ID of the Windows private launch template"
+  type        = string
+}
+
+variable "launch_template_windows_private_nested_id" {
+  description = "ID of the Windows private nested launch template"
   type        = string
 }
 

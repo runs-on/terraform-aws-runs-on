@@ -7,7 +7,7 @@ Deploy [RunsOn](https://runs-on.com) self-hosted GitHub Actions runners on AWS w
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.1"
+  version = "v2.12.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -153,9 +153,9 @@ With private networking:
 | <a name="input_app_cpu"></a> [app\_cpu](#input\_app\_cpu) | CPU units for App Runner service (256, 512, 1024, 2048, 4096) | `number` | `256` | no |
 | <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack (prevents auto-shutdown of failed runner instances) | `bool` | `false` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, App Runner will pull from this private ECR instead of public ECR. | `string` | `""` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.1@sha256:5f60a3689a7129eb9ddac5985491fcd0a01769573a55843d9317d041e28e15e8"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.2@sha256:d2ca49ab8b180054a9c76abb5a2fb16febbbae592da211ae5d3eb153413e1da2"` | no |
 | <a name="input_app_memory"></a> [app\_memory](#input\_app\_memory) | Memory in MB for App Runner service (512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288) | `number` | `512` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v2.12.1"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v2.12.2"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts in S3 before expiration | `number` | `10` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Name of the tag key used for cost allocation and tracking | `string` | `"stack"` | no |
@@ -237,9 +237,13 @@ With private networking:
 | <a name="output_efs_file_system_id"></a> [efs\_file\_system\_id](#output\_efs\_file\_system\_id) | ID of the EFS file system (if enabled) |
 | <a name="output_getting_started"></a> [getting\_started](#output\_getting\_started) | Quick start guide for using this RunsOn deployment |
 | <a name="output_launch_template_linux_default_id"></a> [launch\_template\_linux\_default\_id](#output\_launch\_template\_linux\_default\_id) | ID of the Linux default launch template |
+| <a name="output_launch_template_linux_default_nested_id"></a> [launch\_template\_linux\_default\_nested\_id](#output\_launch\_template\_linux\_default\_nested\_id) | ID of the Linux default nested launch template |
 | <a name="output_launch_template_linux_private_id"></a> [launch\_template\_linux\_private\_id](#output\_launch\_template\_linux\_private\_id) | ID of the Linux private launch template (if private networking enabled) |
+| <a name="output_launch_template_linux_private_nested_id"></a> [launch\_template\_linux\_private\_nested\_id](#output\_launch\_template\_linux\_private\_nested\_id) | ID of the Linux private nested launch template (if private networking enabled) |
 | <a name="output_launch_template_windows_default_id"></a> [launch\_template\_windows\_default\_id](#output\_launch\_template\_windows\_default\_id) | ID of the Windows default launch template |
+| <a name="output_launch_template_windows_default_nested_id"></a> [launch\_template\_windows\_default\_nested\_id](#output\_launch\_template\_windows\_default\_nested\_id) | ID of the Windows default nested launch template |
 | <a name="output_launch_template_windows_private_id"></a> [launch\_template\_windows\_private\_id](#output\_launch\_template\_windows\_private\_id) | ID of the Windows private launch template (if private networking enabled) |
+| <a name="output_launch_template_windows_private_nested_id"></a> [launch\_template\_windows\_private\_nested\_id](#output\_launch\_template\_windows\_private\_nested\_id) | ID of the Windows private nested launch template (if private networking enabled) |
 | <a name="output_logging_bucket_name"></a> [logging\_bucket\_name](#output\_logging\_bucket\_name) | Name of the S3 logging bucket |
 | <a name="output_security_group_ids"></a> [security\_group\_ids](#output\_security\_group\_ids) | Security group IDs being used (created or provided) |
 | <a name="output_sns_topic_arn"></a> [sns\_topic\_arn](#output\_sns\_topic\_arn) | ARN of the SNS alerts topic |

@@ -18,7 +18,6 @@ That root toolchain covers both Terraform and Terratest commands in this subtree
 make fmt          # Format all .tf files
 make validate     # Validate OpenTofu syntax
 make lint         # Run TFLint
-make security     # Run tfsec
 make docs         # Regenerate README tables with terraform-docs
 make quick        # fmt-check + validate + lint
 make test-plan    # Free Terratest plan checks
