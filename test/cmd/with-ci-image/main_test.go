@@ -31,10 +31,10 @@ func TestBuildContainerArtifactsRunsScriptFromRepoRoot(t *testing.T) {
 	if gotEnv != nil {
 		t.Fatalf("env = %#v, want nil", gotEnv)
 	}
-	if gotName != "bash" {
-		t.Fatalf("name = %q, want %q", gotName, "bash")
+	if gotName != "mise" {
+		t.Fatalf("name = %q, want %q", gotName, "mise")
 	}
-	if want := []string{"./scripts/build-container-artifacts.sh"}; !reflect.DeepEqual(gotArgs, want) {
+	if want := []string{"exec", "--", "bash", "./scripts/build-container-artifacts.sh"}; !reflect.DeepEqual(gotArgs, want) {
 		t.Fatalf("args = %#v, want %#v", gotArgs, want)
 	}
 }
