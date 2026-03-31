@@ -63,17 +63,6 @@ resource "aws_launch_template" "linux_default" {
     ipv6_address_count          = var.ipv6_enabled ? 1 : 0
   }
 
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size           = var.runner_default_disk_size
-      volume_type           = "gp3"
-      throughput            = var.runner_default_volume_throughput
-      delete_on_termination = true
-      encrypted             = var.ebs_encryption_enabled
-    }
-  }
-
   tag_specifications {
     resource_type = "instance"
     tags          = local.common_tags
@@ -131,17 +120,6 @@ resource "aws_launch_template" "linux_default_nested" {
     ipv6_address_count          = var.ipv6_enabled ? 1 : 0
   }
 
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size           = var.runner_default_disk_size
-      volume_type           = "gp3"
-      throughput            = var.runner_default_volume_throughput
-      delete_on_termination = true
-      encrypted             = var.ebs_encryption_enabled
-    }
-  }
-
   tag_specifications {
     resource_type = "instance"
     tags          = local.common_tags
@@ -194,17 +172,6 @@ resource "aws_launch_template" "windows_default" {
     device_index                = 0
     security_groups             = var.security_group_ids
     ipv6_address_count          = var.ipv6_enabled ? 1 : 0
-  }
-
-  block_device_mappings {
-    device_name = "/dev/sda1"
-    ebs {
-      volume_size           = var.runner_default_disk_size
-      volume_type           = "gp3"
-      throughput            = var.runner_default_volume_throughput
-      delete_on_termination = true
-      encrypted             = var.ebs_encryption_enabled
-    }
   }
 
   tag_specifications {
@@ -264,17 +231,6 @@ resource "aws_launch_template" "windows_default_nested" {
     ipv6_address_count          = var.ipv6_enabled ? 1 : 0
   }
 
-  block_device_mappings {
-    device_name = "/dev/sda1"
-    ebs {
-      volume_size           = var.runner_default_disk_size
-      volume_type           = "gp3"
-      throughput            = var.runner_default_volume_throughput
-      delete_on_termination = true
-      encrypted             = var.ebs_encryption_enabled
-    }
-  }
-
   tag_specifications {
     resource_type = "instance"
     tags          = local.common_tags
@@ -327,17 +283,6 @@ resource "aws_launch_template" "linux_private" {
     device_index                = 0
     security_groups             = var.security_group_ids
     ipv6_address_count          = var.ipv6_enabled ? 1 : 0
-  }
-
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size           = var.runner_default_disk_size
-      volume_type           = "gp3"
-      throughput            = var.runner_default_volume_throughput
-      delete_on_termination = true
-      encrypted             = var.ebs_encryption_enabled
-    }
   }
 
   tag_specifications {
@@ -397,17 +342,6 @@ resource "aws_launch_template" "linux_private_nested" {
     ipv6_address_count          = var.ipv6_enabled ? 1 : 0
   }
 
-  block_device_mappings {
-    device_name = "/dev/xvda"
-    ebs {
-      volume_size           = var.runner_default_disk_size
-      volume_type           = "gp3"
-      throughput            = var.runner_default_volume_throughput
-      delete_on_termination = true
-      encrypted             = var.ebs_encryption_enabled
-    }
-  }
-
   tag_specifications {
     resource_type = "instance"
     tags          = local.common_tags
@@ -460,17 +394,6 @@ resource "aws_launch_template" "windows_private" {
     device_index                = 0
     security_groups             = var.security_group_ids
     ipv6_address_count          = var.ipv6_enabled ? 1 : 0
-  }
-
-  block_device_mappings {
-    device_name = "/dev/sda1"
-    ebs {
-      volume_size           = var.runner_default_disk_size
-      volume_type           = "gp3"
-      throughput            = var.runner_default_volume_throughput
-      delete_on_termination = true
-      encrypted             = var.ebs_encryption_enabled
-    }
   }
 
   tag_specifications {
@@ -528,17 +451,6 @@ resource "aws_launch_template" "windows_private_nested" {
     device_index                = 0
     security_groups             = var.security_group_ids
     ipv6_address_count          = var.ipv6_enabled ? 1 : 0
-  }
-
-  block_device_mappings {
-    device_name = "/dev/sda1"
-    ebs {
-      volume_size           = var.runner_default_disk_size
-      volume_type           = "gp3"
-      throughput            = var.runner_default_volume_throughput
-      delete_on_termination = true
-      encrypted             = var.ebs_encryption_enabled
-    }
   }
 
   tag_specifications {

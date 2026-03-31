@@ -176,7 +176,7 @@ func githubPRNumber() string {
 }
 
 func buildContainerArtifacts(repoRoot string, run streamRunner) error {
-	if err := run(repoRoot, nil, "bash", "./scripts/build-container-artifacts.sh"); err != nil {
+	if err := run(repoRoot, nil, "mise", "exec", "--", "bash", "./scripts/build-container-artifacts.sh"); err != nil {
 		return fmt.Errorf("build release artifacts: %w", err)
 	}
 	return nil

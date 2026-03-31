@@ -7,7 +7,7 @@ Deploy [RunsOn](https://runs-on.com) self-hosted GitHub Actions runners on AWS w
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.2"
+  version = "v2.12.3"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -153,9 +153,9 @@ With private networking:
 | <a name="input_app_cpu"></a> [app\_cpu](#input\_app\_cpu) | CPU units for App Runner service (256, 512, 1024, 2048, 4096) | `number` | `256` | no |
 | <a name="input_app_debug"></a> [app\_debug](#input\_app\_debug) | Enable debug mode for RunsOn stack (prevents auto-shutdown of failed runner instances) | `bool` | `false` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, App Runner will pull from this private ECR instead of public ECR. | `string` | `""` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.2@sha256:d2ca49ab8b180054a9c76abb5a2fb16febbbae592da211ae5d3eb153413e1da2"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | App Runner container image for RunsOn service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.3-rc.3@sha256:1058446c40de25ecbe318c487aa1159bbf4e48fb4531451aa512e24d5041fd54"` | no |
 | <a name="input_app_memory"></a> [app\_memory](#input\_app\_memory) | Memory in MB for App Runner service (512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288) | `number` | `512` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v2.12.2"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v2.12.3-rc.3"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts in S3 before expiration | `number` | `10` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Name of the tag key used for cost allocation and tracking | `string` | `"stack"` | no |
