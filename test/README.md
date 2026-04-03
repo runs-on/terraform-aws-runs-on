@@ -207,8 +207,8 @@ Override the App Runner image and tag:
 
 ```bash
 export RUNS_ON_LICENSE_KEY="your-license-key"
-export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.3"
-export RUNS_ON_APP_TAG="v2.12.3"
+export RUNS_ON_APP_IMAGE="public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.4"
+export RUNS_ON_APP_TAG="v2.12.4"
 
 go test -v -timeout 45m -run "TestScenarioBasic" ./...
 ```
