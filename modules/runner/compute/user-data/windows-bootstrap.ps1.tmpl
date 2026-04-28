@@ -1,0 +1,52 @@
+<powershell>
+Get-Date -format s
+$env:RUNS_ON_RUNNER_MAX_RUNTIME = "${RunnerMaxRuntime}"
+$env:RUNS_ON_LOG_GROUP_NAME = "${EC2InstanceLogGroup}"
+$env:AWS_REGION = "${Region}"
+$env:RUNS_ON_S3_BUCKET_CACHE = "${S3BucketCache}"
+${EfsEnvLine}
+${EphemeralRegistryEnvLine}
+# Enable and start SSM Agent service
+try {
+  Set-Service -Name "AmazonSSMAgent" -StartupType Automatic -ErrorAction SilentlyContinue
+  Start-Service -Name "AmazonSSMAgent" -ErrorAction SilentlyContinue
+  Write-Output "SSM Agent service enabled and started"
+} catch {
+  Write-Output "Warning: Failed to start SSM Agent service: $($_.Exception.Message)"
+}
+$bootstrapBin = "C:\runs-on\bootstrap-${BootstrapTag}.exe"
+$bootstrapFailed = $false
+$bootstrapExitCode = 0
+try {
+  New-Item -ItemType Directory -Force -Path (Split-Path $bootstrapBin)
+  if (-not (Test-Path $bootstrapBin)) {
+    # Enable TLS 1.2 for Windows Server 2016 compatibility
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    # Disable progress bar for much faster downloads (can be 100x faster)
+    $ProgressPreference = 'SilentlyContinue'
+    Invoke-WebRequest -Uri "https://github.com/runs-on/bootstrap/releases/download/${BootstrapTag}/bootstrap-${BootstrapTag}-windows-$env:PROCESSOR_ARCHITECTURE.exe" -OutFile $bootstrapBin -UseBasicParsing
+  }
+  Add-MpPreference -ExclusionProcess $bootstrapBin -ErrorAction SilentlyContinue
+  & $bootstrapBin --exec --post-exec shutdown "${AgentS3Bucket}/agent-windows-$env:PROCESSOR_ARCHITECTURE.exe"
+  $bootstrapExitCode = $LASTEXITCODE
+  if ($bootstrapExitCode -ne 0) {
+    throw "Bootstrap exited with code $bootstrapExitCode"
+  }
+} catch {
+  $bootstrapFailed = $true
+  if ($bootstrapExitCode -eq 0) {
+    $bootstrapExitCode = 1
+  }
+  Write-Output "Bootstrap failed: $($_.Exception.Message)"
+  throw
+} finally {
+  if ($bootstrapFailed) {
+    Write-Output "Bootstrap failed (exit code $bootstrapExitCode). Sleeping 60s for troubleshooting/log shipping..."
+    Start-Sleep -Seconds 60
+  }
+  Write-Output "user-data: Going to shut down now..."
+  Stop-Computer -Force
+}
+</powershell>
+<detach>true</detach>
+<persist>true</persist>
