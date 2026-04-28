@@ -213,6 +213,18 @@ resource "aws_iam_role_policy_attachment" "execution" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+resource "aws_iam_role_policy" "execution_extra" {
+  count = length(var.extra_execution_role_statements) > 0 ? 1 : 0
+
+  name = "${var.service_name}-execution-extra"
+  role = aws_iam_role.execution.id
+
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = var.extra_execution_role_statements
+  })
+}
+
 resource "aws_iam_role" "task" {
   name = var.task_role_name
 
@@ -311,5 +323,6 @@ resource "aws_ecs_service" "this" {
 
   depends_on = [
     aws_iam_role_policy_attachment.execution,
+    aws_iam_role_policy.execution_extra,
   ]
 }

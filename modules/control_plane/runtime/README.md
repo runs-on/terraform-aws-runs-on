@@ -32,6 +32,7 @@ No modules.
 | [aws_ecs_task_definition.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ecs_task_definition) | resource |
 | [aws_iam_role.execution](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.task](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.execution_extra](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy.task](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy_attachment.execution](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
 | [aws_iam_role_policy_attachment.task_managed](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy_attachment) | resource |
@@ -53,6 +54,7 @@ No modules.
 | <a name="input_desired_count"></a> [desired\_count](#input\_desired\_count) | Desired ECS service count | `number` | n/a | yes |
 | <a name="input_ebs_encryption_key_id"></a> [ebs\_encryption\_key\_id](#input\_ebs\_encryption\_key\_id) | Optional EBS encryption key ID | `string` | `""` | no |
 | <a name="input_execution_role_name"></a> [execution\_role\_name](#input\_execution\_role\_name) | Execution role name | `string` | n/a | yes |
+| <a name="input_extra_execution_role_statements"></a> [extra\_execution\_role\_statements](#input\_extra\_execution\_role\_statements) | Additional IAM statements appended to the ECS task execution role policy | `any` | `[]` | no |
 | <a name="input_extra_task_role_statements"></a> [extra\_task\_role\_statements](#input\_extra\_task\_role\_statements) | Additional IAM statements appended to the shared task role policy | `any` | `[]` | no |
 | <a name="input_log_group_name"></a> [log\_group\_name](#input\_log\_group\_name) | CloudWatch log group name | `string` | n/a | yes |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Runtime log retention in days | `number` | n/a | yes |

@@ -1,6 +1,7 @@
 package test
 
 import (
+	"encoding/json"
 	"maps"
 	"os"
 	"path/filepath"
@@ -160,6 +161,41 @@ func hasResourceChangePrefix(plan *terraform.PlanStruct, prefix string) bool {
 		}
 	}
 	return false
+}
+
+func findResourceChange(plan *terraform.PlanStruct, address string) *tfjson.ResourceChange {
+	for actualAddress, change := range plan.ResourceChangesMap {
+		if trimModulePath(actualAddress) == address {
+			return change
+		}
+	}
+	return nil
+}
+
+func plannedPolicyDocument(t *testing.T, plan *terraform.PlanStruct, address string) map[string]any {
+	t.Helper()
+
+	change := findResourceChange(plan, address)
+	require.NotNilf(t, change, "expected resource change %q", address)
+	require.NotNil(t, change.Change, "expected resource change details for %q", address)
+
+	after, ok := change.Change.After.(map[string]any)
+	require.Truef(t, ok, "expected %q after value to be an object", address)
+
+	policyJSON, ok := after["policy"].(string)
+	require.Truef(t, ok, "expected %q policy to be a JSON string", address)
+
+	var policy map[string]any
+	require.NoError(t, json.Unmarshal([]byte(policyJSON), &policy))
+	return policy
+}
+
+func policyStatements(t *testing.T, policy map[string]any) []any {
+	t.Helper()
+
+	statements, ok := policy["Statement"].([]any)
+	require.True(t, ok, "expected policy Statement to be an array")
+	return statements
 }
 
 func countResourceActions(plan *terraform.PlanStruct, matcher func(tfjson.Actions) bool) int {
@@ -506,6 +542,43 @@ func TestPlanConditionalResources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPlanOtelHeadersGrantExecutionRoleSSMAccess(t *testing.T) {
+	t.Parallel()
+
+	plan := loadPlan(t, map[string]any{
+		"otel_exporter_headers": "x-signoz-ingestion-key=test",
+	})
+
+	assert.True(t, hasResourceChangePrefix(plan, "aws_ssm_parameter.otel_exporter_headers"),
+		"OTEL headers should be stored as an SSM SecureString when configured")
+
+	policy := plannedPolicyDocument(t, plan, "aws_iam_role_policy.execution_extra[0]")
+	statements := policyStatements(t, policy)
+	require.Len(t, statements, 1)
+
+	statement, ok := statements[0].(map[string]any)
+	require.True(t, ok, "expected execution role policy statement to be an object")
+	assert.Equal(t, "Allow", statement["Effect"])
+	assert.Equal(t, []any{"ssm:GetParameters"}, statement["Action"])
+
+	resource, ok := statement["Resource"].(string)
+	require.True(t, ok, "expected execution role policy resource to be a string")
+	assert.Contains(t, resource, ":ssm:")
+	assert.True(t, strings.HasSuffix(resource, ":parameter/test-plan/secrets/otel-exporter-headers"),
+		"expected execution role policy to be scoped to the OTEL headers parameter, got %q", resource)
+}
+
+func TestPlanWithoutOtelHeadersSkipsExecutionRoleSSMPolicy(t *testing.T) {
+	t.Parallel()
+
+	plan := loadPlan(t, nil)
+
+	assert.False(t, hasResourceChangePrefix(plan, "aws_iam_role_policy.execution_extra"),
+		"baseline plan should not add an extra execution-role policy when no ECS secret is configured")
+	assert.False(t, hasResourceChangePrefix(plan, "aws_ssm_parameter.otel_exporter_headers"),
+		"baseline plan should not create the OTEL headers parameter")
 }
 
 func TestPlanEmptyEbsEncryptionKeySkipsKmsLookup(t *testing.T) {
