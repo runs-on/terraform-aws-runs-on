@@ -7,7 +7,7 @@ Standard deployment with smart defaults:
 ```hcl
 module "runs_on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.0"
+  version = "v3.0.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -75,7 +75,7 @@ module "vpc" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.0"
+  version = "v3.0.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -94,7 +94,7 @@ See [Private Networking](private-networking.md) for details on mode options.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.0"
+  version = "v3.0.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -115,7 +115,7 @@ Enable shared persistent storage across all runners:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.0"
+  version = "v3.0.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -135,7 +135,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.0"
+  version = "v3.0.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -155,7 +155,7 @@ See [WAF](waf.md) for managed webhook IP sync, user-managed ACL overrides, and G
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.0"
+  version = "v3.0.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -176,7 +176,7 @@ See [GitHub App Config](github-app-config.md) for details.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.0"
+  version = "v3.0.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -276,7 +276,7 @@ module "vpc_endpoints" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.0"
+  version = "v3.0.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

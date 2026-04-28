@@ -65,6 +65,12 @@ variable "extra_task_role_statements" {
   default     = []
 }
 
+variable "extra_execution_role_statements" {
+  description = "Additional IAM statements appended to the ECS task execution role policy"
+  type        = any
+  default     = []
+}
+
 variable "task_role_managed_policy_arns" {
   description = "Managed policy ARNs attached to the shared task role"
   type        = list(string)

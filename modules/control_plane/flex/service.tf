@@ -1,6 +1,16 @@
 # ECS worker service for RunsOn Flex control plane
 
 locals {
+  flex_control_plane_extra_execution_role_statements = local.runtime.otel_exporter_headers != "" ? [
+    {
+      Effect = "Allow"
+      Action = [
+        "ssm:GetParameters",
+      ]
+      Resource = "arn:aws:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/secrets/otel-exporter-headers"
+    },
+  ] : []
+
   flex_control_plane_extra_policy_statements = [
     {
       Effect = "Allow"
@@ -104,26 +114,27 @@ module "runtime" {
   account_id = var.account_id
   stack_name = var.stack_name
 
-  cluster_name                  = var.stack_name
-  service_name                  = "flexd"
-  task_definition_family        = "${var.stack_name}-flexd"
-  execution_role_name           = "${var.stack_name}-flex-execution-role"
-  task_role_name                = "${var.stack_name}-flex-role"
-  task_policy_name              = "RunsOnFlexPermissions"
-  runner_instance_role_arn      = var.compute.runner_iam.role_arn
-  cache_bucket_arn              = var.extras.cache.bucket_arn
-  ebs_encryption_key_id         = local.runner.ebs_encryption_key_id
-  extra_task_role_statements    = local.flex_control_plane_extra_policy_statements
-  task_role_managed_policy_arns = compact([local.runtime.custom_policy_arn])
-  log_group_name                = local.worker_log_group_name
-  log_retention_days            = 14
-  cpu                           = local.app_size_config.cpu
-  memory                        = local.app_size_config.memory
-  desired_count                 = local.runtime.maintenance_mode ? 0 : 1
-  assign_public_ip              = local.runtime.private_mode == "false"
-  security_group_ids            = var.network.security_group_ids
-  subnet_ids                    = local.runtime.private_mode == "false" ? var.network.public_subnet_ids : var.network.private_subnet_ids
-  tags                          = local.common_tags
+  cluster_name                    = var.stack_name
+  service_name                    = "flexd"
+  task_definition_family          = "${var.stack_name}-flexd"
+  execution_role_name             = "${var.stack_name}-flex-execution-role"
+  task_role_name                  = "${var.stack_name}-flex-role"
+  task_policy_name                = "RunsOnFlexPermissions"
+  runner_instance_role_arn        = var.compute.runner_iam.role_arn
+  cache_bucket_arn                = var.extras.cache.bucket_arn
+  ebs_encryption_key_id           = local.runner.ebs_encryption_key_id
+  extra_execution_role_statements = local.flex_control_plane_extra_execution_role_statements
+  extra_task_role_statements      = local.flex_control_plane_extra_policy_statements
+  task_role_managed_policy_arns   = compact([local.runtime.custom_policy_arn])
+  log_group_name                  = local.worker_log_group_name
+  log_retention_days              = 14
+  cpu                             = local.app_size_config.cpu
+  memory                          = local.app_size_config.memory
+  desired_count                   = local.runtime.maintenance_mode ? 0 : 1
+  assign_public_ip                = local.runtime.private_mode == "false"
+  security_group_ids              = var.network.security_group_ids
+  subnet_ids                      = local.runtime.private_mode == "false" ? var.network.public_subnet_ids : var.network.private_subnet_ids
+  tags                            = local.common_tags
   container_definitions = [
     {
       name       = "flexd"
