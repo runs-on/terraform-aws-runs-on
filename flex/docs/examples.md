@@ -2,37 +2,59 @@
 
 ## Basic
 
-Standard deployment with smart defaults:
+Minimal runnable deployment with a VPC, private subnets, an S3 gateway VPC endpoint, EFS, and ECR.
+
+Create `variables.tf`:
 
 ```hcl
-module "runs_on" {
-  source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
-
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
-
-  vpc_id            = "vpc-xxxxxxxx"
-  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "eu-west-1"
 }
 
-output "runs_on_ingress_url" {
-  description = "RunsOn setup and webhook ingress URL"
-  value       = module.runs_on.ingress.url
+variable "stack_name" {
+  description = "Name for the RunsOn stack"
+  type        = string
+  default     = "runs-on-v3"
 }
 
-output "runs_on_getting_started" {
-  description = "RunsOn post-apply setup instructions"
-  value       = module.runs_on.stack.getting_started
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "10.17.0.0/16"
+}
+
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for public subnets"
+  type        = list(string)
+  default     = ["10.17.0.0/20", "10.17.16.0/20"]
+}
+
+variable "private_subnet_cidrs" {
+  description = "CIDR blocks for private subnets"
+  type        = list(string)
+  default     = ["10.17.128.0/20", "10.17.144.0/20"]
+}
+
+variable "github_organization" {
+  description = "GitHub organization or username for RunsOn integration"
+  type        = string
+}
+
+variable "license_key" {
+  description = "RunsOn license key obtained from runs-on.com"
+  type        = string
+  sensitive   = true
+}
+
+variable "email" {
+  description = "Email address for cost and alert reports"
+  type        = string
 }
 ```
 
-Terraform only prints outputs declared by the root configuration being applied. If you do not add those output blocks, retrieve the same values from whatever root outputs you have exposed, or add them and run `terraform apply` again.
-
-## With VPC Module
-
-Using the popular `terraform-aws-modules/vpc` module:
+Create `main.tf`:
 
 ```hcl
 terraform {
@@ -47,7 +69,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = var.aws_region
 }
 
 data "aws_availability_zones" "available" {
@@ -58,34 +80,67 @@ module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 6.0"
 
-  name = "runs-on-vpc"
-  cidr = "10.0.0.0/16"
+  name = "${var.stack_name}-vpc"
+  cidr = var.vpc_cidr
 
-  azs             = slice(data.aws_availability_zones.available.names, 0, 3)
-  private_subnets = ["10.0.128.0/20", "10.0.144.0/20", "10.0.160.0/20"]
-  public_subnets  = ["10.0.0.0/20", "10.0.16.0/20", "10.0.32.0/20"]
+  azs             = slice(data.aws_availability_zones.available.names, 0, 2)
+  private_subnets = var.private_subnet_cidrs
+  public_subnets  = var.public_subnet_cidrs
 
-  # NAT Gateway for private subnets (required for private networking)
-  # enable_nat_gateway = true
-  # single_nat_gateway = true
+  enable_nat_gateway = length(var.private_subnet_cidrs) > 0
+  single_nat_gateway = true
 
   enable_dns_hostnames = true
   enable_dns_support   = true
 }
 
-module "runs-on" {
-  source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
+module "vpc_endpoints" {
+  source  = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
+  version = "~> 6.0"
 
-  github_organization = "my-org"
-  license_key         = "your-license-key"
-  email               = "alerts@example.com"
+  vpc_id = module.vpc.vpc_id
+
+  endpoints = {
+    s3 = {
+      service         = "s3"
+      service_type    = "Gateway"
+      route_table_ids = module.vpc.private_route_table_ids
+    }
+  }
+}
+
+module "runs_on_flex" {
+  source  = "runs-on/runs-on/aws//flex"
+  version = "v3.0.2"
+
+  stack_name = var.stack_name
+
+  github_organization = var.github_organization
+  license_key         = var.license_key
+  email               = var.email
 
   vpc_id             = module.vpc.vpc_id
   public_subnet_ids  = module.vpc.public_subnets
   private_subnet_ids = module.vpc.private_subnets
+
+  private_mode        = "true"
+  enable_efs          = true
+  enable_ecr          = true
+  enable_admin_routes = true
+}
+
+output "nat_ips" {
+  description = "Public NAT Gateway IPs used by private runners"
+  value       = module.vpc.nat_public_ips
+}
+
+output "getting_started" {
+  description = "RunsOn post-apply setup instructions"
+  value       = module.runs_on_flex.stack.getting_started
 }
 ```
+
+The S3 gateway endpoint is free and recommended for private subnet deployments. The NAT Gateway is still required because the Flex worker and runners need outbound internet access for GitHub and other public services.
 
 ## Private Networking
 
@@ -94,7 +149,7 @@ See [Private Networking](private-networking.md) for details on mode options.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
+  version = "v3.0.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -115,7 +170,7 @@ Enable shared persistent storage across all runners:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
+  version = "v3.0.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -135,7 +190,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
+  version = "v3.0.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -155,7 +210,7 @@ See [WAF](waf.md) for managed webhook IP sync, user-managed ACL overrides, and G
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
+  version = "v3.0.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -176,7 +231,7 @@ See [GitHub App Config](github-app-config.md) for details.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
+  version = "v3.0.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -276,7 +331,7 @@ module "vpc_endpoints" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
+  version = "v3.0.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

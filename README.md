@@ -9,7 +9,7 @@ The published Terraform Registry mirror root is now a docs-only landing surface.
 ```hcl
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
+  version = "v3.0.2"
 }
 ```
 

@@ -2,22 +2,153 @@
 
 Deploy RunsOn Flex on AWS with Terraform or OpenTofu.
 
-Public module source:
-
-```hcl
-module "runs_on_flex" {
-  source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.1"
-}
-```
-
 RunsOn Flex launches ephemeral self-hosted GitHub Actions runners in your AWS account. The Terraform module provisions the Flex control plane, runner launch infrastructure, storage, queues, and operational plumbing needed to receive GitHub webhooks and start runners on demand.
 
 This module is intended for teams that want:
 
-- ephemeral EC2 runners instead of long-lived pets
+- ephemeral EC2 runners instead of long-lived runner servers
 - AWS-owned networking, logging, and data storage
 - Terraform-managed infrastructure with optional private networking, WAF, EFS, and ECR features
+
+## Minimal Runnable Example With VPC Endpoint
+
+Create `variables.tf`:
+
+```hcl
+variable "aws_region" {
+  description = "AWS region"
+  type        = string
+  default     = "eu-west-1"
+}
+
+variable "stack_name" {
+  description = "Name for the RunsOn stack"
+  type        = string
+  default     = "runs-on-v3"
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block for the VPC"
+  type        = string
+  default     = "10.17.0.0/16"
+}
+
+variable "public_subnet_cidrs" {
+  description = "CIDR blocks for public subnets"
+  type        = list(string)
+  default     = ["10.17.0.0/20", "10.17.16.0/20"]
+}
+
+variable "private_subnet_cidrs" {
+  description = "CIDR blocks for private subnets"
+  type        = list(string)
+  default     = ["10.17.128.0/20", "10.17.144.0/20"]
+}
+
+variable "github_organization" {
+  description = "GitHub organization or username for RunsOn integration"
+  type        = string
+}
+
+variable "license_key" {
+  description = "RunsOn license key obtained from runs-on.com"
+  type        = string
+  sensitive   = true
+}
+
+variable "email" {
+  description = "Email address for cost and alert reports"
+  type        = string
+}
+```
+
+Create `main.tf`:
+
+```hcl
+terraform {
+  required_version = ">= 1.5.7"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "~> 6.0"
+
+  name = "${var.stack_name}-vpc"
+  cidr = var.vpc_cidr
+
+  azs             = slice(data.aws_availability_zones.available.names, 0, 2)
+  private_subnets = var.private_subnet_cidrs
+  public_subnets  = var.public_subnet_cidrs
+
+  enable_nat_gateway = length(var.private_subnet_cidrs) > 0
+  single_nat_gateway = true
+
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+}
+
+module "vpc_endpoints" {
+  source  = "terraform-aws-modules/vpc/aws//modules/vpc-endpoints"
+  version = "~> 6.0"
+
+  vpc_id = module.vpc.vpc_id
+
+  endpoints = {
+    s3 = {
+      service         = "s3"
+      service_type    = "Gateway"
+      route_table_ids = module.vpc.private_route_table_ids
+    }
+  }
+}
+
+module "runs_on_flex" {
+  source  = "runs-on/runs-on/aws//flex"
+  version = "v3.0.2"
+
+  stack_name = var.stack_name
+
+  github_organization = var.github_organization
+  license_key         = var.license_key
+  email               = var.email
+
+  vpc_id             = module.vpc.vpc_id
+  public_subnet_ids  = module.vpc.public_subnets
+  private_subnet_ids = module.vpc.private_subnets
+
+  private_mode        = "true"
+  enable_efs          = true
+  enable_ecr          = true
+  enable_admin_routes = true
+}
+
+output "nat_ips" {
+  description = "Public NAT Gateway IPs used by private runners"
+  value       = module.vpc.nat_public_ips
+}
+
+output "getting_started" {
+  description = "RunsOn post-apply setup instructions"
+  value       = module.runs_on_flex.stack.getting_started
+}
+```
+
+The S3 gateway endpoint is free and recommended for private subnet deployments. The NAT Gateway is still required because the Flex worker and runners need outbound internet access for GitHub and other public services.
 
 ## Architecture
 
@@ -61,25 +192,16 @@ That pinned secret includes both worker runtime config and operator-facing metad
 
 ## Showing The Setup URL After Apply
 
-Terraform only prints outputs declared by the root configuration you run `terraform apply` against. When you consume RunsOn Flex as a child module, expose the operator-facing values from your own root module:
+Terraform only prints outputs declared by the root configuration you run `terraform apply` against. The minimal example above exposes `getting_started`; print it again after apply with:
 
-```hcl
-output "runs_on_ingress_url" {
-  description = "RunsOn setup and webhook ingress URL"
-  value       = module.runs_on_flex.ingress.url
-}
-
-output "runs_on_getting_started" {
-  description = "RunsOn post-apply setup instructions"
-  value       = module.runs_on_flex.stack.getting_started
-}
+```shell
+terraform output -raw getting_started
 ```
 
-After apply, you can print them again with:
+If you use different output names in your root module, print those names instead. For example:
 
 ```shell
 terraform output -raw runs_on_getting_started
-terraform output -raw runs_on_ingress_url
 ```
 
 ## Variable Naming
@@ -180,9 +302,9 @@ Minimal key-policy statement:
 | <a name="input_app_budget_daily_usd"></a> [app\_budget\_daily\_usd](#input\_app\_budget\_daily\_usd) | Daily AWS cost budget in USD for this stack, filtered by the configured cost allocation tag. For AWS Organizations member accounts, activate the cost allocation tag in the management account's Billing settings. | `number` | `10` | no |
 | <a name="input_app_custom_policy_arn"></a> [app\_custom\_policy\_arn](#input\_app\_custom\_policy\_arn) | Optional managed IAM policy ARN to attach to the RunsOn worker service role. | `string` | `""` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, the worker service will pull from this private ECR instead of public ECR. | `string` | `""` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.1@sha256:684bf7783a59bdc58b5e5a795c86e7954614db285aa6b89defe618bb41266fec"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.2-rc.1@sha256:f5241b1db3025735b83db365a593a6719b2288c603a69a1f55dee99390462bac"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.0.1"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.0.2-rc.1"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts in S3 before expiration | `number` | `10` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Name of the tag key used for cost allocation and tracking | `string` | `"stack"` | no |
