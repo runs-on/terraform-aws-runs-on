@@ -198,14 +198,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.2@sha256:f5241b1db3025735b83db365a593a6719b2288c603a69a1f55dee99390462bac"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.3-rc.1@sha256:1f7948c26430088763f0df34e40c46227efcbf98f81940b7d427661086b62ceb"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.0.2"
+  default     = "v3.0.3-rc.1"
   nullable    = false
 }
 

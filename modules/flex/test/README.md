@@ -33,7 +33,7 @@ Apply-based smoke scenarios and the end-to-end GitHub integration test need AWS 
 
 ## CI Integration
 
-The monorepo `Terraform / Test` workflow runs the integration path with `make -C terraform test-integration-ci-image` on trusted same-repo pushes, trusted same-repo pull requests, and manual `workflow_dispatch` runs. That root `terraform/Makefile` target delegates to the Flex test module under `terraform/flex/test/`.
+The monorepo `Terraform / Test` workflow runs the integration path with `make -C terraform test-integration-ci-image` on trusted same-repo pushes, trusted same-repo pull requests, and manual `workflow_dispatch` runs. That root `terraform/Makefile` target delegates to the Flex test module under `terraform/modules/flex/test/`.
 
 That CI job exports these required environment variables into the Terratest process:
 

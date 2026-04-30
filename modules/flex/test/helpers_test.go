@@ -1,6 +1,8 @@
 package test
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 	"time"
@@ -32,6 +34,14 @@ func TestGetTestIDLocalFormat(t *testing.T) {
 	id := GetTestID()
 	if !regexp.MustCompile(`^\d+-[0-9a-f]{8}$`).MatchString(id) {
 		t.Fatalf("GetTestID() = %q, want unix-seconds plus 8 hex digits", id)
+	}
+}
+
+func TestRepoRootForTestsFindsMonorepoRoot(t *testing.T) {
+	repoRoot := repoRootForTests(t)
+
+	if _, err := os.Stat(filepath.Join(repoRoot, "terraform", "modules", "flex", "test")); err != nil {
+		t.Fatalf("repoRootForTests() = %q, missing terraform test directory: %v", repoRoot, err)
 	}
 }
 

@@ -6,12 +6,12 @@ Public module source:
 
 ```hcl
 module "runs_on_fleet" {
-  source  = "runs-on/runs-on/aws//fleet"
-  version = "v3.0.2"
+  source  = "runs-on/runs-on/aws//modules/fleet"
+  version = "v3.0.3"
 }
 ```
 
-This subtree is the Terraform surface for RunsOn Fleet. It is intentionally separate from the Flex webhook, queue, and workflow-job stack in `terraform/flex/`.
+This subtree is the Terraform surface for RunsOn Fleet. It is intentionally separate from the Flex webhook, queue, and workflow-job stack in `terraform/modules/flex/`.
 
 It provisions the minimum AWS primitives needed for the Fleet product surface:
 
@@ -62,10 +62,10 @@ See [`docs/contract.md`](docs/contract.md) for the v1 contract notes and pending
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_compute"></a> [compute](#module\_compute) | ../modules/runner/compute | n/a |
-| <a name="module_control_plane"></a> [control\_plane](#module\_control\_plane) | ../modules/control_plane/fleet | n/a |
-| <a name="module_extras"></a> [extras](#module\_extras) | ../modules/runner/extras | n/a |
-| <a name="module_network"></a> [network](#module\_network) | ../modules/runner/network | n/a |
+| <a name="module_compute"></a> [compute](#module\_compute) | ../runner/compute | n/a |
+| <a name="module_control_plane"></a> [control\_plane](#module\_control\_plane) | ../control_plane/fleet | n/a |
+| <a name="module_extras"></a> [extras](#module\_extras) | ../runner/extras | n/a |
+| <a name="module_network"></a> [network](#module\_network) | ../runner/network | n/a |
 
 ## Resources
 
@@ -81,7 +81,7 @@ See [`docs/contract.md`](docs/contract.md) for the v1 contract notes and pending
 | <a name="input_runners"></a> [runners](#input\_runners) | Runner catalog keyed by runner name. Entries must follow the shared config module contract. | `map(any)` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | VPC ID where the Fleet stack will run. | `string` | n/a | yes |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the Fleet worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. | `string` | `"v3.0.2"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. | `string` | `"v3.0.3-rc.1"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap release tag used by the shared compute bootstrap template. | `string` | `"v0.1.17"` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts. | `number` | `10` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key used for cost allocation. | `string` | `"stack"` | no |
@@ -103,7 +103,7 @@ See [`docs/contract.md`](docs/contract.md) for the v1 contract notes and pending
 | <a name="input_runner_custom_policy_arn"></a> [runner\_custom\_policy\_arn](#input\_runner\_custom\_policy\_arn) | Optional managed policy attached to the EC2 runner role. | `string` | `""` | no |
 | <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Additional custom tags propagated to launched runner instances. | `list(string)` | `[]` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes passed to the shared compute bootstrap template. | `number` | `60` | no |
-| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.2@sha256:f5241b1db3025735b83db365a593a6719b2288c603a69a1f55dee99390462bac"` | no |
+| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.3-rc.1@sha256:1f7948c26430088763f0df34e40c46227efcbf98f81940b7d427661086b62ceb"` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for runners and the Fleet worker. Leave empty to create a dedicated group. | `list(string)` | `[]` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH ingress when the module creates its own security group. | `bool` | `true` | no |
 | <a name="input_ssh_cidr_range"></a> [ssh\_cidr\_range](#input\_ssh\_cidr\_range) | CIDR range allowed for SSH access when the module creates its own security group. | `string` | `"0.0.0.0/0"` | no |

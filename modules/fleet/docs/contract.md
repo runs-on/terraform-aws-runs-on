@@ -1,6 +1,6 @@
 # Fleet Contract Notes
 
-The `terraform/fleet` subtree is the separate RunsOn Fleet product surface. It does not provision the Flex webhook ingress, workflow-job queue, or workflow-job DynamoDB tables.
+The `terraform/modules/fleet` subtree is the separate RunsOn Fleet product surface. It does not provision the Flex webhook ingress, workflow-job queue, or workflow-job DynamoDB tables.
 
 ## Inputs
 

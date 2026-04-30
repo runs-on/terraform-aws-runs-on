@@ -1,4 +1,4 @@
-module github.com/runs-on/terraform-aws-runs-on/flex/test
+module github.com/runs-on/terraform-aws-runs-on/modules/flex/test
 
 go 1.26.1
 

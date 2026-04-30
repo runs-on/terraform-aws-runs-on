@@ -1,4 +1,4 @@
-# Copy this file to `terraform/fleet/dev.tfvars` before running:
+# Copy this file to `terraform/modules/fleet/dev.tfvars` before running:
 #   mise exec -- go run ./cmd/releasectl install fleet --env dev
 
 stack_name = "runs-on-fleet-dev-v3"

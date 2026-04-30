@@ -60,7 +60,7 @@ func newPlanOptions(t *testing.T, overrides map[string]any) *terraform.Options {
 func readTerraformSource(t *testing.T, parts ...string) string {
 	t.Helper()
 
-	pathParts := append([]string{"..", ".."}, parts...)
+	pathParts := append([]string{"..", "..", ".."}, parts...)
 	content, err := os.ReadFile(filepath.Join(pathParts...))
 	require.NoError(t, err)
 	return string(content)
@@ -69,7 +69,7 @@ func readTerraformSource(t *testing.T, parts ...string) string {
 func readRepoSource(t *testing.T, parts ...string) string {
 	t.Helper()
 
-	pathParts := append([]string{"..", "..", ".."}, parts...)
+	pathParts := append([]string{"..", "..", "..", ".."}, parts...)
 	content, err := os.ReadFile(filepath.Join(pathParts...))
 	require.NoError(t, err)
 	return string(content)

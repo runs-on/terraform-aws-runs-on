@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v84/github"
-	"github.com/runs-on/terraform-aws-runs-on/flex/test/internal/validationimage"
+	"github.com/runs-on/terraform-aws-runs-on/modules/flex/test/internal/validationimage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

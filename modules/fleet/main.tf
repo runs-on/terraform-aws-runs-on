@@ -53,7 +53,7 @@ locals {
 }
 
 module "network" {
-  source = "../modules/runner/network"
+  source = "../runner/network"
 
   stack_name         = var.stack_name
   vpc_id             = var.vpc_id
@@ -67,7 +67,7 @@ module "network" {
 }
 
 module "extras" {
-  source = "../modules/runner/extras"
+  source = "../runner/extras"
 
   stack_name                         = var.stack_name
   cache_expiration_days              = var.cache_expiration_days
@@ -83,7 +83,7 @@ module "extras" {
 }
 
 module "compute" {
-  source = "../modules/runner/compute"
+  source = "../runner/compute"
 
   region     = local.region
   account_id = data.aws_caller_identity.current.account_id
@@ -104,7 +104,7 @@ module "compute" {
 }
 
 module "control_plane" {
-  source = "../modules/control_plane/fleet"
+  source = "../control_plane/fleet"
 
   region     = local.region
   account_id = data.aws_caller_identity.current.account_id

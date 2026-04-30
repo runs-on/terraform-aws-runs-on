@@ -1,6 +1,6 @@
 # Versioning
 
-This module is released from the RunsOn monorepo and uses the same tag as the canonical product version. Flex now publishes as the named `//flex` submodule in the downstream mirror.
+This module is released from the RunsOn monorepo and uses the same tag as the canonical product version. Flex publishes as the Registry-visible `//modules/flex` submodule in the downstream mirror.
 
 ```
 v{MAJOR}.{MINOR}.{PATCH}
@@ -10,7 +10,7 @@ v{MAJOR}.{MINOR}.{PATCH}
 
 - The source of truth is the monorepo root `VERSION` file.
 - The downstream repository `runs-on/terraform-aws-runs-on` is a mirror published from that monorepo.
-- The public mirror root is a landing page. Consume the Flex module from `runs-on/runs-on/aws//flex`.
+- The public mirror root is a landing page. Consume the Flex module from `runs-on/runs-on/aws//modules/flex`.
 - The monorepo copy intentionally leaves `app_image` and `app_tag` blank.
 - The mirrored public repo receives a pinned `app_image` plus matching `app_tag` during mirror publication after the release image exists.
 
@@ -26,7 +26,7 @@ To use this module from a specific git branch (for example `main`):
 
 ```hcl
 module "runs-on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//flex?ref=main"
+  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/flex?ref=main"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

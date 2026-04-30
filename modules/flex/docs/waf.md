@@ -20,8 +20,8 @@ If `enable_admin_routes = false`, the admin Lambda exposure is removed entirely,
 
 ```hcl
 module "runs-on" {
-  source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.2"
+  source  = "runs-on/runs-on/aws//modules/flex"
+  version = "v3.0.3"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -38,8 +38,8 @@ module "runs-on" {
 
 ```hcl
 module "runs-on" {
-  source  = "runs-on/runs-on/aws//flex"
-  version = "v3.0.2"
+  source  = "runs-on/runs-on/aws//modules/flex"
+  version = "v3.0.3"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

@@ -28,7 +28,7 @@ import (
 	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/joho/godotenv"
-	"github.com/runs-on/terraform-aws-runs-on/flex/test/internal/validationimage"
+	"github.com/runs-on/terraform-aws-runs-on/modules/flex/test/internal/validationimage"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 )
@@ -270,11 +270,11 @@ func copyTerraformRoot(t *testing.T, prefix string) string {
 	t.Helper()
 
 	safePrefix := strings.NewReplacer("/", "-", "\\", "-", " ", "-").Replace(prefix)
-	// Copy the whole terraform workspace so the flex module keeps its sibling
-	// ../modules/* references when Terratest runs from an isolated temp dir.
-	terraformWorkspace, err := files.CopyTerraformFolderToTemp("../../", safePrefix)
+	// Copy the whole terraform workspace so the flex module keeps sibling module
+	// and lambda-source references when Terratest runs from an isolated temp dir.
+	terraformWorkspace, err := files.CopyTerraformFolderToTemp("../../../", safePrefix)
 	require.NoError(t, err, "Failed to copy terraform tree to temp dir")
-	return filepath.Join(terraformWorkspace, "flex")
+	return filepath.Join(terraformWorkspace, "modules", "flex")
 }
 
 func newScenarioPaths(t *testing.T) terraformTestPaths {

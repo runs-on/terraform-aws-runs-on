@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/runs-on/terraform-aws-runs-on/flex/test/internal/validationimage"
+	"github.com/runs-on/terraform-aws-runs-on/modules/flex/test/internal/validationimage"
 )
 
 func TestScenarioMatrix(t *testing.T) {

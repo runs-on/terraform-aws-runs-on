@@ -33,7 +33,7 @@ func repoRootForTests(t *testing.T) string {
 	wd, err := os.Getwd()
 	require.NoError(t, err, "Failed to resolve terraform test working directory")
 
-	repoRoot := filepath.Clean(filepath.Join(wd, "../../.."))
+	repoRoot := filepath.Clean(filepath.Join(wd, "../../../.."))
 	_, err = os.Stat(filepath.Join(repoRoot, "cli", "main.go"))
 	require.NoError(t, err, "Failed to find monorepo root from %s", wd)
 	return repoRoot
