@@ -1,4 +1,6 @@
 <!-- BEGIN_TF_DOCS -->
+
+
 ## Requirements
 
 | Name | Version |
@@ -57,17 +59,17 @@ No modules.
 | <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag | `string` | n/a | yes |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | n/a | yes |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key for cost allocation | `string` | n/a | yes |
-| <a name="input_enable_bedrock"></a> [enable\_bedrock](#input\_enable\_bedrock) | Enable Amazon Bedrock access for EC2 runner instances | `bool` | `false` | no |
 | <a name="input_extras"></a> [extras](#input\_extras) | Runner extras including cache, EFS, and ECR resources | <pre>object({<br/>    cache = object({<br/>      bucket_id   = string<br/>      bucket_arn  = string<br/>      bucket_name = string<br/>    })<br/>    efs = object({<br/>      enabled           = bool<br/>      file_system_id    = string<br/>      file_system_arn   = string<br/>      file_system_dns   = string<br/>      security_group_id = string<br/>    })<br/>    ecr = object({<br/>      enabled         = bool<br/>      repository_arn  = string<br/>      repository_name = string<br/>      repository_url  = string<br/>    })<br/>  })</pre> | n/a | yes |
 | <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 for runners | `bool` | n/a | yes |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Days to retain CloudWatch logs | `number` | n/a | yes |
 | <a name="input_network"></a> [network](#input\_network) | Runner networking resources | <pre>object({<br/>    vpc_id             = string<br/>    private_mode       = string<br/>    public_subnet_ids  = list(string)<br/>    private_subnet_ids = list(string)<br/>    security_group_ids = list(string)<br/>  })</pre> | n/a | yes |
 | <a name="input_permission_boundary_arn"></a> [permission\_boundary\_arn](#input\_permission\_boundary\_arn) | IAM permission boundary ARN | `string` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | AWS region where resources are deployed | `string` | n/a | yes |
-| <a name="input_runner_custom_policy_arn"></a> [runner\_custom\_policy\_arn](#input\_runner\_custom\_policy\_arn) | Optional managed IAM policy ARN to attach to the EC2 runner instance role | `string` | `""` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes for runners | `number` | n/a | yes |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Stack name for resource naming | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | n/a | yes |
+| <a name="input_enable_bedrock"></a> [enable\_bedrock](#input\_enable\_bedrock) | Enable Amazon Bedrock access for EC2 runner instances | `bool` | `false` | no |
+| <a name="input_runner_custom_policy_arn"></a> [runner\_custom\_policy\_arn](#input\_runner\_custom\_policy\_arn) | Optional managed IAM policy ARN to attach to the EC2 runner instance role | `string` | `""` | no |
 
 ## Outputs
 

@@ -39,7 +39,7 @@ variable "vpc_id" {
 }
 
 variable "public_subnet_ids" {
-  description = "List of public subnet IDs for EFS mount targets"
+  description = "List of subnet IDs for EFS mount targets"
   type        = list(string)
 }
 
@@ -54,11 +54,6 @@ variable "tags" {
 }
 
 variable "prevent_destroy_optional_resources" {
-  description = "Prevent destruction of EFS and ECR resources. Set to true for production environments."
-  type        = bool
-}
-
-variable "force_delete_ecr" {
-  description = "Allow ECR repository to be deleted even when it contains images. Set to true for testing environments."
+  description = "Prevent destruction of durable optional resources such as EFS. ECR contains ephemeral runner images and is force-deleted by default."
   type        = bool
 }
