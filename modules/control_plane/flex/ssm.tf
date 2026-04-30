@@ -31,4 +31,8 @@ resource "aws_ssm_parameter" "license_status" {
       Name = "${var.stack_name}-license-status"
     }
   )
+
+  lifecycle {
+    ignore_changes = [value]
+  }
 }
