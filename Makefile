@@ -1,10 +1,10 @@
 VERSION ?= $(shell if [ -f ../VERSION ]; then tr -d '\n' < ../VERSION; elif [ -f VERSION ]; then tr -d '\n' < VERSION; elif git describe --tags --exact-match >/dev/null 2>&1; then git describe --tags --exact-match; else echo dev; fi)
 
 # Dev deploy config
-DEV_VPC_DIR = flex/test/fixtures/vpc
+DEV_VPC_DIR = modules/flex/test/fixtures/vpc
 DEV_TFVARS = dev.tfvars
 DEV_STACK_NAME ?= runs-on-tf
-TEST_GO = cd flex/test && mise exec -- go
+TEST_GO = cd modules/flex/test && mise exec -- go
 TEST_WITH_CI_IMAGE = $(TEST_GO) run ./cmd/with-ci-image
 
 .PHONY: help init validate fmt fmt-check lint quick docs clean sync-metadata \
@@ -18,13 +18,13 @@ help: ## Show this help
 
 init: ## Initialize OpenTofu
 	@echo "Initializing OpenTofu..."
-	@cd flex && tofu init -upgrade
-	@cd fleet && tofu init -upgrade
+	@cd modules/flex && tofu init -upgrade
+	@cd modules/fleet && tofu init -upgrade
 
 validate: ## Validate OpenTofu syntax
 	@echo "Validating OpenTofu..."
-	@cd flex && tofu validate
-	@cd fleet && tofu validate
+	@cd modules/flex && tofu validate
+	@cd modules/fleet && tofu validate
 
 fmt: ## Format OpenTofu files
 	@echo "Formatting OpenTofu files..."
@@ -44,12 +44,10 @@ quick: fmt-check validate lint ## Run fast local checks
 
 docs: ## Regenerate root and module READMEs with terraform-docs
 	@echo "Generating documentation..."
-	@terraform-docs markdown table --output-file README.md flex
-	@terraform-docs markdown table --output-file README.md fleet
-	@find modules -name main.tf -type f ! -path '*/internal/*' | sort | while read file; do \
+	@find modules -name main.tf -type f ! -path '*/internal/*' ! -path '*/.terraform/*' ! -path '*/examples/*' ! -path '*/test/*' | sort | while read file; do \
 		dir=$$(dirname "$$file"); \
 		echo "Generating docs for $$dir"; \
-		(cd "$$dir" && terraform-docs markdown table --output-file README.md .); \
+		(cd "$$dir" && terraform-docs --config "$(CURDIR)/.terraform-docs.yml" markdown table --output-file README.md .); \
 	done
 
 sync-metadata: ## Sync release-facing metadata from the monorepo root VERSION
@@ -116,26 +114,26 @@ dev-apply: ## Deploy RunsOn Flex on the dev VPC
 		exit 1; \
 	fi
 	@echo "Deploying RunsOn Flex (stack: $$(grep stack_name $(DEV_TFVARS) | head -1 | sed 's/.*= *"\(.*\)"/\1/'))..."
-	@cd flex && tofu init -upgrade
-	cd flex && tofu apply \
-		-var-file="../$(DEV_TFVARS)" \
-		-var="vpc_id=$$(cd ../$(DEV_VPC_DIR) && tofu output -raw vpc_id)" \
-		-var="public_subnet_ids=$$(cd ../$(DEV_VPC_DIR) && tofu output -json public_subnets)" \
-		-var="private_subnet_ids=$$(cd ../$(DEV_VPC_DIR) && tofu output -json private_subnets)"
+	@cd modules/flex && tofu init -upgrade
+	cd modules/flex && tofu apply \
+		-var-file="$(CURDIR)/$(DEV_TFVARS)" \
+		-var="vpc_id=$$(cd $(CURDIR)/$(DEV_VPC_DIR) && tofu output -raw vpc_id)" \
+		-var="public_subnet_ids=$$(cd $(CURDIR)/$(DEV_VPC_DIR) && tofu output -json public_subnets)" \
+		-var="private_subnet_ids=$$(cd $(CURDIR)/$(DEV_VPC_DIR) && tofu output -json private_subnets)"
 
 dev-destroy: ## Destroy RunsOn Flex and the dev VPC
 	@echo "Destroying RunsOn Flex..."
-	-cd flex && tofu destroy \
-		-var-file="../$(DEV_TFVARS)" \
-		-var="vpc_id=$$(cd ../$(DEV_VPC_DIR) && tofu output -raw vpc_id)" \
-		-var="public_subnet_ids=$$(cd ../$(DEV_VPC_DIR) && tofu output -json public_subnets)" \
-		-var="private_subnet_ids=$$(cd ../$(DEV_VPC_DIR) && tofu output -json private_subnets)"
+	-cd modules/flex && tofu destroy \
+		-var-file="$(CURDIR)/$(DEV_TFVARS)" \
+		-var="vpc_id=$$(cd $(CURDIR)/$(DEV_VPC_DIR) && tofu output -raw vpc_id)" \
+		-var="public_subnet_ids=$$(cd $(CURDIR)/$(DEV_VPC_DIR) && tofu output -json public_subnets)" \
+		-var="private_subnet_ids=$$(cd $(CURDIR)/$(DEV_VPC_DIR) && tofu output -json private_subnets)"
 	@echo "Destroying dev VPC..."
 	cd $(DEV_VPC_DIR) && tofu destroy -auto-approve \
 		-var="test_id=$(DEV_STACK_NAME)"
 
 dev-output: ## Show dev deployment outputs
-	@cd flex && tofu output
+	@cd modules/flex && tofu output
 
 clean: ## Remove local OpenTofu state and cache directories
 	@echo "Cleaning up..."

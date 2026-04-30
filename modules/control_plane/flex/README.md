@@ -46,6 +46,8 @@ The Flex control plane writes `app_size` into stack config, then resolves that p
 When `ebs_encryption_key_id` points at a customer-managed KMS key, prefer a full key ARN, especially for cross-account keys. The generated worker task role `arn:aws:iam::<account-id>:role/<stack-name>-service-role` must be allowed to use that key. The module adds the IAM permissions on its side, but external or cross-account key policies still have to trust that role manually.
 
 <!-- BEGIN_TF_DOCS -->
+
+
 ## Requirements
 
 | Name | Version |
@@ -157,12 +159,6 @@ When `ebs_encryption_key_id` points at a customer-managed KMS key, prefer a full
 | [aws_wafv2_ip_set.allowed_ips_ipv6](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_ip_set) | resource |
 | [aws_wafv2_web_acl.this](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl) | resource |
 | [aws_wafv2_web_acl_association.public_ingress](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/wafv2_web_acl_association) | resource |
-| [archive_file.github_apps_setup](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
-| [archive_file.github_runner_cache_refresh](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
-| [archive_file.github_waf_sync](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
-| [archive_file.public_ingress](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
-| [archive_file.slack_webhook](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
-| [archive_file.stack_config_materializer](https://registry.terraform.io/providers/hashicorp/archive/latest/docs/data-sources/file) | data source |
 
 ## Inputs
 
