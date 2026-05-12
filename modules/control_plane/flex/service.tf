@@ -131,16 +131,18 @@ module "runtime" {
   cpu                             = local.app_size_config.cpu
   memory                          = local.app_size_config.memory
   desired_count                   = local.runtime.maintenance_mode ? 0 : 1
+  capacity_provider               = local.runtime.capacity_provider
   assign_public_ip                = local.runtime.private_mode == "false"
   security_group_ids              = var.network.security_group_ids
   subnet_ids                      = local.runtime.private_mode == "false" ? var.network.public_subnet_ids : var.network.private_subnet_ids
   tags                            = local.common_tags
   container_definitions = [
     {
-      name       = "flexd"
-      image      = local.runtime.ecr_repository_url != "" ? local.runtime.ecr_repository_url : local.runtime.image
-      essential  = true
-      entryPoint = ["/app/dist/flexd"]
+      name        = "flexd"
+      image       = local.runtime.ecr_repository_url != "" ? local.runtime.ecr_repository_url : local.runtime.image
+      essential   = true
+      entryPoint  = ["/app/dist/flexd"]
+      stopTimeout = 30
       environment = [
         for key, value in merge(
           local.base_env_vars,

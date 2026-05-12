@@ -9,7 +9,7 @@ The Terraform Registry root is a landing page. Use the Flex module explicitly:
 ```hcl
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.5"
+  version = "v3.0.6"
 }
 ```
 
@@ -100,7 +100,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.5"
+  version = "v3.0.6"
 
   stack_name = var.stack_name
 

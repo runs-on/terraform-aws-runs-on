@@ -107,6 +107,17 @@ variable "desired_count" {
   type        = number
 }
 
+variable "capacity_provider" {
+  description = "ECS capacity provider used by the service"
+  type        = string
+  default     = "FARGATE"
+
+  validation {
+    condition     = contains(["FARGATE", "FARGATE_SPOT"], var.capacity_provider)
+    error_message = "capacity_provider must be one of: FARGATE, FARGATE_SPOT."
+  }
+}
+
 variable "assign_public_ip" {
   description = "Assign public IPs to tasks"
   type        = bool

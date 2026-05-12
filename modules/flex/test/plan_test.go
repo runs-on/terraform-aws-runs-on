@@ -293,6 +293,62 @@ func TestRuntimeECSServicePropagatesTagsToTasks(t *testing.T) {
 	assert.Contains(t, runtimeTF, `enable_ecs_managed_tags = true`)
 }
 
+func TestRuntimeECSServiceUsesCapacityProviders(t *testing.T) {
+	t.Parallel()
+
+	runtimeTF := readTerraformSource(t, "modules", "control_plane", "runtime", "main.tf")
+	serviceTF := readTerraformSource(t, "modules", "control_plane", "flex", "service.tf")
+
+	assert.Contains(t, runtimeTF, `resource "aws_ecs_cluster_capacity_providers" "this"`)
+	assert.Contains(t, runtimeTF, `"FARGATE_SPOT"`)
+	assert.Contains(t, runtimeTF, `capacity_provider_strategy {`)
+	assert.Contains(t, runtimeTF, `capacity_provider = var.capacity_provider`)
+	assert.NotContains(t, runtimeTF, `launch_type      = "FARGATE"`)
+	assert.Contains(t, serviceTF, `capacity_provider               = local.runtime.capacity_provider`)
+	assert.Contains(t, serviceTF, `stopTimeout = 30`)
+}
+
+func TestPlanRuntimeECSServiceDefaultsToFargateCapacityProvider(t *testing.T) {
+	t.Parallel()
+
+	plan := loadPlan(t, nil)
+	service := plannedResourceAfter(t, plan, "aws_ecs_service.this")
+
+	strategies, ok := service["capacity_provider_strategy"].([]any)
+	require.True(t, ok, "expected capacity_provider_strategy to be a list")
+	require.Len(t, strategies, 1)
+	strategy, ok := strategies[0].(map[string]any)
+	require.True(t, ok, "expected capacity_provider_strategy item to be an object")
+	assert.Equal(t, "FARGATE", strategy["capacity_provider"])
+	assert.InEpsilon(t, 1, strategy["weight"], 0.001)
+}
+
+func TestPlanRuntimeECSServiceCanUseFargateSpotCapacityProvider(t *testing.T) {
+	t.Parallel()
+
+	plan := loadPlan(t, map[string]any{
+		"app_capacity_provider": "fargate_spot",
+	})
+	service := plannedResourceAfter(t, plan, "aws_ecs_service.this")
+
+	strategies, ok := service["capacity_provider_strategy"].([]any)
+	require.True(t, ok, "expected capacity_provider_strategy to be a list")
+	require.Len(t, strategies, 1)
+	strategy, ok := strategies[0].(map[string]any)
+	require.True(t, ok, "expected capacity_provider_strategy item to be an object")
+	assert.Equal(t, "FARGATE_SPOT", strategy["capacity_provider"])
+	assert.InEpsilon(t, 1, strategy["weight"], 0.001)
+}
+
+func TestPlanRuntimeECSServiceRejectsInvalidCapacityProvider(t *testing.T) {
+	t.Parallel()
+
+	requirePlanFailure(t,
+		map[string]any{"app_capacity_provider": "spot"},
+		"app_capacity_provider must be one of: fargate, fargate_spot.",
+	)
+}
+
 func TestPublicIngressDeploymentAvoidsAdminRouteDestroyCycle(t *testing.T) {
 	t.Parallel()
 

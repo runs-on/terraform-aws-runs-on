@@ -86,6 +86,7 @@ type ScenarioConfig struct {
 	GithubOrg   string
 	LicenseKey  string
 	Environment string
+	CreatedAt   time.Time
 	EnableEFS   bool
 	EnableECR   bool
 	EnableNAT   bool
@@ -118,11 +119,13 @@ type ScenarioConfig struct {
 // DefaultScenarioConfig returns config with sensible test defaults
 func DefaultScenarioConfig() ScenarioConfig {
 	testID := GetTestID()
+	createdAt := time.Now().UTC().Truncate(time.Second)
 	return ScenarioConfig{
 		TestID:              testID,
 		GithubOrg:           getGithubOrg(),
 		LicenseKey:          strings.TrimSpace(os.Getenv("RUNS_ON_LICENSE_KEY")),
 		Environment:         fmt.Sprintf("test-%s", testID),
+		CreatedAt:           createdAt,
 		AWSRegion:           GetOptionalEnv("AWS_REGION", "us-east-1"),
 		AppImage:            strings.TrimSpace(os.Getenv("RUNS_ON_APP_IMAGE")),
 		AppTag:              strings.TrimSpace(os.Getenv("RUNS_ON_APP_TAG")),
@@ -180,6 +183,25 @@ func (c ScenarioConfig) ToVPCVars() map[string]any {
 		"test_id":    c.TestID,
 		"aws_region": c.AWSRegion,
 		"enable_nat": c.EnableNAT,
+		"test_tags":  c.TestTags(),
+	}
+}
+
+func (c ScenarioConfig) TestTags() map[string]string {
+	tags := map[string]string{
+		"CreatedAt": c.CreatedAt.UTC().Format(time.RFC3339),
+	}
+
+	addEnvTag(tags, "GithubRunId", "GITHUB_RUN_ID")
+	addEnvTag(tags, "GithubRunAttempt", "GITHUB_RUN_ATTEMPT")
+	addEnvTag(tags, "GithubJob", "GITHUB_JOB")
+
+	return tags
+}
+
+func addEnvTag(tags map[string]string, tagKey, envKey string) {
+	if value := strings.TrimSpace(os.Getenv(envKey)); value != "" {
+		tags[tagKey] = value
 	}
 }
 

@@ -188,7 +188,7 @@ func TestIntegrationEndToEnd(t *testing.T) {
 	t.Logf("roc stack logs output:\n%s", stackLogsOutput)
 
 	jobLogsOutput := waitForROCCheck(t, 2*time.Minute, 10*time.Second, func() (string, error) {
-		return runROCCommand(t, rocPath, result.StackName(), 2*time.Minute, "logs", selectedJobID, "--since", sinceArg, "--no-color")
+		return runROCCommand(t, rocPath, result.StackName(), 2*time.Minute, "logs", selectedJobID, "--no-color")
 	}, func(output string) error {
 		if !strings.Contains(output, "flexd/") {
 			return fmt.Errorf("job logs did not include application log streams")
