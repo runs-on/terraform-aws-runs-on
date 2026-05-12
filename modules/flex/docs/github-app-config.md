@@ -61,7 +61,7 @@ Once your app is created, pass the credentials as Terraform variables:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.5"
+  version = "v3.0.6"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

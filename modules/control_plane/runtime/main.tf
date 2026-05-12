@@ -184,6 +184,15 @@ resource "aws_ecs_cluster" "this" {
   )
 }
 
+resource "aws_ecs_cluster_capacity_providers" "this" {
+  cluster_name = aws_ecs_cluster.this.name
+
+  capacity_providers = [
+    "FARGATE",
+    "FARGATE_SPOT",
+  ]
+}
+
 resource "aws_iam_role" "execution" {
   name = var.execution_role_name
 
@@ -299,7 +308,6 @@ resource "aws_ecs_service" "this" {
   cluster          = aws_ecs_cluster.this.id
   task_definition  = aws_ecs_task_definition.this.arn
   desired_count    = var.desired_count
-  launch_type      = "FARGATE"
   platform_version = var.platform_version
   propagate_tags   = "SERVICE"
 
@@ -307,6 +315,11 @@ resource "aws_ecs_service" "this" {
 
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
   deployment_maximum_percent         = var.deployment_maximum_percent
+
+  capacity_provider_strategy {
+    capacity_provider = var.capacity_provider
+    weight            = 1
+  }
 
   network_configuration {
     assign_public_ip = var.assign_public_ip
@@ -322,6 +335,7 @@ resource "aws_ecs_service" "this" {
   )
 
   depends_on = [
+    aws_ecs_cluster_capacity_providers.this,
     aws_iam_role_policy_attachment.execution,
     aws_iam_role_policy.execution_extra,
   ]

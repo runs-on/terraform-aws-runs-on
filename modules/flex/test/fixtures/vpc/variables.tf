@@ -14,3 +14,9 @@ variable "enable_nat" {
   type        = bool
   default     = false
 }
+
+variable "test_tags" {
+  description = "Additional metadata tags for test cleanup and traceability"
+  type        = map(string)
+  default     = {}
+}

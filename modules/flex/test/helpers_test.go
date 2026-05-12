@@ -37,6 +37,28 @@ func TestGetTestIDLocalFormat(t *testing.T) {
 	}
 }
 
+func TestDefaultScenarioConfigSetsStableCleanupTags(t *testing.T) {
+	t.Setenv("GITHUB_RUN_ID", "24502906202")
+	t.Setenv("GITHUB_RUN_ATTEMPT", "2")
+	t.Setenv("GITHUB_JOB", "terraform-deploy-smoke")
+
+	cfg := DefaultScenarioConfig()
+	tags := cfg.TestTags()
+
+	if tags["CreatedAt"] == "" {
+		t.Fatal("expected CreatedAt tag")
+	}
+	if tags["GithubRunId"] != "24502906202" {
+		t.Fatalf("GithubRunId = %q", tags["GithubRunId"])
+	}
+	if tags["GithubRunAttempt"] != "2" {
+		t.Fatalf("GithubRunAttempt = %q", tags["GithubRunAttempt"])
+	}
+	if tags["GithubJob"] != "terraform-deploy-smoke" {
+		t.Fatalf("GithubJob = %q", tags["GithubJob"])
+	}
+}
+
 func TestRepoRootForTestsFindsMonorepoRoot(t *testing.T) {
 	repoRoot := repoRootForTests(t)
 

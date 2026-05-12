@@ -193,14 +193,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.5@sha256:6fdfcebff8b0fb4386ca2651f7caf64fff19dcec975b939489e33ce5b2788f7e"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.6-rc.1@sha256:7964cb92761182aa0504d3c37d768817ec39bce0c94d22410d06278fa38cd32d"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.0.5"
+  default     = "v3.0.6-rc.1"
   nullable    = false
 }
 
@@ -224,6 +224,17 @@ variable "app_size" {
   validation {
     condition     = contains(["small", "medium", "high", "xhigh"], var.app_size)
     error_message = "app_size must be one of: small, medium, high, xhigh."
+  }
+}
+
+variable "app_capacity_provider" {
+  description = "Fargate capacity provider for the RunsOn worker service. Use fargate_spot to lower idle cost for small installs; interrupted in-flight queue messages retry after the SQS visibility timeout."
+  type        = string
+  default     = "fargate"
+
+  validation {
+    condition     = contains(["fargate", "fargate_spot"], var.app_capacity_provider)
+    error_message = "app_capacity_provider must be one of: fargate, fargate_spot."
   }
 }
 

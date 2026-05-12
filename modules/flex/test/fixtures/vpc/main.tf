@@ -12,12 +12,15 @@ provider "aws" {
   region = var.aws_region
 
   default_tags {
-    tags = {
-      TestFramework = "terratest"
-      TestID        = var.test_id
-      ManagedBy     = "terratest"
-      AutoCleanup   = "true"
-    }
+    tags = merge(
+      var.test_tags,
+      {
+        TestFramework = "terratest"
+        TestID        = var.test_id
+        ManagedBy     = "terratest"
+        AutoCleanup   = "true"
+      },
+    )
   }
 }
 
