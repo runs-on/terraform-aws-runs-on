@@ -11,34 +11,37 @@ terraform {
 
 locals {
   has_ebs_encryption_key = trimspace(var.ebs_encryption_key_id) != ""
-  ebs_encryption_policy_statements = local.has_ebs_encryption_key ? tolist([
-    {
-      Effect = "Allow"
-      Action = [
-        "kms:Decrypt",
-        "kms:DescribeKey",
-        "kms:Encrypt",
-        "kms:GenerateDataKey",
-        "kms:GenerateDataKeyWithoutPlaintext",
-        "kms:ReEncryptFrom",
-        "kms:ReEncryptTo",
-      ]
-      Resource  = data.aws_kms_key.ebs_encryption[0].arn
-      Condition = null
-    },
-    {
-      Effect = "Allow"
-      Action = [
-        "kms:CreateGrant",
-      ]
-      Resource = data.aws_kms_key.ebs_encryption[0].arn
-      Condition = {
-        Bool = {
-          "kms:GrantIsForAWSResource" = true
+  ebs_encryption_policy_statements = concat(
+    local.has_ebs_encryption_key ? [
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey",
+          "kms:Encrypt",
+          "kms:GenerateDataKey",
+          "kms:GenerateDataKeyWithoutPlaintext",
+          "kms:ReEncryptFrom",
+          "kms:ReEncryptTo",
+        ]
+        Resource = data.aws_kms_key.ebs_encryption[0].arn
+      },
+    ] : [],
+    local.has_ebs_encryption_key ? [
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:CreateGrant",
+        ]
+        Resource = data.aws_kms_key.ebs_encryption[0].arn
+        Condition = {
+          Bool = {
+            "kms:GrantIsForAWSResource" = true
+          }
         }
-      }
-    },
-  ]) : tolist([])
+      },
+    ] : [],
+  )
 
   shared_task_role_statements = [
     {
@@ -312,6 +315,7 @@ resource "aws_ecs_service" "this" {
   propagate_tags   = "SERVICE"
 
   enable_ecs_managed_tags = true
+  force_new_deployment    = var.force_new_deployment
 
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
   deployment_maximum_percent         = var.deployment_maximum_percent

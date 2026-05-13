@@ -72,6 +72,7 @@ No modules.
 | <a name="input_ebs_encryption_key_id"></a> [ebs\_encryption\_key\_id](#input\_ebs\_encryption\_key\_id) | Optional EBS encryption key ID | `string` | `""` | no |
 | <a name="input_extra_execution_role_statements"></a> [extra\_execution\_role\_statements](#input\_extra\_execution\_role\_statements) | Additional IAM statements appended to the ECS task execution role policy | `any` | `[]` | no |
 | <a name="input_extra_task_role_statements"></a> [extra\_task\_role\_statements](#input\_extra\_task\_role\_statements) | Additional IAM statements appended to the shared task role policy | `any` | `[]` | no |
+| <a name="input_force_new_deployment"></a> [force\_new\_deployment](#input\_force\_new\_deployment) | Force a new ECS deployment of the worker service. | `bool` | `false` | no |
 | <a name="input_platform_version"></a> [platform\_version](#input\_platform\_version) | Fargate platform version | `string` | `"LATEST"` | no |
 | <a name="input_task_role_managed_policy_arns"></a> [task\_role\_managed\_policy\_arns](#input\_task\_role\_managed\_policy\_arns) | Managed policy ARNs attached to the shared task role | `list(string)` | `[]` | no |
 

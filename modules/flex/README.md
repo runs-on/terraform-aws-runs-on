@@ -119,7 +119,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.6"
+  version = "v3.0.7"
 
   stack_name = var.stack_name
 
@@ -208,6 +208,24 @@ terraform output -raw runs_on_getting_started
 
 Inputs such as `app_size`, `app_image`, and `app_tag` configure the ECS worker service. `app_size` also sets the default webhook worker count, provisioning launch concurrency, registration concurrency, and the matching launch-related rate-limit assumptions used by the server. `RUNS_ON_APP_WEBHOOK_CONCURRENCY`, `RUNS_ON_APP_PROVISIONING_CONCURRENCY`, and `RUNS_ON_APP_REGISTRATION_CONCURRENCY` can override those worker counts through `extra_env_vars`.
 
+## Upgrading Existing Installs Across v3.0.6
+
+RunsOn `v3.0.6` changed the Flex control-plane ECS service from `launch_type = "FARGATE"` to an ECS capacity provider strategy so the service can run on `fargate` or `fargate_spot`.
+
+For existing installs created before this change, the Terraform AWS provider may require a one-time forced ECS deployment when applying the upgrade. If Terraform reports:
+
+```text
+force_new_deployment should be true when capacity_provider_strategy is being updated
+```
+
+set:
+
+```hcl
+app_force_new_deployment = true
+```
+
+for one apply, then remove it or set it back to `false` after the upgrade has completed.
+
 ## Docs
 
 - [Examples](docs/examples.md)
@@ -263,7 +281,7 @@ Minimal key-policy statement:
 | Name | Version |
 |------|---------|
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.7 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 6.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 6.33 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.7 |
 | <a name="requirement_time"></a> [time](#requirement\_time) | >= 0.9 |
 
@@ -271,9 +289,9 @@ Minimal key-policy statement:
 
 | Name | Version |
 |------|---------|
-| <a name="provider_aws"></a> [aws](#provider\_aws) | 6.41.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 6.33 |
 | <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
-| <a name="provider_time"></a> [time](#provider\_time) | 0.13.1 |
+| <a name="provider_time"></a> [time](#provider\_time) | >= 0.9 |
 
 ## Modules
 
@@ -305,9 +323,10 @@ Minimal key-policy statement:
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the RunsOn worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight queue messages retry after the SQS visibility timeout. | `string` | `"fargate"` | no |
 | <a name="input_app_custom_policy_arn"></a> [app\_custom\_policy\_arn](#input\_app\_custom\_policy\_arn) | Optional managed IAM policy ARN to attach to the RunsOn service role. | `string` | `""` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, the worker service will pull from this private ECR instead of public ECR. | `string` | `""` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.6@sha256:7964cb92761182aa0504d3c37d768817ec39bce0c94d22410d06278fa38cd32d"` | no |
+| <a name="input_app_force_new_deployment"></a> [app\_force\_new\_deployment](#input\_app\_force\_new\_deployment) | Force a new ECS deployment of the RunsOn control-plane service. Set to true for one apply when migrating existing installs across the v3.0.6 ECS capacity provider change or when changing app\_capacity\_provider. | `bool` | `false` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.7@sha256:9cf610b9fb9c5a71ac8d5c1ae55fbf438a9be4fdc7aea75aa999d8adf843a6b0"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.0.6"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.0.7"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts in S3 before expiration | `number` | `10` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Name of the tag key used for cost allocation and tracking | `string` | `"stack"` | no |

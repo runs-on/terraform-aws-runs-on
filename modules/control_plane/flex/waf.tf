@@ -12,17 +12,13 @@ data "archive_file" "github_waf_sync" {
   }
 }
 
-locals {
-  managed_waf_seed_ipv4 = ["192.0.2.1/32"]
-  managed_waf_seed_ipv6 = ["2001:db8::1/128"]
-}
-
 resource "aws_wafv2_ip_set" "allowed_ips_ipv4" {
   count              = local.using_managed_public_ingress_waf ? 1 : 0
   name               = "${var.stack_name}-allowed-ips-ipv4"
   scope              = "REGIONAL"
   ip_address_version = "IPV4"
-  addresses          = local.managed_waf_seed_ipv4
+  # The sync seed invocation populates these before WAF association; the hourly Lambda owns updates after that.
+  addresses = []
 
   tags = merge(
     local.common_tags,
@@ -30,6 +26,10 @@ resource "aws_wafv2_ip_set" "allowed_ips_ipv4" {
       Name = "${var.stack_name}-allowed-ips-ipv4"
     }
   )
+
+  lifecycle {
+    ignore_changes = [addresses]
+  }
 }
 
 resource "aws_wafv2_ip_set" "allowed_ips_ipv6" {
@@ -37,7 +37,8 @@ resource "aws_wafv2_ip_set" "allowed_ips_ipv6" {
   name               = "${var.stack_name}-allowed-ips-ipv6"
   scope              = "REGIONAL"
   ip_address_version = "IPV6"
-  addresses          = local.managed_waf_seed_ipv6
+  # The sync seed invocation populates these before WAF association; the hourly Lambda owns updates after that.
+  addresses = []
 
   tags = merge(
     local.common_tags,
@@ -45,6 +46,10 @@ resource "aws_wafv2_ip_set" "allowed_ips_ipv6" {
       Name = "${var.stack_name}-allowed-ips-ipv6"
     }
   )
+
+  lifecycle {
+    ignore_changes = [addresses]
+  }
 }
 
 resource "aws_cloudwatch_log_group" "github_waf_sync_lambda" {

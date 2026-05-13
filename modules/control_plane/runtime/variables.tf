@@ -118,6 +118,12 @@ variable "capacity_provider" {
   }
 }
 
+variable "force_new_deployment" {
+  description = "Force a new ECS deployment of the worker service."
+  type        = bool
+  default     = false
+}
+
 variable "assign_public_ip" {
   description = "Assign public IPs to tasks"
   type        = bool
