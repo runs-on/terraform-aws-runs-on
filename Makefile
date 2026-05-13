@@ -6,9 +6,20 @@ DEV_TFVARS = dev.tfvars
 DEV_STACK_NAME ?= runs-on-tf
 TEST_GO = cd modules/flex/test && mise exec -- go
 TEST_WITH_CI_IMAGE = $(TEST_GO) run ./cmd/with-ci-image
+TEST_PLAN_LOCK_FILE ?= modules/flex/.terraform.lock.hcl
+TEST_PLAN_MIN_AWS_LOCK_FILE = testdata/provider-locks/aws-6.33/.terraform.lock.hcl
+TEST_PLAN_TOFU_MODULES = \
+	modules/flex \
+	modules/control_plane/flex \
+	modules/control_plane/runtime \
+	modules/runner/compute \
+	modules/runner/extras \
+	modules/runner/network
+TEST_PLAN_GO_PATTERN = TestPlanSource
 
 .PHONY: help init validate fmt fmt-check lint quick docs clean sync-metadata \
-	test test-plan test-basic test-private test-full test-integration test-short test-all \
+	test test-plan test-plan-tofu test-plan-source test-plan-min-aws-provider \
+	test-basic test-private test-full test-integration test-short test-all \
 	test-basic-ci-image test-private-ci-image test-full-ci-image test-integration-ci-image \
 	dev-vpc dev-apply dev-destroy dev-output \
 	check
@@ -56,8 +67,37 @@ sync-metadata: ## Sync release-facing metadata from the monorepo root VERSION
 test: test-plan ## Run plan-only tests
 
 test-plan: ## Run plan-only validation tests (free, ~2min)
-	@echo "Running TestPlan*..."
-	$(TEST_GO) test -v -timeout 15m -run "TestPlan" ./...
+	$(MAKE) test-plan-tofu
+	$(MAKE) test-plan-source
+
+test-plan-tofu:
+	@echo "Running OpenTofu plan tests..."
+	@tmp=$$(mktemp -d); \
+		set -e; \
+		trap 'rm -rf "$$tmp"' EXIT; \
+		lock_versions="$$tmp/provider-versions"; \
+		awk '/^provider "/ { provider=$$2; gsub(/"/, "", provider) } /version[[:space:]]*=/ { version=$$3; gsub(/"/, "", version); print provider " " version }' "$(TEST_PLAN_LOCK_FILE)" > "$$lock_versions"; \
+		rsync -a --exclude '.terraform/' --exclude '.terraform.lock.hcl' modules "$$tmp/"; \
+		cp -R lambdas "$$tmp/lambdas"; \
+		for dir in $(TEST_PLAN_TOFU_MODULES); do \
+			echo "Running tofu test in $$dir"; \
+			cp "$(TEST_PLAN_LOCK_FILE)" "$$tmp/$$dir/.terraform.lock.hcl"; \
+			(cd "$$tmp/$$dir" && \
+				tofu init -backend=false -input=false >/dev/null && \
+				awk '/^provider "/ { provider=$$2; gsub(/"/, "", provider) } /version[[:space:]]*=/ { version=$$3; gsub(/"/, "", version); print provider " " version }' .terraform.lock.hcl > .terraform/provider-versions && \
+				while read provider version; do \
+					grep -qx "$$provider $$version" "$$lock_versions" || { echo "$$dir selected $$provider $$version, which is not pinned by $(TEST_PLAN_LOCK_FILE)"; exit 1; }; \
+				done < .terraform/provider-versions && \
+				tofu init -backend=false -input=false -lockfile=readonly >/dev/null && \
+				tofu test -no-color); \
+		done
+
+test-plan-source:
+	@echo "Running source-level plan checks..."
+	$(TEST_GO) test -v -timeout 15m -run $(TEST_PLAN_GO_PATTERN) ./...
+
+test-plan-min-aws-provider: ## Run native plan tests against the minimum supported AWS provider
+	$(MAKE) test-plan-tofu TEST_PLAN_LOCK_FILE=$(TEST_PLAN_MIN_AWS_LOCK_FILE)
 
 test-basic: ## Run basic infrastructure scenario (~45min, requires AWS + RUNS_ON_LICENSE_KEY)
 	@echo "Running TestScenarioMatrix/basic..."

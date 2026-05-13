@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"testing"
 	"time"
 
@@ -126,6 +127,16 @@ func TestQuietTerraformOptionsInCIClonesAndDiscardsLogger(t *testing.T) {
 	}
 	if original.Logger != nil {
 		t.Fatal("expected original options to remain unmodified")
+	}
+}
+
+func TestRunnerLaunchValidationStatesIncludeFastShutdownStates(t *testing.T) {
+	states := runnerLaunchValidationStates()
+
+	for _, state := range []string{"running", "shutting-down", "terminated", "stopping", "stopped"} {
+		if !slices.Contains(states, state) {
+			t.Fatalf("expected runner launch validation states to include %q, got %v", state, states)
+		}
 	}
 }
 

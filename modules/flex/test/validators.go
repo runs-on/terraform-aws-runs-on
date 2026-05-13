@@ -857,7 +857,7 @@ func ValidateRunnerLaunched(t *testing.T, clients *AWSClients, stackName string,
 			},
 			{
 				Name:   aws.String("instance-state-name"),
-				Values: []string{"running", "terminated", "stopped"},
+				Values: runnerLaunchValidationStates(),
 			},
 		},
 	})
@@ -879,6 +879,18 @@ func ValidateRunnerLaunched(t *testing.T, clients *AWSClients, stackName string,
 
 	t.Logf("No runner instances found for stack %s launched after %s", stackName, since.Format(time.RFC3339))
 	return false
+}
+
+func runnerLaunchValidationStates() []string {
+	// Fast ephemeral runners can finish before validation, so include the EC2
+	// shutdown states that still expose launch time and tags through DescribeInstances.
+	return []string{
+		string(ec2types.InstanceStateNameRunning),
+		string(ec2types.InstanceStateNameShuttingDown),
+		string(ec2types.InstanceStateNameTerminated),
+		string(ec2types.InstanceStateNameStopping),
+		string(ec2types.InstanceStateNameStopped),
+	}
 }
 
 // =============================================================================

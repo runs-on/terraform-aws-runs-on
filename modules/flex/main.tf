@@ -91,6 +91,7 @@ locals {
     maintenance_mode          = var.maintenance_mode
     size                      = var.app_size
     capacity_provider         = upper(var.app_capacity_provider)
+    force_new_deployment      = var.app_force_new_deployment
     private_mode              = var.private_mode
     ecr_repository_url        = var.app_ecr_repository_url
     custom_policy_arn         = var.app_custom_policy_arn

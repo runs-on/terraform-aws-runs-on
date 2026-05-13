@@ -137,6 +137,7 @@ variable "runtime" {
     maintenance_mode          = bool
     size                      = string
     capacity_provider         = string
+    force_new_deployment      = bool
     private_mode              = string
     ecr_repository_url        = string
     custom_policy_arn         = string

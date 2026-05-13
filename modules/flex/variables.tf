@@ -193,14 +193,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.6@sha256:7964cb92761182aa0504d3c37d768817ec39bce0c94d22410d06278fa38cd32d"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.7-rc.1@sha256:9cf610b9fb9c5a71ac8d5c1ae55fbf438a9be4fdc7aea75aa999d8adf843a6b0"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.0.6"
+  default     = "v3.0.7-rc.1"
   nullable    = false
 }
 
@@ -236,6 +236,12 @@ variable "app_capacity_provider" {
     condition     = contains(["fargate", "fargate_spot"], var.app_capacity_provider)
     error_message = "app_capacity_provider must be one of: fargate, fargate_spot."
   }
+}
+
+variable "app_force_new_deployment" {
+  description = "Force a new ECS deployment of the RunsOn control-plane service. Set to true for one apply when migrating existing installs across the v3.0.6 ECS capacity provider change or when changing app_capacity_provider."
+  type        = bool
+  default     = false
 }
 
 variable "app_ecr_repository_url" {
