@@ -6,7 +6,9 @@
 resource "aws_efs_file_system" "this_protected" {
   count = var.enable_efs && var.prevent_destroy_optional_resources ? 1 : 0
 
-  encrypted = true
+  encrypted                       = true
+  throughput_mode                 = var.efs_throughput_mode
+  provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" ? var.efs_provisioned_throughput_in_mibps : null
 
   tags = merge(
     local.common_tags,
@@ -24,7 +26,9 @@ resource "aws_efs_file_system" "this_protected" {
 resource "aws_efs_file_system" "this_unprotected" {
   count = var.enable_efs && !var.prevent_destroy_optional_resources ? 1 : 0
 
-  encrypted = true
+  encrypted                       = true
+  throughput_mode                 = var.efs_throughput_mode
+  provisioned_throughput_in_mibps = var.efs_throughput_mode == "provisioned" ? var.efs_provisioned_throughput_in_mibps : null
 
   tags = merge(
     local.common_tags,

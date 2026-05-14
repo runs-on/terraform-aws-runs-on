@@ -170,16 +170,18 @@ module "network" {
 module "extras" {
   source = "../runner/extras"
 
-  stack_name                         = var.stack_name
-  cache_expiration_days              = var.cache_expiration_days
-  force_destroy_buckets              = var.force_destroy_buckets
-  enable_efs                         = var.enable_efs
-  enable_ecr                         = var.enable_ecr
-  prevent_destroy_optional_resources = var.prevent_destroy_optional_resources
-  vpc_id                             = var.vpc_id
-  public_subnet_ids                  = local.efs_mount_target_subnet_ids
-  security_group_ids                 = module.network.network.security_group_ids
-  tags                               = local.common_tags
+  stack_name                          = var.stack_name
+  cache_expiration_days               = var.cache_expiration_days
+  force_destroy_buckets               = var.force_destroy_buckets
+  enable_efs                          = var.enable_efs
+  efs_throughput_mode                 = var.efs_throughput_mode
+  efs_provisioned_throughput_in_mibps = var.efs_provisioned_throughput_in_mibps
+  enable_ecr                          = var.enable_ecr
+  prevent_destroy_optional_resources  = var.prevent_destroy_optional_resources
+  vpc_id                              = var.vpc_id
+  public_subnet_ids                   = local.efs_mount_target_subnet_ids
+  security_group_ids                  = module.network.network.security_group_ids
+  tags                                = local.common_tags
 }
 
 module "compute" {

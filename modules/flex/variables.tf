@@ -478,6 +478,23 @@ variable "enable_efs" {
   default     = false
 }
 
+variable "efs_throughput_mode" {
+  description = "EFS throughput mode. Use 'elastic' to avoid burst credit exhaustion under concurrent runner load."
+  type        = string
+  default     = "bursting"
+
+  validation {
+    condition     = contains(["bursting", "provisioned", "elastic"], var.efs_throughput_mode)
+    error_message = "efs_throughput_mode must be one of: bursting, provisioned, elastic."
+  }
+}
+
+variable "efs_provisioned_throughput_in_mibps" {
+  description = "Provisioned throughput in MiB/s. Required when efs_throughput_mode is 'provisioned', ignored otherwise."
+  type        = number
+  default     = null
+}
+
 variable "enable_ecr" {
   description = "Enable ECR repository for ephemeral Docker image storage"
   type        = bool

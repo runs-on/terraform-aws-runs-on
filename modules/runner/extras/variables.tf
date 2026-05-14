@@ -28,6 +28,17 @@ variable "enable_efs" {
   type        = bool
 }
 
+variable "efs_throughput_mode" {
+  description = "EFS throughput mode: bursting, provisioned, or elastic"
+  type        = string
+  default     = "bursting"
+}
+
+variable "efs_provisioned_throughput_in_mibps" {
+  description = "Provisioned throughput in MiB/s (required when efs_throughput_mode is provisioned)"
+  type        = number
+}
+
 variable "enable_ecr" {
   description = "Enable ECR repository for ephemeral Docker images"
   type        = bool
