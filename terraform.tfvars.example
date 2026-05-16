@@ -1,0 +1,97 @@
+# terraform.tfvars.example
+# Example configuration file for RunsOn infrastructure
+# Copy this file to terraform.tfvars and customize for your environment
+
+###########################
+# Required Variables
+###########################
+
+# AWS Configuration
+aws_region = "us-east-1"
+stack_name = "runs-on"
+
+# GitHub Configuration
+github_organization = "your-org-name"
+license_key         = "your-runs-on-license-key"
+
+# Networking Configuration (BYOV - Bring Your Own VPC)
+vpc_id             = "vpc-xxxxxxxxxxxx"
+public_subnet_ids  = ["subnet-xxxxxxxx", "subnet-yyyyyyyy", "subnet-zzzzzzzz"]
+security_group_ids = ["sg-xxxxxxxxxxxx"]
+
+###########################
+# Optional Variables
+###########################
+
+# General
+environment         = "production"
+cost_allocation_tag = "CostCenter"
+
+# Private Networking (Optional)
+# Uncomment to enable private networking for runners
+# private_subnet_ids = ["subnet-aaaa", "subnet-bbbb", "subnet-cccc"]
+
+# Storage
+cache_expiration_days = 30
+
+# Compute Configuration
+runner_default_disk_size         = 50
+runner_default_volume_throughput = 250
+runner_large_disk_size           = 100
+runner_large_volume_throughput   = 500
+
+# Enable EBS encryption
+ebs_encryption_enabled = true
+
+# Enable IPv6
+ipv6_enabled = true
+
+# App Runner Configuration
+app_cpu    = 1024  # CPU units (256, 512, 1024, 2048, 4096)
+app_memory = 2048  # Memory in MB
+
+# Runner Configuration
+ssh_allowed                     = false
+ec2_queue_size                  = 50
+runner_max_runtime              = 360  # minutes
+enable_cost_reports             = true
+
+# Monitoring
+log_retention_days          = 7
+detailed_monitoring_enabled = false
+
+# Alerts (Optional)
+alert_email = "your-email@example.com"
+
+# Optional Features
+enable_efs = false  # Enable shared EFS storage
+enable_ecr = false  # Enable ephemeral ECR registry
+
+###########################
+# Advanced Configuration
+###########################
+
+# GitHub API
+# github_api_strategy = "default"  # Options: default, aggressive, conservative
+
+# Custom Tags
+tags = {
+  Project     = "github-actions"
+  ManagedBy   = "terraform"
+  Owner       = "platform-team"
+  CostCenter  = "engineering"
+}
+
+# Runner Custom Tags
+# runner_custom_tags = ["custom-tag-1", "custom-tag-2"]
+
+# Integrations
+# integration_step_security_api_key = "your-stepsecurity-api-key"
+# otel_exporter_endpoint           = "https://your-otel-collector:4318"
+# alert_slack_webhook_url          = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+
+# Logging
+# logger_level = "info"  # Options: debug, info, warn, error
+
+# IAM Permissions Boundary (if required by your organization)
+# permission_boundary_arn = "arn:aws:iam::123456789012:policy/YourPermissionBoundary"
