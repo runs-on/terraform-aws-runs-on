@@ -254,14 +254,14 @@ variable "runner_large_volume_throughput" {
 variable "app_image" {
   description = "App Runner container image for RunsOn service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.7@sha256:404752cc635ee57e8bc34fd3c2a06fe3e97b53129a53f14121a7750bd5c37cc2"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v2.12.8-rc.4@sha256:11d78a126944f3908ec743777d4772a1295b6f9b85c15ea3137b4ea670b9b4eb"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v2.12.7"
+  default     = "v2.12.8-rc.4"
   nullable    = false
 }
 

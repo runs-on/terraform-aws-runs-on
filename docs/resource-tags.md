@@ -21,7 +21,7 @@ Use the `tags` variable to apply additional tags to all resources:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws"
-  version = "v2.12.7"
+  version = "v2.12.8"
 
   # ...
 
