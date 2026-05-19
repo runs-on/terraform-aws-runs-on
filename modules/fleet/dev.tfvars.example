@@ -1,0 +1,60 @@
+# Copy this file to `terraform/modules/fleet/dev.tfvars` before running:
+#   mise exec -- go run ./cmd/releasectl install fleet --env dev
+
+stack_name = "runs-on-fleet-dev-v3"
+
+github_app_id = 123456
+
+github_app_private_key = <<-EOT
+-----BEGIN PRIVATE KEY-----
+example
+-----END PRIVATE KEY-----
+EOT
+
+github_base_url = "https://github.com"
+
+environment = "dev"
+app_size    = "small"
+
+vpc_id = "vpc-0123456789abcdef0"
+
+public_subnet_ids = [
+  "subnet-0123456789abcdef0",
+]
+
+private_subnet_ids = [
+  "subnet-0fedcba9876543210",
+]
+
+images = {
+  ubuntu24-full-x64 = {
+    ami            = "ami-0123456789abcdef0"
+    platform       = "linux"
+    arch           = "x64"
+    main_disk_size = 60
+  }
+}
+
+runners = {
+  small-x64 = {
+    cpu    = 2
+    ram    = 4
+    family = ["c7"]
+    image  = "ubuntu24-full-x64"
+  }
+}
+
+pools = {
+  my-pool = {
+    timezone     = "UTC"
+    runner_group = "xxxx"
+    runner       = "small-x64"
+    schedule = [
+      {
+        name    = "default"
+        hot     = 1
+        stopped = 2
+      }
+    ]
+  }
+}
