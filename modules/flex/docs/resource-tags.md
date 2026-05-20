@@ -13,7 +13,7 @@ Use the `tags` variable to apply additional tags to all resources:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.8"
+  version = "v3.0.9"
 
   # ...
 
