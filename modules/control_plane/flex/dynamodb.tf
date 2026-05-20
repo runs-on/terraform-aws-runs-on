@@ -20,6 +20,10 @@ resource "aws_dynamodb_table" "locks" {
     attribute_name = "expiresAt"
   }
 
+  point_in_time_recovery {
+    enabled = var.enable_dynamodb_pitr
+  }
+
   tags = merge(
     local.common_tags,
     {
@@ -126,6 +130,10 @@ resource "aws_dynamodb_table" "workflow_jobs" {
   ttl {
     enabled        = true
     attribute_name = "ttl"
+  }
+
+  point_in_time_recovery {
+    enabled = var.enable_dynamodb_pitr
   }
 
   tags = merge(

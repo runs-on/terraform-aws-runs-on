@@ -151,6 +151,12 @@ variable "force_destroy_buckets" {
   default     = false
 }
 
+variable "enable_dynamodb_pitr" {
+  description = "Enable point-in-time recovery (PITR) on control plane DynamoDB tables. Disabled by default; enable for production to meet backup/recovery requirements (incurs additional DynamoDB storage cost)."
+  type        = bool
+  default     = false
+}
+
 ###########################
 # Compute Configuration
 # Used by: compute module

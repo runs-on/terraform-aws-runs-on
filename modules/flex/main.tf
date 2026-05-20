@@ -223,6 +223,8 @@ module "control_plane" {
   alerts              = local.flex_alerts
   tags                = local.common_tags
 
+  enable_dynamodb_pitr = var.enable_dynamodb_pitr
+
   # Ensure NAT gateway is ready before the worker service starts
   depends_on = [
     time_sleep.wait_for_nat

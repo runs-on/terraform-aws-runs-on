@@ -188,6 +188,12 @@ variable "alerts" {
   }
 }
 
+variable "enable_dynamodb_pitr" {
+  description = "Enable point-in-time recovery (PITR) on the control plane DynamoDB tables"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)

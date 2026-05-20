@@ -117,6 +117,8 @@ module "control_plane" {
   runtime       = local.fleet_runtime
   control_plane = local.fleet_control_plane
   tags          = local.common_tags
+
+  enable_dynamodb_pitr = var.enable_dynamodb_pitr
 }
 
 locals {

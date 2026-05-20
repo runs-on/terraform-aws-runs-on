@@ -122,6 +122,12 @@ variable "compute" {
   })
 }
 
+variable "enable_dynamodb_pitr" {
+  description = "Enable point-in-time recovery (PITR) on the Fleet control plane DynamoDB tables"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags applied to Fleet resources"
   type        = map(string)

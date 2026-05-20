@@ -180,6 +180,10 @@ resource "aws_dynamodb_table" "claims" {
     attribute_name = "ttl"
   }
 
+  point_in_time_recovery {
+    enabled = var.enable_dynamodb_pitr
+  }
+
   tags = merge(
     var.tags,
     {
