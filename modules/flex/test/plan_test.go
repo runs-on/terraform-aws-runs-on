@@ -50,6 +50,74 @@ func TestPlanSourceStackConfigMaterializerWiring(t *testing.T) {
 	assert.Contains(t, serviceTF, "aws_lambda_invocation.stack_config_materializer")
 }
 
+func TestPlanSourceFleetConfigMaterializerWiring(t *testing.T) {
+	t.Parallel()
+
+	mainTF := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
+	secretsTF := readTerraformSource(t, "modules", "control_plane", "fleet", "secrets.tf")
+
+	assert.NotContains(t, mainTF, `resource "aws_secretsmanager_secret_version" "config"`)
+	assert.NotContains(t, secretsTF, `resource "aws_secretsmanager_secret_version" "config"`)
+	assert.Contains(t, mainTF, "from = aws_secretsmanager_secret_version.config")
+	assert.Contains(t, secretsTF, `resource "aws_lambda_invocation" "config_materializer"`)
+	assert.Contains(t, secretsTF, "secretsmanager:PutSecretValue")
+
+	assert.Contains(t, mainTF, "RUNS_ON_FLEET_CONFIG_SECRET_ARN")
+	assert.Contains(t, mainTF, "aws_secretsmanager_secret.config.arn")
+	assert.Contains(t, mainTF, "RUNS_ON_FLEET_CONFIG_SECRET_VERSION")
+	assert.Contains(t, mainTF, "local.config_secret_version")
+	assert.Contains(t, mainTF, "aws_lambda_invocation.config_materializer")
+}
+
+func TestPlanSourceFleetCIStackKeepsPrivateSubnetsStable(t *testing.T) {
+	t.Parallel()
+
+	mainTF := readRepoSource(t, "stacks", "tf", "modules", "fleet-stack", "main.tf")
+
+	assert.Contains(t, mainTF, "private_subnets = local.network.private_subnet_cidrs")
+	assert.Contains(t, mainTF, "enable_nat_gateway = local.private_mode_enabled")
+	assert.NotContains(t, mainTF, "private_subnets = (\n    local.private_mode_enabled")
+}
+
+func TestPlanSourceFleetCIDefaultFleetEnablesS3Cache(t *testing.T) {
+	t.Parallel()
+
+	mainTF := readRepoSource(t, "stacks", "tf", "modules", "fleet-stack", "main.tf")
+
+	_, afterRunner, ok := strings.Cut(mainTF, "small-x64 = {")
+	require.True(t, ok, "small-x64 runner should be configured")
+
+	smallRunner, _, ok := strings.Cut(afterRunner, "fast-x64 = {")
+	require.True(t, ok, "small-x64 runner block should end before fast-x64")
+
+	assert.Contains(t, smallRunner, `extras = ["s3-cache"]`)
+}
+
+func TestPlanSourceFleetPrivateDeployUsesPrivateOnlyMode(t *testing.T) {
+	t.Parallel()
+
+	workflow := readRepoSource(t, ".github", "workflows", "core-deploy-terraform.yml")
+
+	_, afterPrivateTrue, ok := strings.Cut(workflow, "private_true)")
+	require.True(t, ok, "private_true stack variant should be handled")
+
+	privateTrueCase, _, ok := strings.Cut(afterPrivateTrue, ";;")
+	require.True(t, ok, "private_true stack variant should terminate")
+
+	assert.Contains(t, privateTrueCase, `private_mode="only"`)
+	assert.NotContains(t, privateTrueCase, `private_mode="true"`)
+}
+
+func TestPlanSourceRuntimeWaitsForECSServiceSteadyState(t *testing.T) {
+	t.Parallel()
+
+	mainTF := readTerraformSource(t, "modules", "control_plane", "runtime", "main.tf")
+	_, afterService, ok := strings.Cut(mainTF, `resource "aws_ecs_service" "this"`)
+	require.True(t, ok, "runtime ECS service should exist")
+
+	assert.Contains(t, afterService, "wait_for_steady_state = true")
+}
+
 func TestPlanSourcePublicIngressDeploymentAvoidsAdminRouteDestroyCycle(t *testing.T) {
 	t.Parallel()
 

@@ -10,6 +10,7 @@ TEST_PLAN_LOCK_FILE ?= modules/flex/.terraform.lock.hcl
 TEST_PLAN_MIN_AWS_LOCK_FILE = testdata/provider-locks/aws-6.33/.terraform.lock.hcl
 TEST_PLAN_TOFU_MODULES = \
 	modules/flex \
+	modules/fleet \
 	modules/control_plane/flex \
 	modules/control_plane/runtime \
 	modules/runner/compute \

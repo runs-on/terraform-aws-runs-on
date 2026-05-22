@@ -316,6 +316,9 @@ resource "aws_ecs_service" "this" {
 
   enable_ecs_managed_tags = true
   force_new_deployment    = var.force_new_deployment
+  # Deploy workflows schedule runners immediately after Terraform returns, so
+  # wait until ECS has actually rolled the control-plane task to the new version.
+  wait_for_steady_state = true
 
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
   deployment_maximum_percent         = var.deployment_maximum_percent

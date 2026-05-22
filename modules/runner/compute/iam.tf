@@ -237,7 +237,8 @@ resource "aws_iam_role_policy" "ec2_s3_access" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:DeleteObject"
         ]
         Resource = [
           "${var.extras.cache.bucket_arn}/runners/$${aws:userid}/*"

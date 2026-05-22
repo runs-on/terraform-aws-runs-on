@@ -1,11 +1,11 @@
 variable "stack_name" {
   description = "Name of the RunsOn Fleet stack."
   type        = string
-  default     = "runs-on-fleet"
+  nullable    = false
 
   validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.stack_name))
-    error_message = "Stack name must contain only lowercase letters, numbers, and hyphens."
+    condition     = trimspace(var.stack_name) != "" && can(regex("^[a-z0-9-]+$", var.stack_name))
+    error_message = "Stack name must be set and contain only lowercase letters, numbers, and hyphens."
   }
 }
 
@@ -23,10 +23,15 @@ variable "github_app_private_key" {
 }
 
 variable "github_enterprise_pat" {
-  description = "Classic PAT used for enterprise-target Fleet mode."
+  description = "Classic PAT used for enterprise-target Fleet mode. Must start with ghp_ when set."
   type        = string
   sensitive   = true
   default     = null
+
+  validation {
+    condition     = var.github_enterprise_pat == null ? true : startswith(var.github_enterprise_pat, "ghp_")
+    error_message = "github_enterprise_pat must start with ghp_ when set."
+  }
 }
 
 variable "github_base_url" {
@@ -35,10 +40,16 @@ variable "github_base_url" {
   default     = "https://github.com"
 }
 
-variable "enterprise" {
-  description = "Enterprise slug used when github_enterprise_pat is set."
+variable "github_enterprise_name" {
+  description = "GitHub Enterprise slug used when github_enterprise_pat is set."
   type        = string
   default     = null
+}
+
+variable "license_key" {
+  description = "RunsOn license key obtained from runs-on.com"
+  type        = string
+  sensitive   = true
 }
 
 variable "environment" {
@@ -48,7 +59,7 @@ variable "environment" {
 }
 
 variable "images" {
-  description = "Runner image catalog keyed by image name. Entries must follow the shared config module contract."
+  description = "Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 do not need entries here."
   type        = map(any)
   default     = {}
 }
@@ -58,8 +69,8 @@ variable "runners" {
   type        = map(any)
 }
 
-variable "pools" {
-  description = "Pool catalog keyed by pool name. Entries must follow the shared config module contract."
+variable "fleets" {
+  description = "Fleet catalog keyed by fleet name. Entries use the shared runner shape plus Fleet-specific settings."
   type        = map(any)
 }
 
@@ -138,13 +149,20 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.10@sha256:62b1444505532a3b66dce9252d22e100193ac20c0806c956b126716e67a4b71b"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.0-rc.1@sha256:d2bc67e1ec8424bd1b30986426ad6f5b3af59c79c69f7109af6384b4f7a6c998"
 }
 
 variable "extra_env_vars" {
   description = "Additional environment variables to set on the Fleet worker service."
   type        = map(string)
   default     = {}
+}
+
+variable "integration_step_security_api_key" {
+  description = "API key for StepSecurity integration (optional)."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "app_size" {
@@ -158,6 +176,23 @@ variable "app_size" {
   }
 }
 
+variable "app_capacity_provider" {
+  description = "Fargate capacity provider for the Fleet worker service. Use fargate_spot to lower idle cost for small installs; interrupted in-flight assigned jobs are reconciled by the Fleet runtime."
+  type        = string
+  default     = "fargate"
+
+  validation {
+    condition     = contains(["fargate", "fargate_spot"], var.app_capacity_provider)
+    error_message = "app_capacity_provider must be one of: fargate, fargate_spot."
+  }
+}
+
+variable "maintenance_mode" {
+  description = "Enable maintenance mode (disables queue processing and leader election)"
+  type        = bool
+  default     = false
+}
+
 variable "bootstrap_tag" {
   description = "Bootstrap release tag used by the shared compute bootstrap template."
   type        = string
@@ -167,7 +202,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners."
   type        = string
-  default     = "v3.0.10"
+  default     = "v3.1.0-rc.1"
 }
 
 variable "runner_max_runtime" {
