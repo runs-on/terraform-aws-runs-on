@@ -138,7 +138,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.9@sha256:5f5c33e1fd0fef95e997a26690bf1e3f0a3c2d8426e47b0823a130c40038d81c"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.10@sha256:62b1444505532a3b66dce9252d22e100193ac20c0806c956b126716e67a4b71b"
 }
 
 variable "extra_env_vars" {
@@ -167,7 +167,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners."
   type        = string
-  default     = "v3.0.9"
+  default     = "v3.0.10"
 }
 
 variable "runner_max_runtime" {
