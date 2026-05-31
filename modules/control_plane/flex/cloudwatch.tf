@@ -33,6 +33,8 @@ resource "aws_budgets_budget" "app_daily_budget" {
 ###########################
 
 resource "aws_cloudwatch_dashboard" "runs_on" {
+  count = local.operations.enable_default_dashboard ? 1 : 0
+
   dashboard_name = "${var.stack_name}-Dashboard"
 
   dashboard_body = jsonencode({
@@ -248,6 +250,25 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
       },
       {
         type   = "log"
+        x      = 12
+        y      = 18
+        width  = 12
+        height = 6
+        properties = {
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter message like /Posted .* of workflow usage/\n| stats sum(job_conclusion = \"failure\") / count() as FailureRate, sum(job_conclusion = \"cancelled\") / count() as CancelledRate by bin(30m) as t\n| sort t asc"
+          region = var.region
+          title  = "Unsuccessful Job Conclusion Rate (30min intervals)"
+          view   = "timeSeries"
+          yAxis = {
+            left = {
+              min = 0
+              max = 1
+            }
+          }
+        }
+      },
+      {
+        type   = "log"
         x      = 0
         y      = 24
         width  = 12
@@ -264,6 +285,19 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         x      = 12
         y      = 24
         width  = 12
+        height = 6
+        properties = {
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter message like /Posted .* of workflow usage/\n| stats sum(job_conclusion = \"failure\") as FailureCount, sum(job_conclusion = \"cancelled\") as CancelledCount, sum(job_conclusion = \"success\") as SuccessCount by bin(30m) as t\n| sort t asc"
+          region = var.region
+          title  = "Completed Jobs by Conclusion over time (30min intervals)"
+          view   = "stackedArea"
+        }
+      },
+      {
+        type   = "log"
+        x      = 0
+        y      = 30
+        width  = 24
         height = 6
         properties = {
           query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"spot_interruption\"\n| fields @timestamp, interruption_time, trip_count, recovery_minutes, circuit_breaker_active\n| sort @timestamp desc\n| limit 50"

@@ -1,7 +1,8 @@
 output "config" {
   description = "Fleet runtime configuration secret"
   value = {
-    secret_arn = aws_secretsmanager_secret.config.arn
+    secret_arn               = aws_secretsmanager_secret.config.arn
+    license_status_parameter = aws_ssm_parameter.license_status.name
   }
 }
 

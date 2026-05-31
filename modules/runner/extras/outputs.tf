@@ -19,5 +19,17 @@ output "extras" {
       repository_name = var.enable_ecr ? local.ecr_repository_name : null
       repository_url  = var.enable_ecr ? local.ecr_repository_url : null
     }
+    pull_through_cache = {
+      enabled                = length(local.ecr_pull_through_cache_rules) > 0
+      registry_url           = local.ecr_pull_through_cache_registry_url
+      docker_hub_transparent = local.ecr_pull_through_cache_docker_hub_transparent
+      rules = {
+        for key, rule in local.ecr_pull_through_cache_rules : key => {
+          ecr_repository_prefix      = rule.ecr_repository_prefix
+          upstream_registry_url      = rule.upstream_registry_url
+          upstream_repository_prefix = rule.upstream_repository_prefix
+        }
+      }
+    }
   }
 }

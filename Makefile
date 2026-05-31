@@ -7,9 +7,10 @@ DEV_STACK_NAME ?= runs-on-tf
 TEST_GO = cd modules/flex/test && mise exec -- go
 TEST_WITH_CI_IMAGE = $(TEST_GO) run ./cmd/with-ci-image
 TEST_PLAN_LOCK_FILE ?= modules/flex/.terraform.lock.hcl
-TEST_PLAN_MIN_AWS_LOCK_FILE = testdata/provider-locks/aws-6.33/.terraform.lock.hcl
+TEST_PLAN_MIN_AWS_LOCK_FILE = testdata/provider-locks/aws-6.45/.terraform.lock.hcl
 TEST_PLAN_TOFU_MODULES = \
 	modules/flex \
+	modules/fleet \
 	modules/control_plane/flex \
 	modules/control_plane/runtime \
 	modules/runner/compute \

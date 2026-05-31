@@ -94,11 +94,13 @@ locals {
     AppSize                            = local.runtime.size
     GitHubAppsSecretArn                = aws_secretsmanager_secret.runs_on_github_apps.arn
     StackName                          = var.stack_name
+    DeploymentMethod                   = "terraform"
     QueueWebhooks                      = aws_sqs_queue.webhooks.name
     QueueSystem                        = aws_sqs_queue.system.name
     QueueEvents                        = aws_sqs_queue.events.name
     LocksTable                         = aws_dynamodb_table.locks.name
     WorkflowJobsTable                  = aws_dynamodb_table.workflow_jobs.name
+    JobDiagnosticsResolverFunctionName = aws_lambda_function.job_diagnostics_resolver.function_name
     CostReportsEnabled                 = local.operations.enable_cost_reports ? "true" : "false"
     CostAllocationTag                  = var.cost_allocation_tag
     SpotCircuitBreaker                 = local.operations.spot_circuit_breaker

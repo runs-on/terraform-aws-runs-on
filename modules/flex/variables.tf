@@ -145,6 +145,17 @@ variable "cache_expiration_days" {
   }
 }
 
+variable "cache_bucket_namespace" {
+  description = "S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names."
+  type        = string
+  default     = "global"
+
+  validation {
+    condition     = contains(["global", "account-regional"], var.cache_bucket_namespace)
+    error_message = "Cache bucket namespace must be either global or account-regional."
+  }
+}
+
 variable "force_destroy_buckets" {
   description = "Allow S3 buckets to be destroyed even when not empty. Set to false for production environments to prevent accidental data loss."
   type        = bool
@@ -193,14 +204,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.0.10@sha256:62b1444505532a3b66dce9252d22e100193ac20c0806c956b126716e67a4b71b"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.0-rc.2@sha256:4922e7b42e01a393b42c43f132af9db30311d10bde23c52d4845ec35a0cda825"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.0.10"
+  default     = "v3.1.0-rc.2"
   nullable    = false
 }
 
@@ -375,6 +386,12 @@ variable "app_budget_daily_usd" {
   default     = 10
 }
 
+variable "enable_default_dashboard" {
+  description = "Create the default RunsOn CloudWatch dashboard. Set to false when managing a custom dashboard separately."
+  type        = bool
+  default     = true
+}
+
 ###########################
 # Integration Configuration
 # Used by: core module
@@ -482,6 +499,32 @@ variable "enable_ecr" {
   description = "Enable ECR repository for ephemeral Docker image storage"
   type        = bool
   default     = false
+}
+
+variable "ecr_pull_through_cache_rules" {
+  description = "Existing ECR pull-through cache rules to reference for runner image pulls. Create or import the regional rules outside the RunsOn module."
+  type = map(object({
+    ecr_repository_prefix      = string
+    upstream_registry_url      = string
+    upstream_repository_prefix = optional(string)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for _, rule in var.ecr_pull_through_cache_rules :
+      trimspace(rule.ecr_repository_prefix) != "" && trimspace(rule.upstream_registry_url) != ""
+    ])
+    error_message = "Each ECR pull-through cache rule reference requires non-empty ecr_repository_prefix and upstream_registry_url values."
+  }
+
+  validation {
+    condition = length(distinct([
+      for key, rule in var.ecr_pull_through_cache_rules :
+      trimspace(rule.ecr_repository_prefix)
+    ])) == length(var.ecr_pull_through_cache_rules)
+    error_message = "ECR pull-through cache rule ecr_repository_prefix values must be unique."
+  }
 }
 
 variable "enable_bedrock" {

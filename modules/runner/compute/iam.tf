@@ -77,6 +77,24 @@ resource "aws_iam_role_policy" "ec2_create_tags" {
     Version = "2012-10-17"
     Statement = [
       {
+        Effect = "Deny"
+        Action = [
+          "ec2:CreateTags"
+        ]
+        Resource = "*"
+        Condition = {
+          "ForAnyValue:StringEquals" = {
+            "aws:TagKeys" = [
+              "runs-on-pool-name",
+              "runs-on-pool-spec-hash",
+              "runs-on-pool-standby-type",
+              "runs-on-pool-detached-at",
+              "runs-on-pool-lease-state",
+            ]
+          }
+        }
+      },
+      {
         Effect = "Allow"
         Action = [
           "ec2:CreateTags"
@@ -237,7 +255,8 @@ resource "aws_iam_role_policy" "ec2_s3_access" {
       {
         Effect = "Allow"
         Action = [
-          "s3:GetObject"
+          "s3:GetObject",
+          "s3:DeleteObject"
         ]
         Resource = [
           "${var.extras.cache.bucket_arn}/runners/$${aws:userid}/*"
@@ -381,6 +400,42 @@ resource "aws_iam_role_policy" "ec2_ecr_access" {
           "ecr:PutImage"
         ]
         Resource = var.extras.ecr.repository_arn
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "ec2_ecr_pull_through_cache_access" {
+  count = var.extras.pull_through_cache.enabled ? 1 : 0
+
+  name = "EcrPullThroughCacheAccess"
+  role = aws_iam_role.ec2_instance.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "ecr:CreateRepository",
+          "ecr:BatchImportUpstreamImage"
+        ]
+        Resource = distinct(flatten([
+          for rule in values(var.extras.pull_through_cache.rules) :
+          rule.ecr_repository_prefix == "ROOT" ?
+          ["arn:aws:ecr:${var.region}:${var.account_id}:repository/*"] :
+          ["arn:aws:ecr:${var.region}:${var.account_id}:repository/${rule.ecr_repository_prefix}/*"]
+        ]))
       }
     ]
   })

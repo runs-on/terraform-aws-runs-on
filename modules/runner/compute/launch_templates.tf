@@ -5,29 +5,38 @@ locals {
   nested_launch_template_instance_type = "c8i.large"
   efs_file_system_id                   = try(var.extras.efs.enabled, false) ? trimspace(var.extras.efs.file_system_id) : ""
   ecr_repository_url                   = try(var.extras.ecr.enabled, false) ? trimspace(var.extras.ecr.repository_url) : ""
+  ecr_pull_through_cache_registry_url  = try(var.extras.pull_through_cache.enabled, false) ? trimspace(var.extras.pull_through_cache.registry_url) : ""
 
   linux_user_data_vars = {
-    RunnerMaxRuntime         = var.runner_max_runtime
-    EC2InstanceLogGroup      = local.log_group_name
-    Region                   = var.region
-    S3BucketCache            = var.extras.cache.bucket_name
-    RoleId                   = aws_iam_role.ec2_instance.unique_id
-    BootstrapTag             = var.bootstrap_tag
-    AppTag                   = var.app_tag
-    AgentS3Bucket            = "s3://${var.extras.cache.bucket_name}/agents/${var.app_tag}"
-    EfsEnvLine               = local.efs_file_system_id != "" ? "RUNS_ON_EFS_ID=\"${local.efs_file_system_id}\"" : ""
-    EphemeralRegistryEnvLine = local.ecr_repository_url != "" ? "RUNS_ON_ECR_CACHE=\"${local.ecr_repository_url}\"" : ""
+    RunnerMaxRuntime    = var.runner_max_runtime
+    EC2InstanceLogGroup = local.log_group_name
+    Region              = var.region
+    S3BucketCache       = var.extras.cache.bucket_name
+    RoleId              = aws_iam_role.ec2_instance.unique_id
+    BootstrapTag        = var.bootstrap_tag
+    AppTag              = var.app_tag
+    AgentS3Bucket       = "s3://${var.extras.cache.bucket_name}/agents/${var.app_tag}"
+    EfsEnvLine          = local.efs_file_system_id != "" ? "RUNS_ON_EFS_ID=\"${local.efs_file_system_id}\"" : ""
+    EphemeralRegistryEnvLine = join("\n", compact([
+      local.ecr_repository_url != "" ? "RUNS_ON_ECR_CACHE=\"${local.ecr_repository_url}\"" : "",
+      local.ecr_pull_through_cache_registry_url != "" ? "RUNS_ON_ECR_PULL_THROUGH_CACHE=\"${local.ecr_pull_through_cache_registry_url}\"" : "",
+      local.ecr_pull_through_cache_registry_url != "" && var.extras.pull_through_cache.docker_hub_transparent ? "RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR=\"true\"" : "",
+    ]))
   }
 
   windows_user_data_vars = {
-    RunnerMaxRuntime         = var.runner_max_runtime
-    EC2InstanceLogGroup      = local.log_group_name
-    Region                   = var.region
-    S3BucketCache            = var.extras.cache.bucket_name
-    BootstrapTag             = var.bootstrap_tag
-    AgentS3Bucket            = "s3://${var.extras.cache.bucket_name}/agents/${var.app_tag}"
-    EfsEnvLine               = local.efs_file_system_id != "" ? "$env:RUNS_ON_EFS_ID = \"${local.efs_file_system_id}\"" : ""
-    EphemeralRegistryEnvLine = local.ecr_repository_url != "" ? "$env:RUNS_ON_ECR_CACHE = \"${local.ecr_repository_url}\"" : ""
+    RunnerMaxRuntime    = var.runner_max_runtime
+    EC2InstanceLogGroup = local.log_group_name
+    Region              = var.region
+    S3BucketCache       = var.extras.cache.bucket_name
+    BootstrapTag        = var.bootstrap_tag
+    AgentS3Bucket       = "s3://${var.extras.cache.bucket_name}/agents/${var.app_tag}"
+    EfsEnvLine          = local.efs_file_system_id != "" ? "$env:RUNS_ON_EFS_ID = \"${local.efs_file_system_id}\"" : ""
+    EphemeralRegistryEnvLine = join("\n", compact([
+      local.ecr_repository_url != "" ? "$env:RUNS_ON_ECR_CACHE = \"${local.ecr_repository_url}\"" : "",
+      local.ecr_pull_through_cache_registry_url != "" ? "$env:RUNS_ON_ECR_PULL_THROUGH_CACHE = \"${local.ecr_pull_through_cache_registry_url}\"" : "",
+      local.ecr_pull_through_cache_registry_url != "" && var.extras.pull_through_cache.docker_hub_transparent ? "$env:RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR = \"true\"" : "",
+    ]))
   }
 }
 

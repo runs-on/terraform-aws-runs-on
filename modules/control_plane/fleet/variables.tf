@@ -21,16 +21,17 @@ variable "github" {
     enterprise_pat  = any
     base_url        = string
     enterprise      = any
+    license_key     = string
   })
   sensitive = true
 }
 
 variable "catalog" {
-  description = "Runner image, runner, and pool catalogs"
+  description = "Runner image, runner, and fleet catalogs"
   type = object({
     images  = map(any)
     runners = map(any)
-    pools   = map(any)
+    fleets  = map(any)
   })
 }
 
@@ -132,9 +133,17 @@ variable "runtime" {
   type = object({
     image              = string
     size               = string
+    capacity_provider  = string
+    maintenance_mode   = bool
     log_retention_days = number
     extra_env_vars     = map(string)
   })
+}
+
+variable "integration_step_security_api_key" {
+  description = "API key for StepSecurity integration forwarded to runner agents"
+  type        = string
+  sensitive   = true
 }
 
 variable "control_plane" {

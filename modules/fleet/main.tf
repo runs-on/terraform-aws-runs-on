@@ -16,18 +16,21 @@ locals {
     app_private_key = var.github_app_private_key
     enterprise_pat  = var.github_enterprise_pat
     base_url        = var.github_base_url
-    enterprise      = var.enterprise
+    enterprise      = var.github_enterprise_name
+    license_key     = var.license_key
   }
 
   fleet_catalog = {
     images  = var.images
     runners = var.runners
-    pools   = var.pools
+    fleets  = var.fleets
   }
 
   fleet_runtime = {
     image              = var.runtime_image
     size               = var.app_size
+    capacity_provider  = upper(var.app_capacity_provider)
+    maintenance_mode   = var.maintenance_mode
     log_retention_days = var.log_retention_days
     extra_env_vars     = var.extra_env_vars
   }
@@ -43,7 +46,6 @@ locals {
   common_tags = merge(
     var.tags,
     {
-      "runs-on-product"         = "fleet"
       "runs-on-stack-name"      = var.stack_name
       "runs-on-environment"     = var.environment
       Environment               = var.environment
@@ -71,9 +73,11 @@ module "extras" {
 
   stack_name                         = var.stack_name
   cache_expiration_days              = var.cache_expiration_days
+  cache_bucket_namespace             = var.cache_bucket_namespace
   force_destroy_buckets              = var.force_destroy_buckets
   enable_efs                         = false
   enable_ecr                         = false
+  ecr_pull_through_cache_rules       = var.ecr_pull_through_cache_rules
   prevent_destroy_optional_resources = false
   vpc_id                             = var.vpc_id
   public_subnet_ids                  = var.public_subnet_ids
@@ -108,15 +112,16 @@ module "control_plane" {
   region     = local.region
   account_id = data.aws_caller_identity.current.account_id
 
-  stack_name    = var.stack_name
-  network       = module.network.network
-  extras        = module.extras.extras
-  compute       = module.compute.compute
-  github        = local.fleet_github
-  catalog       = local.fleet_catalog
-  runtime       = local.fleet_runtime
-  control_plane = local.fleet_control_plane
-  tags          = local.common_tags
+  stack_name                        = var.stack_name
+  network                           = module.network.network
+  extras                            = module.extras.extras
+  compute                           = module.compute.compute
+  github                            = local.fleet_github
+  catalog                           = local.fleet_catalog
+  runtime                           = local.fleet_runtime
+  integration_step_security_api_key = var.integration_step_security_api_key
+  control_plane                     = local.fleet_control_plane
+  tags                              = local.common_tags
 }
 
 locals {
