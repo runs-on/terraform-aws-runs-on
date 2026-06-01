@@ -40,10 +40,37 @@ variable "github_base_url" {
   default     = "https://github.com"
 }
 
-variable "enterprise" {
-  description = "Optional enterprise slug for enterprise-target mode."
+variable "github_enterprise_name" {
+  description = "Optional GitHub Enterprise slug for enterprise-target mode."
   type        = string
   default     = null
+}
+
+variable "license_key" {
+  description = "RunsOn license key obtained from runs-on.com."
+  type        = string
+  default     = "runs-on-license-placeholder"
+  sensitive   = true
+}
+
+variable "email" {
+  description = "Email address for Fleet alerts."
+  type        = string
+  default     = "alerts@example.com"
+}
+
+variable "alert_slack_webhook_url" {
+  description = "Optional Slack webhook URL for Fleet alerts."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "integration_step_security_api_key" {
+  description = "Optional StepSecurity integration API key."
+  type        = string
+  default     = ""
+  sensitive   = true
 }
 
 variable "environment" {
@@ -56,6 +83,12 @@ variable "app_size" {
   description = "Example app-size preset for the Fleet worker."
   type        = string
   default     = "small"
+}
+
+variable "app_capacity_provider" {
+  description = "Example Fleet worker capacity provider."
+  type        = string
+  default     = "fargate"
 }
 
 variable "vpc_id" {
@@ -77,16 +110,9 @@ variable "private_subnet_ids" {
 }
 
 variable "images" {
-  description = "Example image catalog using the config module ImageSpec shape."
+  description = "Optional custom image catalog using the config module ImageSpec shape. Built-in image names such as ubuntu24-full-x64 do not need entries here."
   type        = map(any)
-  default = {
-    ubuntu24-full-x64 = {
-      ami            = "ami-0123456789abcdef0"
-      platform       = "linux"
-      arch           = "x64"
-      main_disk_size = 60
-    }
-  }
+  default     = {}
 }
 
 variable "runners" {
@@ -99,24 +125,28 @@ variable "runners" {
       family = ["c7"]
       image  = "ubuntu24-full-x64"
     }
+    large-x64 = {
+      cpu    = 4
+      ram    = 8
+      family = ["c7"]
+      image  = "ubuntu24-full-x64"
+    }
   }
 }
 
-variable "pools" {
-  description = "Example pool catalog using the config module PoolSpec shape."
+variable "fleets" {
+  description = "Example fleet catalog using the config module PoolSpec shape."
   type        = map(any)
   default = {
-    my-pool = {
+    linux-small = {
       timezone     = "UTC"
       runner_group = "platform"
       runner       = "small-x64"
-      schedule = [
-        {
-          name    = "default"
-          hot     = 1
-          stopped = 2
-        }
-      ]
+    }
+    linux-large = {
+      timezone     = "UTC"
+      runner_group = "platform"
+      runner       = "large-x64"
     }
   }
 }

@@ -97,6 +97,12 @@ variables {
       repository_name = ""
       repository_url  = ""
     }
+    pull_through_cache = {
+      enabled                = false
+      registry_url           = ""
+      docker_hub_transparent = false
+      rules                  = {}
+    }
   }
 
   compute = {
@@ -201,6 +207,37 @@ variables {
   tags = {}
 }
 
+run "zero_budget_skips_budget_resources" {
+  command = plan
+
+  assert {
+    condition     = length(aws_budgets_budget.app_daily_budget) == 0
+    error_message = "Daily budget should be absent when app_budget_daily_usd is 0."
+  }
+
+}
+
+run "positive_budget_creates_budget_resources" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 10
+      enable_cost_reports               = false
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = false
+      public_ingress_web_acl_arn        = ""
+    }
+  }
+
+  assert {
+    condition     = length(aws_budgets_budget.app_daily_budget) == 1
+    error_message = "Daily budget should be created when app_budget_daily_usd is greater than 0."
+  }
+}
+
 run "managed_waf_creates_sync_resources" {
   command = plan
 
@@ -234,6 +271,28 @@ run "managed_waf_creates_sync_resources" {
   assert {
     condition     = length(aws_wafv2_ip_set.allowed_ips_ipv4[0].addresses) == 0 && length(aws_wafv2_ip_set.allowed_ips_ipv6[0].addresses) == 0
     error_message = "Managed WAF IP sets should start empty so the sync Lambda owns addresses."
+  }
+}
+
+run "default_dashboard_can_be_disabled" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 0
+      enable_default_dashboard          = false
+      enable_cost_reports               = false
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = false
+      public_ingress_web_acl_arn        = ""
+    }
+  }
+
+  assert {
+    condition     = length(aws_cloudwatch_dashboard.runs_on) == 0
+    error_message = "Default dashboard should be absent when enable_default_dashboard is false."
   }
 }
 

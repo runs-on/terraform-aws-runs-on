@@ -18,6 +18,17 @@ variable "cache_expiration_days" {
   }
 }
 
+variable "cache_bucket_namespace" {
+  description = "S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names."
+  type        = string
+  default     = "global"
+
+  validation {
+    condition     = contains(["global", "account-regional"], var.cache_bucket_namespace)
+    error_message = "Cache bucket namespace must be either global or account-regional."
+  }
+}
+
 variable "force_destroy_buckets" {
   description = "Allow S3 buckets to be destroyed even when not empty"
   type        = bool
@@ -31,6 +42,16 @@ variable "enable_efs" {
 variable "enable_ecr" {
   description = "Enable ECR repository for ephemeral Docker images"
   type        = bool
+}
+
+variable "ecr_pull_through_cache_rules" {
+  description = "Existing ECR pull-through cache rules to reference for runner image pulls"
+  type = map(object({
+    ecr_repository_prefix      = string
+    upstream_registry_url      = string
+    upstream_repository_prefix = optional(string)
+  }))
+  default = {}
 }
 
 variable "vpc_id" {

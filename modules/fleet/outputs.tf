@@ -22,6 +22,11 @@ output "config" {
   value       = module.control_plane.config
 }
 
+output "alerts" {
+  description = "RunsOn Fleet alerting resources"
+  value       = module.control_plane.alerts
+}
+
 output "workflow_contract" {
   description = "RunsOn Fleet workflow targeting contract"
   value       = module.control_plane.workflow_contract

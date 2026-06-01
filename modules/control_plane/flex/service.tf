@@ -51,7 +51,7 @@ locals {
       Action = [
         "sns:Publish",
       ]
-      Resource = aws_sns_topic.alerts.arn
+      Resource = module.alerts.topic_arn
     },
     {
       Effect = "Allow"

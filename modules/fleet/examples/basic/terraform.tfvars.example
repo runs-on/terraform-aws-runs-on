@@ -14,6 +14,10 @@ EOT
 
 github_base_url = "https://github.com"
 
+license_key = "your-runs-on-license-key"
+
+# integration_step_security_api_key = "your-stepsecurity-api-key"
+
 environment = "production"
 app_size    = "medium"
 
@@ -29,15 +33,6 @@ private_subnet_ids = [
 
 runtime_image = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:test"
 
-images = {
-  ubuntu24-full-x64 = {
-    ami            = "ami-0123456789abcdef0"
-    platform       = "linux"
-    arch           = "x64"
-    main_disk_size = 60
-  }
-}
-
 runners = {
   small-x64 = {
     cpu    = 2
@@ -47,17 +42,10 @@ runners = {
   }
 }
 
-pools = {
-  my-pool = {
+fleets = {
+  my-fleet = {
     timezone     = "UTC"
     runner_group = "xxxx"
     runner       = "small-x64"
-    schedule = [
-      {
-        name    = "default"
-        hot     = 1
-        stopped = 2
-      }
-    ]
   }
 }

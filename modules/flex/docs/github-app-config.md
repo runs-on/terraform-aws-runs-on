@@ -6,7 +6,7 @@ If you prefer to create and manage your own GitHub App — for tighter control o
 
 ## Creating a GitHub App Manually
 
-RunsOn normally creates a private GitHub App for your organization during the web-based setup. If you prefer to create it manually, use the settings below.
+RunsOn normally creates a GitHub App during the web-based setup. If you prefer to create it manually, use the settings below. The app can be owned by an organization or a personal account, and it must be installed on exactly one GitHub account matching `github_organization`.
 
 ### App Settings
 
@@ -61,7 +61,7 @@ Once your app is created, pass the credentials as Terraform variables:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.10"
+  version = "v3.1.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

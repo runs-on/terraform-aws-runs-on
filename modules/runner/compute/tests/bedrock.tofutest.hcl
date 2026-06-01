@@ -55,6 +55,12 @@ variables {
       repository_name = ""
       repository_url  = ""
     }
+    pull_through_cache = {
+      enabled                = false
+      registry_url           = ""
+      docker_hub_transparent = false
+      rules                  = {}
+    }
   }
 }
 

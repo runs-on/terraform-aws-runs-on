@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 6.0"
+      version = ">= 6.45"
     }
     random = {
       source  = "hashicorp/random"
@@ -14,5 +14,10 @@ terraform {
 }
 
 locals {
-  common_tags = var.tags
+  common_tags                        = var.tags
+  account_regional_cache_bucket_name = "${var.stack_name}-cache-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.region}-an"
 }
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+data "aws_partition" "current" {}

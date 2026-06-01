@@ -50,6 +50,16 @@ variable "extras" {
       repository_name = string
       repository_url  = string
     })
+    pull_through_cache = object({
+      enabled                = bool
+      registry_url           = string
+      docker_hub_transparent = bool
+      rules = map(object({
+        ecr_repository_prefix      = string
+        upstream_registry_url      = string
+        upstream_repository_prefix = string
+      }))
+    })
   })
 }
 

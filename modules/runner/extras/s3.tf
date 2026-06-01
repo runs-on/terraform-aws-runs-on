@@ -1,8 +1,10 @@
 # S3 bucket resources for RunsOn cache storage
 
 resource "aws_s3_bucket" "cache" {
-  bucket_prefix = "${var.stack_name}-cache-"
-  force_destroy = var.force_destroy_buckets
+  bucket           = var.cache_bucket_namespace == "account-regional" ? local.account_regional_cache_bucket_name : null
+  bucket_namespace = var.cache_bucket_namespace
+  bucket_prefix    = var.cache_bucket_namespace == "global" ? "${var.stack_name}-cache-" : null
+  force_destroy    = var.force_destroy_buckets
 
   tags = merge(
     var.tags,
@@ -10,6 +12,15 @@ resource "aws_s3_bucket" "cache" {
       Name = "${var.stack_name}-cache"
     }
   )
+
+  lifecycle {
+    create_before_destroy = true
+
+    precondition {
+      condition     = var.cache_bucket_namespace != "account-regional" || length(local.account_regional_cache_bucket_name) <= 63
+      error_message = "Account-regional cache bucket name must be 63 characters or less. Shorten stack_name."
+    }
+  }
 }
 
 resource "aws_s3_bucket_versioning" "cache" {

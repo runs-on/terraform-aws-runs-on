@@ -16,21 +16,26 @@ provider "aws" {
 module "runs_on_fleet" {
   source = "../.."
 
-  stack_name             = var.stack_name
-  github_app_id          = var.github_app_id
-  github_app_private_key = var.github_app_private_key
-  github_enterprise_pat  = var.github_enterprise_pat
-  github_base_url        = var.github_base_url
-  enterprise             = var.enterprise
-  environment            = var.environment
-  app_size               = var.app_size
-  vpc_id                 = var.vpc_id
-  public_subnet_ids      = var.public_subnet_ids
-  private_subnet_ids     = var.private_subnet_ids
+  stack_name                        = var.stack_name
+  github_app_id                     = var.github_app_id
+  github_app_private_key            = var.github_app_private_key
+  github_enterprise_pat             = var.github_enterprise_pat
+  github_base_url                   = var.github_base_url
+  github_enterprise_name            = var.github_enterprise_name
+  license_key                       = var.license_key
+  email                             = var.email
+  alert_slack_webhook_url           = var.alert_slack_webhook_url
+  integration_step_security_api_key = var.integration_step_security_api_key
+  environment                       = var.environment
+  app_size                          = var.app_size
+  app_capacity_provider             = var.app_capacity_provider
+  vpc_id                            = var.vpc_id
+  public_subnet_ids                 = var.public_subnet_ids
+  private_subnet_ids                = var.private_subnet_ids
 
   images             = var.images
   runners            = var.runners
-  pools              = var.pools
+  fleets             = var.fleets
   runtime_image      = var.runtime_image
   bootstrap_tag      = var.bootstrap_tag
   app_tag            = var.app_tag
