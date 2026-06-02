@@ -63,6 +63,16 @@ variable "extras" {
       repository_name = string
       repository_url  = string
     })
+    pull_through_cache = object({
+      enabled                = bool
+      registry_url           = string
+      docker_hub_transparent = bool
+      rules = map(object({
+        ecr_repository_prefix      = string
+        upstream_registry_url      = string
+        upstream_repository_prefix = string
+      }))
+    })
   })
 }
 
@@ -166,6 +176,7 @@ variable "operations" {
   description = "Flex operational controls and integrations"
   type = object({
     app_budget_daily_usd              = number
+    enable_default_dashboard          = optional(bool, true)
     enable_cost_reports               = bool
     spot_circuit_breaker              = string
     integration_step_security_api_key = string

@@ -114,6 +114,7 @@ locals {
 
   flex_operations = {
     app_budget_daily_usd              = var.app_budget_daily_usd
+    enable_default_dashboard          = var.enable_default_dashboard
     enable_cost_reports               = var.enable_cost_reports
     spot_circuit_breaker              = var.spot_circuit_breaker
     integration_step_security_api_key = var.integration_step_security_api_key
@@ -172,9 +173,11 @@ module "extras" {
 
   stack_name                         = var.stack_name
   cache_expiration_days              = var.cache_expiration_days
+  cache_bucket_namespace             = var.cache_bucket_namespace
   force_destroy_buckets              = var.force_destroy_buckets
   enable_efs                         = var.enable_efs
   enable_ecr                         = var.enable_ecr
+  ecr_pull_through_cache_rules       = var.ecr_pull_through_cache_rules
   prevent_destroy_optional_resources = var.prevent_destroy_optional_resources
   vpc_id                             = var.vpc_id
   public_subnet_ids                  = local.efs_mount_target_subnet_ids

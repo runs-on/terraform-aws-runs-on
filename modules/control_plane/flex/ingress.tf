@@ -191,7 +191,7 @@ resource "aws_iam_role_policy" "github_apps_setup" {
         Action = [
           "sns:ListSubscriptionsByTopic",
         ]
-        Resource = aws_sns_topic.alerts.arn
+        Resource = module.alerts.topic_arn
       },
       {
         Effect = "Allow"
@@ -234,7 +234,7 @@ resource "aws_lambda_function" "github_apps_setup" {
       RUNS_ON_LICENSE_STATUS_SSM_PARAMETER = aws_ssm_parameter.license_status.name
       RUNS_ON_APP_TAG                      = local.runtime.tag
       RUNS_ON_PUBLIC_BASE_URL              = local.public_ingress_base_url
-      RUNS_ON_TOPIC_ARN                    = aws_sns_topic.alerts.arn
+      RUNS_ON_TOPIC_ARN                    = module.alerts.topic_arn
       RUNS_ON_SYSTEM_QUEUE_URL             = aws_sqs_queue.system.url
     }
   }

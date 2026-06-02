@@ -44,10 +44,80 @@ func TestPlanSourceStackConfigMaterializerWiring(t *testing.T) {
 	assert.Contains(t, mainTF, "aws_secretsmanager_secret.runs_on_stack_config.arn")
 	assert.Contains(t, mainTF, "RUNS_ON_STACK_CONFIG_SECRET_VERSION")
 	assert.Contains(t, mainTF, "local.stack_config_secret_version")
+	assert.Contains(t, mainTF, `DeploymentMethod                   = "terraform"`)
 
 	assert.Contains(t, ingressTF, "RUNS_ON_STACK_CONFIG_SECRET_VERSION")
 	assert.Contains(t, ingressTF, "local.stack_config_secret_version")
 	assert.Contains(t, serviceTF, "aws_lambda_invocation.stack_config_materializer")
+}
+
+func TestPlanSourceFleetConfigMaterializerWiring(t *testing.T) {
+	t.Parallel()
+
+	mainTF := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
+	secretsTF := readTerraformSource(t, "modules", "control_plane", "fleet", "secrets.tf")
+
+	assert.NotContains(t, mainTF, `resource "aws_secretsmanager_secret_version" "config"`)
+	assert.NotContains(t, secretsTF, `resource "aws_secretsmanager_secret_version" "config"`)
+	assert.Contains(t, mainTF, "from = aws_secretsmanager_secret_version.config")
+	assert.Contains(t, secretsTF, `resource "aws_lambda_invocation" "config_materializer"`)
+	assert.Contains(t, secretsTF, "secretsmanager:PutSecretValue")
+
+	assert.Contains(t, mainTF, "RUNS_ON_FLEET_CONFIG_SECRET_ARN")
+	assert.Contains(t, mainTF, "aws_secretsmanager_secret.config.arn")
+	assert.Contains(t, mainTF, "RUNS_ON_FLEET_CONFIG_SECRET_VERSION")
+	assert.Contains(t, mainTF, "local.config_secret_version")
+	assert.Contains(t, mainTF, "aws_lambda_invocation.config_materializer")
+	assert.Contains(t, mainTF, `deployment_method                      = "terraform"`)
+}
+
+func TestPlanSourceFleetCIStackKeepsPrivateSubnetsStable(t *testing.T) {
+	t.Parallel()
+
+	mainTF := readRepoSource(t, "stacks", "tf", "modules", "fleet-stack", "main.tf")
+
+	assert.Contains(t, mainTF, "private_subnets = local.network.private_subnet_cidrs")
+	assert.Contains(t, mainTF, "enable_nat_gateway = local.private_mode_enabled")
+	assert.NotContains(t, mainTF, "private_subnets = (\n    local.private_mode_enabled")
+}
+
+func TestPlanSourceFleetCIDefaultFleetEnablesRequiredExtras(t *testing.T) {
+	t.Parallel()
+
+	mainTF := readRepoSource(t, "stacks", "tf", "modules", "fleet-stack", "main.tf")
+
+	_, afterRunner, ok := strings.Cut(mainTF, "small-x64 = {")
+	require.True(t, ok, "small-x64 runner should be configured")
+
+	smallRunner, _, ok := strings.Cut(afterRunner, "fast-x64 = {")
+	require.True(t, ok, "small-x64 runner block should end before fast-x64")
+
+	assert.Contains(t, smallRunner, `extras = ["s3-cache", "ecr-pull-through"]`)
+}
+
+func TestPlanSourceFleetPrivateDeployUsesPrivateOnlyMode(t *testing.T) {
+	t.Parallel()
+
+	workflow := readRepoSource(t, ".github", "workflows", "core-deploy-terraform.yml")
+
+	_, afterPrivateTrue, ok := strings.Cut(workflow, "private_true)")
+	require.True(t, ok, "private_true stack variant should be handled")
+
+	privateTrueCase, _, ok := strings.Cut(afterPrivateTrue, ";;")
+	require.True(t, ok, "private_true stack variant should terminate")
+
+	assert.Contains(t, privateTrueCase, `private_mode="only"`)
+	assert.NotContains(t, privateTrueCase, `private_mode="true"`)
+}
+
+func TestPlanSourceRuntimeWaitsForECSServiceSteadyState(t *testing.T) {
+	t.Parallel()
+
+	mainTF := readTerraformSource(t, "modules", "control_plane", "runtime", "main.tf")
+	_, afterService, ok := strings.Cut(mainTF, `resource "aws_ecs_service" "this"`)
+	require.True(t, ok, "runtime ECS service should exist")
+
+	assert.Contains(t, afterService, "wait_for_steady_state = true")
 }
 
 func TestPlanSourcePublicIngressDeploymentAvoidsAdminRouteDestroyCycle(t *testing.T) {
@@ -133,6 +203,15 @@ func TestPlanSourceCloudFormationEphemeralRegistryUsesGeneratedNameAndStackTags(
 	assert.Contains(t, resourceBody, "Value: !Ref AWS::StackName")
 }
 
+func TestPlanSourceCloudFormationStackConfigUsesDeploymentMethod(t *testing.T) {
+	t.Parallel()
+
+	template := readRepoSource(t, "cloudformation", "template.yaml")
+
+	assert.Contains(t, template, `DeploymentMethod: "cloudformation"`)
+	assert.NotContains(t, template, "InfrastructureSource")
+}
+
 func TestPlanSourceTerraformEphemeralRegistryUsesGeneratedNameAndStackTags(t *testing.T) {
 	t.Parallel()
 
@@ -152,4 +231,84 @@ func TestPlanSourceTerraformEphemeralRegistryUsesGeneratedNameAndStackTags(t *te
 
 	variablesTF := readTerraformSource(t, "modules", "flex", "variables.tf")
 	assert.NotContains(t, variablesTF, `variable "force_delete_ecr"`)
+}
+
+func TestPlanSourceTerraformECRPullThroughCacheWiring(t *testing.T) {
+	t.Parallel()
+
+	rootVariablesTF := readTerraformSource(t, "modules", "flex", "variables.tf")
+	rootMainTF := readTerraformSource(t, "modules", "flex", "main.tf")
+	extrasTF := readTerraformSource(t, "modules", "runner", "extras", "ecr_pull_through_cache.tf")
+	extrasOutputsTF := readTerraformSource(t, "modules", "runner", "extras", "outputs.tf")
+	computeIAMTF := readTerraformSource(t, "modules", "runner", "compute", "iam.tf")
+	launchTemplatesTF := readTerraformSource(t, "modules", "runner", "compute", "launch_templates.tf")
+	linuxUserData := readTerraformSource(t, "modules", "runner", "compute", "user-data", "linux-bootstrap.sh.tmpl")
+
+	assert.Contains(t, rootVariablesTF, `variable "ecr_pull_through_cache_rules"`)
+	assert.Contains(t, rootMainTF, "ecr_pull_through_cache_rules       = var.ecr_pull_through_cache_rules")
+
+	assert.NotContains(t, extrasTF, `resource "aws_ecr_pull_through_cache_rule"`)
+	assert.NotContains(t, extrasTF, `resource "aws_secretsmanager_secret"`)
+	assert.NotContains(t, extrasTF, `ecr-pullthroughcache/${var.stack_name}/${each.key}`)
+	assert.Contains(t, rootVariablesTF, `ecr_repository_prefix      = string`)
+	assert.Contains(t, rootVariablesTF, `upstream_registry_url      = string`)
+	assert.NotContains(t, rootVariablesTF, `provider                   = string`)
+	assert.NotContains(t, rootVariablesTF, `credential_secret_arn`)
+	assert.NotContains(t, rootVariablesTF, `credentials = optional`)
+	assert.Contains(t, extrasTF, `registry-1.docker.io`)
+	assert.Contains(t, extrasTF, `rule.ecr_repository_prefix == "ROOT"`)
+	assert.Contains(t, extrasOutputsTF, `docker_hub_transparent`)
+
+	assert.Contains(t, computeIAMTF, `resource "aws_iam_role_policy" "ec2_ecr_pull_through_cache_access"`)
+	assert.Contains(t, computeIAMTF, `ecr:BatchImportUpstreamImage`)
+	assert.Contains(t, computeIAMTF, `ecr:CreateRepository`)
+
+	assert.Contains(t, launchTemplatesTF, `RUNS_ON_ECR_PULL_THROUGH_CACHE=`)
+	assert.Contains(t, launchTemplatesTF, `RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR=`)
+	assert.Contains(t, linuxUserData, `${EphemeralRegistryEnvLine}`)
+}
+
+func TestPlanSourceFleetECRPullThroughCacheReleaseWiring(t *testing.T) {
+	t.Parallel()
+
+	fleetMainTF := readTerraformSource(t, "modules", "fleet", "main.tf")
+	fleetVariablesTF := readTerraformSource(t, "modules", "fleet", "variables.tf")
+	stackMainTF := readRepoSource(t, "stacks", "tf", "modules", "fleet-stack", "main.tf")
+	stackVariablesTF := readRepoSource(t, "stacks", "tf", "modules", "fleet-stack", "variables.tf")
+	previewMainTF := readRepoSource(t, "stacks", "tf", "runs-on-fleet-preview-v3", "main.tf")
+	stageMainTF := readRepoSource(t, "stacks", "tf", "runs-on-fleet-stage-v3", "main.tf")
+	deployWorkflow := readRepoSource(t, ".github", "workflows", "core-deploy-terraform.yml")
+	previewWorkflow := readRepoSource(t, ".github", "workflows", "core-preview.yml")
+	stageWorkflow := readRepoSource(t, ".github", "workflows", "core-stage.yml")
+	e2eWorkflow := readRepoSource(t, ".github", "workflows", "e2e-fleet-ecr-pull-through.yml")
+
+	assert.Contains(t, fleetVariablesTF, `variable "ecr_pull_through_cache_rules"`)
+	assert.Contains(t, fleetMainTF, "ecr_pull_through_cache_rules       = var.ecr_pull_through_cache_rules")
+	assert.Contains(t, stackVariablesTF, `variable "ecr_pull_through_cache_rules"`)
+	assert.Contains(t, stackVariablesTF, `variable "email"`)
+	assert.Contains(t, stackMainTF, `extras = ["s3-cache", "ecr-pull-through"]`)
+	assert.Contains(t, stackMainTF, "email                        = var.email")
+	assert.Contains(t, stackMainTF, "ecr_pull_through_cache_rules = var.ecr_pull_through_cache_rules")
+	assert.NotContains(t, previewMainTF, `data "aws_ecr_pull_through_cache_rule" "docker_hub"`)
+	assert.Contains(t, previewMainTF, `ecr_repository_prefix      = "ROOT"`)
+	assert.Contains(t, previewMainTF, `upstream_registry_url      = "registry-1.docker.io"`)
+	assert.Contains(t, previewMainTF, `email                        = "${var.workflow_environment}@runs-on.com"`)
+	assert.Contains(t, previewMainTF, "ecr_pull_through_cache_rules = local.ecr_pull_through_cache_rules")
+	assert.NotContains(t, stageMainTF, `data "aws_ecr_pull_through_cache_rule" "docker_hub"`)
+	assert.Contains(t, stageMainTF, `ecr_repository_prefix      = "ROOT"`)
+	assert.Contains(t, stageMainTF, `upstream_registry_url      = "registry-1.docker.io"`)
+	assert.Contains(t, stageMainTF, `email                        = "${var.workflow_environment}@runs-on.com"`)
+	assert.Contains(t, stageMainTF, "ecr_pull_through_cache_rules = local.ecr_pull_through_cache_rules")
+
+	assert.NotContains(t, deployWorkflow, "docker_hub_pull_through_cache_secret_arn")
+	assert.NotContains(t, deployWorkflow, `ecr_pull_through_cache_rules = {`)
+	assert.NotContains(t, previewWorkflow, "FLEET_DOCKER_HUB_PULL_THROUGH_CACHE_SECRET_ARN")
+	assert.NotContains(t, stageWorkflow, "FLEET_DOCKER_HUB_PULL_THROUGH_CACHE_SECRET_ARN")
+	assert.Contains(t, previewWorkflow, `if: ${{ always() && needs.build.result == 'success' && needs.deploy-fleet-private-true.result == 'success' }}`)
+	assert.Contains(t, stageWorkflow, `if: ${{ always() && needs.build.result == 'success' && needs.deploy-fleet-private-true.result == 'success' }}`)
+
+	assert.Contains(t, e2eWorkflow, "RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR")
+	assert.Contains(t, e2eWorkflow, "registry-1.docker.io")
+	assert.Contains(t, e2eWorkflow, "docker pull docker.io/library/node:22")
+	assert.Contains(t, e2eWorkflow, "docker run --rm docker.io/library/node:22 node --version")
 }
