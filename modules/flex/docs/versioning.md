@@ -22,11 +22,11 @@ v{MAJOR}.{MINOR}.{PATCH}
 
 ## Using A Git Branch
 
-To use this module from a specific git branch (for example `main`):
+To use this module from a specific git branch, tag, or commit SHA:
 
 ```hcl
 module "runs-on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/flex?ref=main"
+  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/flex?ref=release/v3.1.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -37,4 +37,4 @@ module "runs-on" {
 }
 ```
 
-Replace `main` with any branch name, tag, or commit SHA.
+Replace the `ref` value with any branch name, tag, or commit SHA.

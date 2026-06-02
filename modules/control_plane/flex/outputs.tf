@@ -33,9 +33,9 @@ output "ingress" {
 output "alerts" {
   description = "Flex alerting resources"
   value = {
-    topic_arn                = aws_sns_topic.alerts.arn
-    topic_name               = aws_sns_topic.alerts.name
-    slack_webhook_lambda_arn = local.alerts.slack_webhook_url != "" ? aws_lambda_function.slack_webhook[0].arn : null
+    topic_arn                = module.alerts.topic_arn
+    topic_name               = module.alerts.topic_name
+    slack_webhook_lambda_arn = module.alerts.slack_webhook_lambda_arn
   }
 }
 
@@ -73,10 +73,10 @@ output "tables" {
 
 output "dashboard" {
   description = "Flex dashboard resources"
-  value = {
+  value = local.operations.enable_default_dashboard ? {
     url  = "https://${var.region}.console.aws.amazon.com/cloudwatch/home?region=${var.region}#dashboards:name=${var.stack_name}-Dashboard"
-    name = aws_cloudwatch_dashboard.runs_on.dashboard_name
-  }
+    name = aws_cloudwatch_dashboard.runs_on[0].dashboard_name
+  } : null
 }
 
 output "waf" {

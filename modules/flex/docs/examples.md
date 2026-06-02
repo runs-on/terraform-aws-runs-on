@@ -111,7 +111,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.10"
+  version = "v3.1.0"
 
   stack_name = var.stack_name
 
@@ -149,7 +149,7 @@ See [Private Networking](private-networking.md) for details on mode options.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.10"
+  version = "v3.1.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -170,7 +170,7 @@ Enable shared persistent storage across all runners:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.10"
+  version = "v3.1.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -190,7 +190,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.10"
+  version = "v3.1.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -203,6 +203,95 @@ module "runs-on" {
 }
 ```
 
+## ECR Pull-Through Cache
+
+Create, import, or look up ECR pull-through cache rules outside RunsOn, then pass the Terraform resource or data source object into the module. Pull-through cache rules are account/region-level ECR settings, so multiple RunsOn stacks in the same account and region can safely share the same rule reference.
+
+Docker Hub can be transparent only when the referenced rule uses `ecr_repository_prefix = "ROOT"` and `upstream_registry_url = "registry-1.docker.io"`, and runners opt in with `extras=ecr-pull-through`. In that mode, portable image references such as `docker.io/library/node:22` are routed through ECR by Docker's native registry mirror support. Other providers should use explicit ECR cache references such as `<account>.dkr.ecr.<region>.amazonaws.com/ghcr/org/image:tag`.
+
+Reference an existing rule:
+
+```hcl
+data "aws_ecr_pull_through_cache_rule" "docker_hub" {
+  ecr_repository_prefix = "ROOT"
+}
+
+module "runs-on" {
+  source  = "runs-on/runs-on/aws//modules/flex"
+  version = "v3.1.0"
+
+  github_organization = "my-org"
+  license_key         = "your-license-key"
+  email               = "alerts@example.com"
+
+  vpc_id            = "vpc-xxxxxxxx"
+  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
+
+  ecr_pull_through_cache_rules = {
+    docker_hub = data.aws_ecr_pull_through_cache_rule.docker_hub
+  }
+}
+```
+
+Or create the regional rule outside RunsOn and pass the resource:
+
+```hcl
+variable "dockerhub_username" {
+  type = string
+}
+
+variable "dockerhub_access_token" {
+  type      = string
+  sensitive = true
+}
+
+resource "aws_secretsmanager_secret" "dockerhub_pull_through" {
+  name = "ecr-pullthroughcache/docker-hub"
+
+  # Do not set kms_key_id. ECR requires the default aws/secretsmanager key.
+}
+
+resource "aws_secretsmanager_secret_version" "dockerhub_pull_through" {
+  secret_id = aws_secretsmanager_secret.dockerhub_pull_through.id
+
+  secret_string = jsonencode({
+    username    = var.dockerhub_username
+    accessToken = var.dockerhub_access_token
+  })
+}
+
+resource "aws_ecr_pull_through_cache_rule" "docker_hub" {
+  ecr_repository_prefix = "ROOT"
+  upstream_registry_url = "registry-1.docker.io"
+  credential_arn        = aws_secretsmanager_secret.dockerhub_pull_through.arn
+}
+
+module "runs-on" {
+  source  = "runs-on/runs-on/aws//modules/flex"
+  version = "v3.1.0"
+
+  github_organization = "my-org"
+  license_key         = "your-license-key"
+  email               = "alerts@example.com"
+
+  vpc_id            = "vpc-xxxxxxxx"
+  public_subnet_ids = ["subnet-pub1", "subnet-pub2", "subnet-pub3"]
+
+  ecr_pull_through_cache_rules = {
+    docker_hub = aws_ecr_pull_through_cache_rule.docker_hub
+  }
+}
+```
+
+Enable the runner-side ECR login and Docker Hub mirror per runner:
+
+```yaml
+runners:
+  ci:
+    image: ubuntu24-full-x64
+    extras: ["ecr-pull-through"]
+```
+
 ## WAF
 
 See [WAF](waf.md) for managed webhook IP sync, user-managed ACL overrides, and GHES behavior.
@@ -210,7 +299,7 @@ See [WAF](waf.md) for managed webhook IP sync, user-managed ACL overrides, and G
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.10"
+  version = "v3.1.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -231,7 +320,7 @@ See [GitHub App Config](github-app-config.md) for details.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.10"
+  version = "v3.1.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -331,7 +420,7 @@ module "vpc_endpoints" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.0.10"
+  version = "v3.1.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

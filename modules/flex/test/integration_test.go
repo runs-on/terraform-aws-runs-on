@@ -131,6 +131,8 @@ func TestIntegrationEndToEnd(t *testing.T) {
 	rocPath := buildRocBinary(t)
 	selectedJob := selectRunsOnWorkflowJob(t, client, testRepo, runID)
 	selectedJobID := fmt.Sprintf("%d", selectedJob.GetID())
+	selectedJobURL := selectedJob.GetHTMLURL()
+	require.NotEmpty(t, selectedJobURL, "Selected workflow job should include a GitHub Actions job URL")
 	sinceArg := sinceArgFromStart(startTime)
 
 	doctorOutput := waitForROCCheck(t, 2*time.Minute, 10*time.Second, func() (string, error) {
@@ -188,7 +190,7 @@ func TestIntegrationEndToEnd(t *testing.T) {
 	t.Logf("roc stack logs output:\n%s", stackLogsOutput)
 
 	jobLogsOutput := waitForROCCheck(t, 2*time.Minute, 10*time.Second, func() (string, error) {
-		return runROCCommand(t, rocPath, result.StackName(), 2*time.Minute, "logs", selectedJobID, "--no-color")
+		return runROCCommand(t, rocPath, result.StackName(), 2*time.Minute, "logs", selectedJobURL, "--no-color")
 	}, func(output string) error {
 		if !strings.Contains(output, "flexd/") {
 			return fmt.Errorf("job logs did not include application log streams")

@@ -21,6 +21,13 @@ mock_provider "aws" {
     }
   }
 
+  mock_data "aws_partition" {
+    defaults = {
+      dns_suffix = "amazonaws.com"
+      partition  = "aws"
+    }
+  }
+
   mock_resource "aws_api_gateway_rest_api" {
     defaults = {
       execution_arn = "arn:aws:execute-api:us-east-1:123456789012:api123"
@@ -98,6 +105,12 @@ mock_provider "aws" {
   mock_resource "aws_secretsmanager_secret" {
     defaults = {
       arn = "arn:aws:secretsmanager:us-east-1:123456789012:secret:mock"
+    }
+  }
+
+  mock_resource "aws_secretsmanager_secret_version" {
+    defaults = {
+      version_id = "mock-version"
     }
   }
 
@@ -196,6 +209,117 @@ run "app_force_new_deployment_flows_to_runtime" {
     condition     = local.flex_runtime.force_new_deployment == true
     error_message = "app_force_new_deployment should flow into the runtime config."
   }
+}
+
+run "ecr_pull_through_cache_docker_hub_root" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      docker_hub = {
+        ecr_repository_prefix = "ROOT"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+    }
+  }
+
+  assert {
+    condition     = output.platform.optional_features.pull_through_cache.enabled == true
+    error_message = "ECR pull-through cache should be enabled when rules are configured."
+  }
+
+  assert {
+    condition     = output.platform.optional_features.pull_through_cache.registry_url == "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+    error_message = "ECR pull-through cache registry URL should be derived from account and region."
+  }
+
+  assert {
+    condition     = output.platform.optional_features.pull_through_cache.docker_hub_transparent == true
+    error_message = "Docker Hub ROOT rule should enable transparent Docker Hub mirror mode."
+  }
+}
+
+run "ecr_pull_through_cache_multiple_providers" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      ghcr = {
+        ecr_repository_prefix = "ghcr"
+        upstream_registry_url = "ghcr.io"
+      }
+      quay = {
+        ecr_repository_prefix = "quay"
+        upstream_registry_url = "quay.io"
+      }
+    }
+  }
+
+  assert {
+    condition     = output.platform.optional_features.pull_through_cache.enabled == true
+    error_message = "ECR pull-through cache should be enabled when referenced rules are configured."
+  }
+
+  assert {
+    condition     = output.platform.optional_features.pull_through_cache.docker_hub_transparent == false
+    error_message = "Non-Docker-Hub rules should not enable transparent Docker Hub mirror mode."
+  }
+}
+
+run "ecr_pull_through_cache_accepts_official_rule_objects" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      docker_hub = {
+        ecr_repository_prefix      = "ROOT"
+        upstream_registry_url      = "registry-1.docker.io"
+        upstream_repository_prefix = ""
+        registry_id                = "123456789012"
+        credential_arn             = "arn:aws:secretsmanager:us-east-1:123456789012:secret:ecr-pullthroughcache/docker-hub"
+        id                         = "ROOT"
+      }
+    }
+  }
+
+  assert {
+    condition     = output.platform.optional_features.pull_through_cache.docker_hub_transparent == true
+    error_message = "Official rule resource/data source objects should be accepted and normalized."
+  }
+}
+
+run "ecr_pull_through_cache_empty_rule_reference_is_rejected" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      docker_hub = {
+        ecr_repository_prefix = "ROOT"
+        upstream_registry_url = ""
+      }
+    }
+  }
+
+  expect_failures = [var.ecr_pull_through_cache_rules]
+}
+
+run "ecr_pull_through_cache_duplicate_prefix_is_rejected" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      first = {
+        ecr_repository_prefix = "ROOT"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+      second = {
+        ecr_repository_prefix = "ROOT"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+    }
+  }
+
+  expect_failures = [var.ecr_pull_through_cache_rules]
 }
 
 run "empty_public_subnets_rejected_unless_private_only" {
