@@ -71,9 +71,23 @@ resource "aws_iam_role" "public_ingress" {
   )
 }
 
-resource "aws_iam_role_policy_attachment" "public_ingress_logs" {
-  role       = aws_iam_role.public_ingress.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "public_ingress_logs" {
+  name = "RunsOnPublicIngressLogPermissions"
+  role = aws_iam_role.public_ingress.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "${aws_cloudwatch_log_group.public_ingress_lambda.arn}:*"
+      },
+    ]
+  })
 }
 
 resource "aws_iam_role_policy" "public_ingress" {
@@ -119,7 +133,7 @@ resource "aws_lambda_function" "public_ingress" {
   )
 
   depends_on = [
-    aws_iam_role_policy_attachment.public_ingress_logs,
+    aws_iam_role_policy.public_ingress_logs,
   ]
 }
 
@@ -148,10 +162,24 @@ resource "aws_iam_role" "github_apps_setup" {
   )
 }
 
-resource "aws_iam_role_policy_attachment" "github_apps_setup_logs" {
-  count      = local.admin_routes_enabled ? 1 : 0
-  role       = aws_iam_role.github_apps_setup[0].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "github_apps_setup_logs" {
+  count = local.admin_routes_enabled ? 1 : 0
+  name  = "RunsOnGitHubAppsSetupLogPermissions"
+  role  = aws_iam_role.github_apps_setup[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "${aws_cloudwatch_log_group.github_apps_setup_lambda[0].arn}:*"
+      },
+    ]
+  })
 }
 
 resource "aws_iam_role_policy" "github_apps_setup" {
@@ -197,9 +225,20 @@ resource "aws_iam_role_policy" "github_apps_setup" {
         Effect = "Allow"
         Action = [
           "iam:GetRole",
+        ]
+        Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "iam:CreateServiceLinkedRole",
         ]
-        Resource = "*"
+        Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+        Condition = {
+          StringEquals = {
+            "iam:AWSServiceName" = "spot.amazonaws.com"
+          }
+        }
       },
       {
         Effect = "Allow"
@@ -247,7 +286,7 @@ resource "aws_lambda_function" "github_apps_setup" {
   )
 
   depends_on = [
-    aws_iam_role_policy_attachment.github_apps_setup_logs[0],
+    aws_iam_role_policy.github_apps_setup_logs[0],
   ]
 }
 
@@ -438,7 +477,7 @@ resource "aws_lambda_permission" "public_ingress" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.public_ingress.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.region}:${var.account_id}:${aws_api_gateway_rest_api.public_ingress.id}/*"
+  source_arn    = "arn:aws:execute-api:${var.region}:${var.account_id}:${aws_api_gateway_rest_api.public_ingress.id}/${local.public_ingress_stage_name}/POST/github/webhooks"
 }
 
 resource "aws_lambda_permission" "github_apps_setup" {
@@ -447,5 +486,5 @@ resource "aws_lambda_permission" "github_apps_setup" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.github_apps_setup[0].function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.region}:${var.account_id}:${aws_api_gateway_rest_api.public_ingress.id}/*"
+  source_arn    = "arn:aws:execute-api:${var.region}:${var.account_id}:${aws_api_gateway_rest_api.public_ingress.id}/${local.public_ingress_stage_name}/GET/*"
 }

@@ -213,3 +213,63 @@ run "managed_task_policy_arns_attach_to_task_role" {
     error_message = "runtime should attach caller-provided managed policies to the task role."
   }
 }
+
+run "task_policy_scopes_cache_and_snapshot_resources" {
+  command = plan
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.task.policy).Statement :
+      statement.Action == ["iam:GetRole"] &&
+      statement.Resource == "arn:aws:iam::123456789012:role/test-stack-runner"
+    ])
+    error_message = "runtime task iam:GetRole should be scoped to the runner instance role."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.task.policy).Statement :
+      contains(try(statement.Action, []), "ec2:RunInstances") &&
+      contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:instance/*") &&
+      contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:subnet/*") &&
+      contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:launch-template/*") &&
+      !contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:*")
+    ])
+    error_message = "runtime task EC2 launch access should not use an account-wide EC2 resource wildcard."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.task.policy).Statement :
+      statement.Action == ["s3:ListBucket"] &&
+      statement.Resource == "arn:aws:s3:::test-stack-cache" &&
+      contains(statement.Condition.StringLike["s3:prefix"], "cache/*") &&
+      contains(statement.Condition.StringLike["s3:prefix"], "agents/*") &&
+      contains(statement.Condition.StringLike["s3:prefix"], "runners/*")
+    ])
+    error_message = "runtime task S3 list access should be limited to documented cache prefixes."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.task.policy).Statement :
+      contains(try(statement.Action, []), "s3:PutObject") &&
+      contains(statement.Resource, "arn:aws:s3:::test-stack-cache/cache/*") &&
+      contains(statement.Resource, "arn:aws:s3:::test-stack-cache/agents/*") &&
+      contains(statement.Resource, "arn:aws:s3:::test-stack-cache/runners/*") &&
+      !contains(statement.Resource, "arn:aws:s3:::test-stack-cache/*")
+    ])
+    error_message = "runtime task S3 object access should be limited to documented cache prefixes."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.task.policy).Statement :
+      contains(try(statement.Action, []), "ec2:DeleteVolume") &&
+      contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:volume/*") &&
+      contains(statement.Resource, "arn:aws:ec2:us-east-1::snapshot/*") &&
+      statement.Condition.StringEquals["aws:ResourceTag/runs-on-stack-name"] == "test-stack"
+    ])
+    error_message = "runtime task EC2 cleanup should be scoped to volume/snapshot ARNs with the stack tag."
+  }
+}

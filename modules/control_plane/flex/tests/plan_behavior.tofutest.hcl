@@ -353,6 +353,81 @@ run "admin_routes_disabled_skips_setup_resources" {
   }
 }
 
+run "github_apps_setup_spot_service_role_permissions_are_scoped" {
+  command = plan
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.github_apps_setup[0].policy).Statement :
+      statement.Action == ["iam:GetRole"] &&
+      statement.Resource == "arn:aws:iam::123456789012:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot" &&
+      !can(statement.Condition)
+    ])
+    error_message = "GitHub Apps setup Lambda should only read the EC2 Spot service-linked role."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.github_apps_setup[0].policy).Statement :
+      statement.Action == ["iam:CreateServiceLinkedRole"] &&
+      statement.Resource == "arn:aws:iam::123456789012:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot" &&
+      statement.Condition.StringEquals["iam:AWSServiceName"] == "spot.amazonaws.com"
+    ])
+    error_message = "GitHub Apps setup Lambda should only create the EC2 Spot service-linked role."
+  }
+}
+
+run "worker_policy_scopes_stack_state_resources" {
+  command = plan
+
+  assert {
+    condition = anytrue([
+      for statement in local.flex_control_plane_extra_policy_statements :
+      statement.Action == [
+        "ssm:PutParameter",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+      ] &&
+      statement.Resource == aws_ssm_parameter.license_status.arn
+    ])
+    error_message = "Worker SSM access should be scoped to the license-status parameter."
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for statement in local.flex_control_plane_extra_policy_statements : [
+        for action in try(statement.Action, []) :
+        !startswith(action, "ssm:Delete")
+      ]
+    ]))
+    error_message = "Worker SSM access should not include parameter delete permissions."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in local.flex_control_plane_extra_policy_statements :
+      contains(try(statement.Action, []), "sqs:ReceiveMessage") &&
+      length(statement.Resource) == 3 &&
+      contains(statement.Resource, aws_sqs_queue.webhooks.arn) &&
+      contains(statement.Resource, aws_sqs_queue.system.arn) &&
+      contains(statement.Resource, aws_sqs_queue.events.arn)
+    ])
+    error_message = "Worker SQS access should be limited to active queues, not DLQs."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in local.flex_control_plane_extra_policy_statements :
+      contains(try(statement.Action, []), "dynamodb:Query") &&
+      contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/reconcile-index") &&
+      contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/pending-work-index") &&
+      contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/daily-activity-index") &&
+      !contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/*")
+    ])
+    error_message = "Worker DynamoDB access should enumerate known workflow-job indexes."
+  }
+}
+
 run "otel_headers_add_ssm_parameter_and_execution_policy" {
   command = plan
 

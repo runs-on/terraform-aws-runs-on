@@ -90,10 +90,24 @@ resource "aws_iam_role" "github_waf_sync" {
   )
 }
 
-resource "aws_iam_role_policy_attachment" "github_waf_sync_logs" {
-  count      = local.using_managed_public_ingress_waf ? 1 : 0
-  role       = aws_iam_role.github_waf_sync[0].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "github_waf_sync_logs" {
+  count = local.using_managed_public_ingress_waf ? 1 : 0
+  name  = "RunsOnGitHubWafSyncLogPermissions"
+  role  = aws_iam_role.github_waf_sync[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "${aws_cloudwatch_log_group.github_waf_sync_lambda[0].arn}:*"
+      },
+    ]
+  })
 }
 
 resource "aws_iam_role_policy" "github_waf_sync" {
@@ -150,7 +164,7 @@ resource "aws_lambda_function" "github_waf_sync" {
   )
 
   depends_on = [
-    aws_iam_role_policy_attachment.github_waf_sync_logs[0],
+    aws_iam_role_policy.github_waf_sync_logs[0],
   ]
 }
 

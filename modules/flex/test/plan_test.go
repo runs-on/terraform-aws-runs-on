@@ -262,6 +262,8 @@ func TestPlanSourceTerraformECRPullThroughCacheWiring(t *testing.T) {
 	assert.Contains(t, computeIAMTF, `resource "aws_iam_role_policy" "ec2_ecr_pull_through_cache_access"`)
 	assert.Contains(t, computeIAMTF, `ecr:BatchImportUpstreamImage`)
 	assert.Contains(t, computeIAMTF, `ecr:CreateRepository`)
+	assert.Contains(t, computeIAMTF, `AmazonElasticContainerRegistryPublicReadOnly`)
+	assert.NotContains(t, computeIAMTF, `AmazonElasticContainerRegistryPublicFullAccess`)
 
 	assert.Contains(t, launchTemplatesTF, `RUNS_ON_ECR_PULL_THROUGH_CACHE=`)
 	assert.Contains(t, launchTemplatesTF, `RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR=`)
