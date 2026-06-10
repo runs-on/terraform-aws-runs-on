@@ -371,7 +371,7 @@ run "github_apps_setup_spot_service_role_permissions_are_scoped" {
       for statement in jsondecode(aws_iam_role_policy.github_apps_setup[0].policy).Statement :
       statement.Action == ["iam:CreateServiceLinkedRole"] &&
       statement.Resource == "arn:aws:iam::123456789012:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot" &&
-      statement.Condition.StringEquals["iam:AWSServiceName"] == "spot.amazonaws.com"
+      try(statement.Condition.StringEquals["iam:AWSServiceName"], "") == "spot.amazonaws.com"
     ])
     error_message = "GitHub Apps setup Lambda should only create the EC2 Spot service-linked role."
   }
@@ -407,10 +407,10 @@ run "worker_policy_scopes_stack_state_resources" {
     condition = anytrue([
       for statement in local.flex_control_plane_extra_policy_statements :
       contains(try(statement.Action, []), "sqs:ReceiveMessage") &&
-      length(statement.Resource) == 3 &&
-      contains(statement.Resource, aws_sqs_queue.webhooks.arn) &&
-      contains(statement.Resource, aws_sqs_queue.system.arn) &&
-      contains(statement.Resource, aws_sqs_queue.events.arn)
+      try(length(statement.Resource), 0) == 3 &&
+      try(contains(statement.Resource, aws_sqs_queue.webhooks.arn), false) &&
+      try(contains(statement.Resource, aws_sqs_queue.system.arn), false) &&
+      try(contains(statement.Resource, aws_sqs_queue.events.arn), false)
     ])
     error_message = "Worker SQS access should be limited to active queues, not DLQs."
   }
@@ -419,10 +419,10 @@ run "worker_policy_scopes_stack_state_resources" {
     condition = anytrue([
       for statement in local.flex_control_plane_extra_policy_statements :
       contains(try(statement.Action, []), "dynamodb:Query") &&
-      contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/reconcile-index") &&
-      contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/pending-work-index") &&
-      contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/daily-activity-index") &&
-      !contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/*")
+      try(contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/reconcile-index"), false) &&
+      try(contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/pending-work-index"), false) &&
+      try(contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/daily-activity-index"), false) &&
+      !try(contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/*"), false)
     ])
     error_message = "Worker DynamoDB access should enumerate known workflow-job indexes."
   }

@@ -59,11 +59,14 @@ locals {
       Resource = "*"
     },
     {
+      # The worker checks for the EC2 Spot service-linked role before creating
+      # it. GetRole on the runner instance role is granted alongside PassRole
+      # below.
       Effect = "Allow"
       Action = [
         "iam:GetRole",
       ]
-      Resource = var.runner_instance_role_arn
+      Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
     },
     {
       Effect = "Allow"
@@ -100,6 +103,9 @@ locals {
         "arn:aws:ec2:${var.region}:${var.account_id}:subnet/*",
         "arn:aws:ec2:${var.region}:${var.account_id}:launch-template/*",
         "arn:aws:ec2:${var.region}:${var.account_id}:key-pair/*",
+        # Spot launches authorize RunInstances (and tag-on-create CreateTags)
+        # against the spot-instances-request resource.
+        "arn:aws:ec2:${var.region}:${var.account_id}:spot-instances-request/*",
       ]
     },
     {

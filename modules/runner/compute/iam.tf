@@ -356,14 +356,14 @@ resource "aws_iam_role_policy" "ec2_efs_access" {
         Effect = "Allow"
         Action = [
           "elasticfilesystem:ClientMount",
-          "elasticfilesystem:ClientWrite"
+          "elasticfilesystem:ClientWrite",
+          "elasticfilesystem:DescribeMountTargets"
         ]
         Resource = var.extras.efs.file_system_arn
       },
       {
         Effect = "Allow"
         Action = [
-          "elasticfilesystem:DescribeMountTargets",
           "ec2:DescribeSubnets",
           "ec2:DescribeNetworkInterfaces"
         ]
