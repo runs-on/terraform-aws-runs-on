@@ -55,6 +55,6 @@ Future DynamoDB index additions for workflow jobs must update IAM policy resourc
 
 Future S3 cache prefix additions must update runtime task policy resources and policy-shape tests.
 
-Future use of additional EC2 launch resource types — for example targeted capacity reservations or placement groups — must add those ARNs to the enumerated launch statement, since the account-wide EC2 wildcard no longer covers them.
+Future use of additional EC2 launch resource types — for example targeted capacity reservations or placement groups — must add those resource-type ARNs to the enumerated launch statement, since the account-wide EC2 wildcard no longer covers them. Until then, Flex operators who need extra launch permissions can attach them through the existing `app_custom_policy_arn` variable, which adds an operator-managed policy to the worker task role without modifying the module.
 
 The test suite now contains more explicit assertions about IAM policy shape, increasing maintenance cost when legitimate permissions change.
