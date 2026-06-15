@@ -137,7 +137,7 @@ func DefaultScenarioConfig() ScenarioConfig {
 func requireValidationEnv(t *testing.T, scenario string, mode validationimage.EnvMode) {
 	t.Helper()
 
-	required, err := validationimage.RequiredEnvVars(scenario, mode)
+	required, err := requiredValidationEnvVars(scenario, mode)
 	require.NoError(t, err)
 
 	missing := validationimage.MissingEnvVars(required, os.Getenv)
@@ -150,19 +150,34 @@ func requireValidationEnv(t *testing.T, scenario string, mode validationimage.En
 	)
 }
 
+func requiredValidationEnvVars(scenario string, mode validationimage.EnvMode) ([]string, error) {
+	required, err := validationimage.RequiredEnvVars(scenario, mode)
+	if err != nil {
+		return nil, err
+	}
+	if missingGithubOrgSource() {
+		required = append(required, "GITHUB_ORG or RUNS_ON_TEST_REPO")
+	}
+	return required, nil
+}
+
+func missingGithubOrgSource() bool {
+	return strings.TrimSpace(os.Getenv("GITHUB_ORG")) == "" && strings.TrimSpace(os.Getenv("RUNS_ON_TEST_REPO")) == ""
+}
+
 // getGithubOrg extracts the GitHub organization from RUNS_ON_TEST_REPO or GITHUB_ORG.
-// Priority: GITHUB_ORG > RUNS_ON_TEST_REPO (owner part) > "test-org"
+// Priority: GITHUB_ORG > RUNS_ON_TEST_REPO (owner part).
 func getGithubOrg() string {
-	if org := os.Getenv("GITHUB_ORG"); org != "" {
+	if org := strings.TrimSpace(os.Getenv("GITHUB_ORG")); org != "" {
 		return org
 	}
-	if testRepo := os.Getenv("RUNS_ON_TEST_REPO"); testRepo != "" {
+	if testRepo := strings.TrimSpace(os.Getenv("RUNS_ON_TEST_REPO")); testRepo != "" {
 		parts := strings.Split(testRepo, "/")
-		if len(parts) >= 1 && parts[0] != "" {
-			return parts[0]
+		if len(parts) >= 1 {
+			return strings.TrimSpace(parts[0])
 		}
 	}
-	return "test-org"
+	return ""
 }
 
 // StackName returns the stack name for this config.

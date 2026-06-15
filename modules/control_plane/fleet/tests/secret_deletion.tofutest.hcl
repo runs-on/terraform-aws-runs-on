@@ -183,4 +183,30 @@ run "fleet_config_secret_is_deleted_immediately" {
     condition     = local.secret_payload.infra.alert_topic_arn == module.alerts.topic_arn
     error_message = "Fleet config secret should include the alert topic ARN."
   }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_log_group.config_materializer.name == "/runs-on/test-plan/lambda/fleet-config-materializer",
+      aws_cloudwatch_log_group.job_diagnostics_resolver.name == "/runs-on/test-plan/lambda/job-diagnostics-resolver",
+    ])
+    error_message = "Fleet Lambda log groups should use the /runs-on/<stack>/lambda/<component> namespace."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_log_group.config_materializer.retention_in_days == 14,
+      aws_cloudwatch_log_group.job_diagnostics_resolver.retention_in_days == 14,
+      try(aws_cloudwatch_log_group.config_materializer.kms_key_id, null) == null,
+      try(aws_cloudwatch_log_group.job_diagnostics_resolver.kms_key_id, null) == null,
+    ])
+    error_message = "Fleet Lambda log groups should use 14-day retention and default CloudWatch Logs encryption."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_lambda_function.config_materializer.logging_config[0].log_group == aws_cloudwatch_log_group.config_materializer.name,
+      aws_lambda_function.job_diagnostics_resolver.logging_config[0].log_group == aws_cloudwatch_log_group.job_diagnostics_resolver.name,
+    ])
+    error_message = "Fleet Lambda functions should write to their managed log groups."
+  }
 }

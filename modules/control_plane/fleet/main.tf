@@ -263,6 +263,10 @@ resource "aws_dynamodb_table" "claims" {
     attribute_name = "ttl"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = merge(
     var.tags,
     {
