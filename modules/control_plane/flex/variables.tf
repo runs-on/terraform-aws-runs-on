@@ -191,6 +191,8 @@ variable "alerts" {
   type = object({
     email             = string
     slack_webhook_url = string
+    slack_bot_token   = string
+    slack_channel_id  = string
   })
 
   validation {

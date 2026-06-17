@@ -380,3 +380,27 @@ run "ghes_managed_waf_requires_public_ingress_acl" {
 
   expect_failures = [check.ghes_waf_requires_public_ingress_web_acl]
 }
+
+run "slack_bot_token_without_channel_is_rejected" {
+  command = plan
+
+  variables {
+    alert_slack_bot_token = "xoxb-example-token"
+  }
+
+  expect_failures = [terraform_data.validate_slack_bot_token]
+}
+
+run "slack_bot_token_with_channel_plans_clean" {
+  command = plan
+
+  variables {
+    alert_slack_bot_token  = "xoxb-example-token"
+    alert_slack_channel_id = "C0123ABCD"
+  }
+
+  assert {
+    condition     = output.stack.aws_region == "us-east-1"
+    error_message = "Bot token + channel should plan cleanly."
+  }
+}

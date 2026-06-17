@@ -173,6 +173,8 @@ variables {
   alerts = {
     email             = "alerts@example.com"
     slack_webhook_url = ""
+    slack_bot_token   = ""
+    slack_channel_id  = ""
   }
 
   runtime = {
