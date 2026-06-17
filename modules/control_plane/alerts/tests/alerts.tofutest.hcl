@@ -1,4 +1,10 @@
 mock_provider "aws" {
+  mock_resource "aws_cloudwatch_log_group" {
+    defaults = {
+      arn = "arn:aws:logs:us-east-1:123456789012:log-group:mock"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::123456789012:role/test-plan-role"
@@ -60,6 +66,28 @@ run "slack_and_budget_alerts" {
   assert {
     condition     = length(aws_lambda_function.slack_webhook) == 1
     error_message = "Slack webhook Lambda should be created when a webhook URL is set."
+  }
+
+  assert {
+    condition = (
+      aws_cloudwatch_log_group.slack_webhook[0].name == "/runs-on/test-plan/lambda/slack-webhook" &&
+      aws_cloudwatch_log_group.slack_webhook[0].retention_in_days == 14 &&
+      try(aws_cloudwatch_log_group.slack_webhook[0].kms_key_id, null) == null &&
+      aws_lambda_function.slack_webhook[0].logging_config[0].log_group == aws_cloudwatch_log_group.slack_webhook[0].name
+    )
+    error_message = "Slack webhook Lambda should write to its stack-scoped log group."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.slack_webhook_logs[0].policy).Statement :
+      statement.Action == [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ] &&
+      statement.Resource == "${aws_cloudwatch_log_group.slack_webhook[0].arn}:*"
+    ])
+    error_message = "Slack webhook Lambda logs policy should be scoped to its log group."
   }
 
   assert {

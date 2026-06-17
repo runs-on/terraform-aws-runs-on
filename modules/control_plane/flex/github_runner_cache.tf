@@ -11,7 +11,7 @@ data "archive_file" "github_runner_cache_refresh" {
 }
 
 resource "aws_cloudwatch_log_group" "github_runner_cache_refresh_lambda" {
-  name              = "/aws/lambda/${var.stack_name}-github-runner-cache-refresh"
+  name              = "/runs-on/${var.stack_name}/lambda/github-runner-cache-refresh"
   retention_in_days = 14
 
   tags = merge(
@@ -46,9 +46,23 @@ resource "aws_iam_role" "github_runner_cache_refresh" {
   )
 }
 
-resource "aws_iam_role_policy_attachment" "github_runner_cache_refresh_logs" {
-  role       = aws_iam_role.github_runner_cache_refresh.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "github_runner_cache_refresh_logs" {
+  name = "RunsOnGitHubRunnerCacheRefreshLogPermissions"
+  role = aws_iam_role.github_runner_cache_refresh.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "${aws_cloudwatch_log_group.github_runner_cache_refresh_lambda.arn}:*"
+      },
+    ]
+  })
 }
 
 resource "aws_iam_role_policy" "github_runner_cache_refresh" {
@@ -96,6 +110,11 @@ resource "aws_lambda_function" "github_runner_cache_refresh" {
   filename         = data.archive_file.github_runner_cache_refresh.output_path
   source_code_hash = data.archive_file.github_runner_cache_refresh.output_base64sha256
 
+  logging_config {
+    log_format = "Text"
+    log_group  = aws_cloudwatch_log_group.github_runner_cache_refresh_lambda.name
+  }
+
   environment {
     variables = {
       RUNS_ON_RUNNER_CACHE_BUCKET = var.extras.cache.bucket_name
@@ -110,7 +129,7 @@ resource "aws_lambda_function" "github_runner_cache_refresh" {
   )
 
   depends_on = [
-    aws_iam_role_policy_attachment.github_runner_cache_refresh_logs,
+    aws_iam_role_policy.github_runner_cache_refresh_logs,
   ]
 }
 

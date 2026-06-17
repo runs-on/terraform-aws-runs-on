@@ -17,13 +17,34 @@ locals {
       Action = [
         "ce:GetCostAndUsage",
         "ce:UpdateCostAllocationTagsStatus",
-        "cloudwatch:PutMetricData",
         "cloudwatch:GetMetricData",
         "cloudwatch:DescribeAlarms",
         "cloudtrail:LookupEvents",
-        "sns:ListSubscriptionsByTopic",
       ]
       Resource = "*"
+    },
+    {
+      Effect = "Allow"
+      Action = [
+        "cloudwatch:PutMetricData",
+      ]
+      Resource = "*"
+      Condition = {
+        StringEquals = {
+          "cloudwatch:namespace" = [
+            "RunsOn",
+            "RunsOn/Flex",
+            "RunsOn/Runners",
+          ]
+        }
+      }
+    },
+    {
+      Effect = "Allow"
+      Action = [
+        "sns:ListSubscriptionsByTopic",
+      ]
+      Resource = module.alerts.topic_arn
     },
     {
       Effect = "Allow"
@@ -31,10 +52,8 @@ locals {
         "ssm:PutParameter",
         "ssm:GetParameter",
         "ssm:GetParameters",
-        "ssm:DeleteParameter",
-        "ssm:DeleteParameters",
       ]
-      Resource = "arn:aws:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/*"
+      Resource = aws_ssm_parameter.license_status.arn
     },
     {
       Effect = "Allow"
@@ -66,8 +85,6 @@ locals {
         aws_sqs_queue.webhooks.arn,
         aws_sqs_queue.system.arn,
         aws_sqs_queue.events.arn,
-        aws_sqs_queue.webhooks_dead_letter.arn,
-        aws_sqs_queue.system_dead_letter.arn,
       ]
     },
     {
@@ -92,7 +109,9 @@ locals {
       ]
       Resource = [
         aws_dynamodb_table.workflow_jobs.arn,
-        "${aws_dynamodb_table.workflow_jobs.arn}/index/*",
+        "${aws_dynamodb_table.workflow_jobs.arn}/index/reconcile-index",
+        "${aws_dynamodb_table.workflow_jobs.arn}/index/pending-work-index",
+        "${aws_dynamodb_table.workflow_jobs.arn}/index/daily-activity-index",
       ]
     },
     {

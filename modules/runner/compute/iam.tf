@@ -39,7 +39,7 @@ resource "aws_iam_role_policy_attachment" "ec2_ssm" {
 
 resource "aws_iam_role_policy_attachment" "ec2_ecr_public" {
   role       = aws_iam_role.ec2_instance.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicFullAccess"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicReadOnly"
 }
 
 resource "aws_iam_role_policy_attachment" "ec2_custom" {
@@ -99,7 +99,7 @@ resource "aws_iam_role_policy" "ec2_create_tags" {
         Action = [
           "ec2:CreateTags"
         ]
-        Resource = "*"
+        Resource = "arn:aws:ec2:${var.region}:${var.account_id}:instance/*"
         Condition = {
           StringEquals = {
             "aws:ARN" = "$${ec2:SourceInstanceARN}"
@@ -141,15 +141,11 @@ resource "aws_iam_role_policy" "ec2_cloudwatch_logs" {
       {
         Effect = "Allow"
         Action = [
-          "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
-          "logs:DescribeLogStreams",
-          "logs:DescribeLogGroups",
-          "logs:PutRetentionPolicy"
+          "logs:DescribeLogStreams"
         ]
         Resource = [
-          "arn:aws:logs:${var.region}:${var.account_id}:log-group:${local.log_group_name}",
           "arn:aws:logs:${var.region}:${var.account_id}:log-group:${local.log_group_name}:*"
         ]
       }
@@ -361,7 +357,13 @@ resource "aws_iam_role_policy" "ec2_efs_access" {
         Action = [
           "elasticfilesystem:ClientMount",
           "elasticfilesystem:ClientWrite",
-          "elasticfilesystem:DescribeMountTargets",
+          "elasticfilesystem:DescribeMountTargets"
+        ]
+        Resource = var.extras.efs.file_system_arn
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "ec2:DescribeSubnets",
           "ec2:DescribeNetworkInterfaces"
         ]

@@ -11,6 +11,7 @@ import (
 	"github.com/google/go-github/v84/github"
 	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/terraform"
+	"github.com/runs-on/terraform-aws-runs-on/modules/flex/test/internal/validationimage"
 )
 
 func TestGetTestIDUsesPerJobSuffixInCI(t *testing.T) {
@@ -57,6 +58,48 @@ func TestDefaultScenarioConfigSetsStableCleanupTags(t *testing.T) {
 	}
 	if tags["GithubJob"] != "terraform-deploy-smoke" {
 		t.Fatalf("GithubJob = %q", tags["GithubJob"])
+	}
+}
+
+func TestGetGithubOrgPrefersExplicitOrg(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "explicit-org")
+	t.Setenv("RUNS_ON_TEST_REPO", "runs-on/monorepo")
+
+	if got := getGithubOrg(); got != "explicit-org" {
+		t.Fatalf("getGithubOrg() = %q, want explicit-org", got)
+	}
+}
+
+func TestGetGithubOrgFallsBackToTestRepoOwner(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "")
+	t.Setenv("RUNS_ON_TEST_REPO", "runs-on/monorepo")
+
+	if got := getGithubOrg(); got != "runs-on" {
+		t.Fatalf("getGithubOrg() = %q, want runs-on", got)
+	}
+}
+
+func TestGetGithubOrgMissingSourceReturnsEmpty(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "")
+	t.Setenv("RUNS_ON_TEST_REPO", "")
+
+	if got := getGithubOrg(); got != "" {
+		t.Fatalf("getGithubOrg() = %q, want empty", got)
+	}
+}
+
+func TestRequiredValidationEnvRequiresGithubOrgSource(t *testing.T) {
+	t.Setenv("GITHUB_ORG", "")
+	t.Setenv("RUNS_ON_TEST_REPO", "")
+
+	required, err := requiredValidationEnvVars("basic", validationimage.EnvModeDirect)
+	if err != nil {
+		t.Fatalf("requiredValidationEnvVars() error = %v", err)
+	}
+
+	missing := validationimage.MissingEnvVars(required, os.Getenv)
+	if !slices.Contains(missing, "GITHUB_ORG or RUNS_ON_TEST_REPO") {
+		t.Fatalf("missing env vars = %#v, want GITHUB_ORG or RUNS_ON_TEST_REPO", missing)
 	}
 }
 

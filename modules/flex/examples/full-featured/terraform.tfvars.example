@@ -14,7 +14,7 @@ enable_cost_reports = true  # Daily cost emails
 
 # Security
 ssh_allowed    = false  # Set true to enable SSH to runners
-ssh_cidr_range = "0.0.0.0/0"  # Restrict to your office IP
+ssh_cidr_range = "10.0.0.0/8" # Restrict to your trusted IP range
 
 tags = {
   ManagedBy   = "terraform"

@@ -137,7 +137,7 @@ variable "private_mode" {
 variable "ssh_allowed" {
   description = "Allow SSH ingress when the module creates its own security group."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "ssh_cidr_range" {
@@ -166,7 +166,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.1@sha256:3d95c7a4cbce8a20b9b71e8ce0d1d88d9ff67c41abfefdbde0ca2f81f7a54f98"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.2-rc.2@sha256:9904a0f995f0d5ac8591b82c2b5d7a43aaec5acd8c09c4631e06d155d2e9c0b5"
 }
 
 variable "extra_env_vars" {
@@ -219,7 +219,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners."
   type        = string
-  default     = "v3.1.1"
+  default     = "v3.1.2-rc.2"
 }
 
 variable "runner_max_runtime" {

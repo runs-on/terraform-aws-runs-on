@@ -88,11 +88,39 @@ resource "aws_iam_role" "slack_webhook" {
   )
 }
 
-resource "aws_iam_role_policy_attachment" "slack_webhook_basic_execution" {
+resource "aws_cloudwatch_log_group" "slack_webhook" {
   count = local.slack_webhook_enabled ? 1 : 0
 
-  role       = aws_iam_role.slack_webhook[0].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  name              = "/runs-on/${var.stack_name}/lambda/slack-webhook"
+  retention_in_days = 14
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.stack_name}-slack-webhook"
+    }
+  )
+}
+
+resource "aws_iam_role_policy" "slack_webhook_logs" {
+  count = local.slack_webhook_enabled ? 1 : 0
+
+  name = "RunsOnSlackWebhookLogPermissions"
+  role = aws_iam_role.slack_webhook[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "${aws_cloudwatch_log_group.slack_webhook[0].arn}:*"
+      },
+    ]
+  })
 }
 
 resource "aws_lambda_function" "slack_webhook" {
@@ -100,13 +128,18 @@ resource "aws_lambda_function" "slack_webhook" {
 
   function_name = "${var.stack_name}-slack-webhook"
   role          = aws_iam_role.slack_webhook[0].arn
-  runtime       = "python3.11"
+  runtime       = "python3.14"
   handler       = "index.handler"
   timeout       = 10
   memory_size   = 128
 
   filename         = data.archive_file.slack_webhook[0].output_path
   source_code_hash = data.archive_file.slack_webhook[0].output_base64sha256
+
+  logging_config {
+    log_format = "Text"
+    log_group  = aws_cloudwatch_log_group.slack_webhook[0].name
+  }
 
   environment {
     variables = {
@@ -121,6 +154,10 @@ resource "aws_lambda_function" "slack_webhook" {
       Name = "${var.stack_name}-slack-webhook"
     }
   )
+
+  depends_on = [
+    aws_iam_role_policy.slack_webhook_logs,
+  ]
 }
 
 data "archive_file" "slack_webhook" {
