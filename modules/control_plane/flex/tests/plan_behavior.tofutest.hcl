@@ -272,6 +272,16 @@ run "managed_waf_creates_sync_resources" {
     condition     = length(aws_wafv2_ip_set.allowed_ips_ipv4[0].addresses) == 0 && length(aws_wafv2_ip_set.allowed_ips_ipv6[0].addresses) == 0
     error_message = "Managed WAF IP sets should start empty so the sync Lambda owns addresses."
   }
+
+  assert {
+    condition = (
+      aws_cloudwatch_log_group.github_waf_sync_lambda[0].name == "/runs-on/test-plan/lambda/github-waf-sync" &&
+      aws_cloudwatch_log_group.github_waf_sync_lambda[0].retention_in_days == 14 &&
+      try(aws_cloudwatch_log_group.github_waf_sync_lambda[0].kms_key_id, null) == null &&
+      aws_lambda_function.github_waf_sync[0].logging_config[0].log_group == aws_cloudwatch_log_group.github_waf_sync_lambda[0].name
+    )
+    error_message = "Managed WAF sync Lambda should write to its stack-scoped log group."
+  }
 }
 
 run "default_dashboard_can_be_disabled" {
@@ -350,6 +360,129 @@ run "admin_routes_disabled_skips_setup_resources" {
   assert {
     condition     = length(aws_api_gateway_resource.setup) == 0 && length(aws_api_gateway_resource.readyz) == 0
     error_message = "Admin API routes should be absent when admin routes are disabled."
+  }
+}
+
+run "lambda_log_groups_use_stack_namespace" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_log_group.public_ingress_lambda.name == "/runs-on/test-plan/lambda/public-ingress",
+      aws_cloudwatch_log_group.github_apps_setup_lambda[0].name == "/runs-on/test-plan/lambda/github-apps-setup",
+      aws_cloudwatch_log_group.github_runner_cache_refresh_lambda.name == "/runs-on/test-plan/lambda/github-runner-cache-refresh",
+      aws_cloudwatch_log_group.stack_config_materializer.name == "/runs-on/test-plan/lambda/stack-config-materializer",
+      aws_cloudwatch_log_group.job_diagnostics_resolver.name == "/runs-on/test-plan/lambda/job-diagnostics-resolver",
+    ])
+    error_message = "Flex Lambda log groups should use the /runs-on/<stack>/lambda/<component> namespace."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_cloudwatch_log_group.public_ingress_lambda.retention_in_days == 14,
+      aws_cloudwatch_log_group.github_apps_setup_lambda[0].retention_in_days == 14,
+      aws_cloudwatch_log_group.github_runner_cache_refresh_lambda.retention_in_days == 14,
+      aws_cloudwatch_log_group.stack_config_materializer.retention_in_days == 14,
+      aws_cloudwatch_log_group.job_diagnostics_resolver.retention_in_days == 14,
+    ])
+    error_message = "Flex Lambda log groups should retain logs for 14 days."
+  }
+
+  assert {
+    condition = alltrue([
+      try(aws_cloudwatch_log_group.public_ingress_lambda.kms_key_id, null) == null,
+      try(aws_cloudwatch_log_group.github_apps_setup_lambda[0].kms_key_id, null) == null,
+      try(aws_cloudwatch_log_group.github_runner_cache_refresh_lambda.kms_key_id, null) == null,
+      try(aws_cloudwatch_log_group.stack_config_materializer.kms_key_id, null) == null,
+      try(aws_cloudwatch_log_group.job_diagnostics_resolver.kms_key_id, null) == null,
+    ])
+    error_message = "Flex Lambda log groups should rely on CloudWatch Logs default encryption."
+  }
+
+  assert {
+    condition = alltrue([
+      aws_lambda_function.public_ingress.logging_config[0].log_group == aws_cloudwatch_log_group.public_ingress_lambda.name,
+      aws_lambda_function.github_apps_setup[0].logging_config[0].log_group == aws_cloudwatch_log_group.github_apps_setup_lambda[0].name,
+      aws_lambda_function.github_runner_cache_refresh.logging_config[0].log_group == aws_cloudwatch_log_group.github_runner_cache_refresh_lambda.name,
+      aws_lambda_function.stack_config_materializer.logging_config[0].log_group == aws_cloudwatch_log_group.stack_config_materializer.name,
+      aws_lambda_function.job_diagnostics_resolver.logging_config[0].log_group == aws_cloudwatch_log_group.job_diagnostics_resolver.name,
+    ])
+    error_message = "Flex Lambda functions should write to their managed log groups."
+  }
+}
+
+run "github_apps_setup_spot_service_role_permissions_are_scoped" {
+  command = plan
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.github_apps_setup[0].policy).Statement :
+      statement.Action == ["iam:GetRole"] &&
+      statement.Resource == "arn:aws:iam::123456789012:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot" &&
+      !can(statement.Condition)
+    ])
+    error_message = "GitHub Apps setup Lambda should only read the EC2 Spot service-linked role."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.github_apps_setup[0].policy).Statement :
+      statement.Action == ["iam:CreateServiceLinkedRole"] &&
+      statement.Resource == "arn:aws:iam::123456789012:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot" &&
+      try(statement.Condition.StringEquals["iam:AWSServiceName"], "") == "spot.amazonaws.com"
+    ])
+    error_message = "GitHub Apps setup Lambda should only create the EC2 Spot service-linked role."
+  }
+}
+
+run "worker_policy_scopes_stack_state_resources" {
+  command = plan
+
+  assert {
+    condition = anytrue([
+      for statement in local.flex_control_plane_extra_policy_statements :
+      statement.Action == [
+        "ssm:PutParameter",
+        "ssm:GetParameter",
+        "ssm:GetParameters",
+      ] &&
+      statement.Resource == aws_ssm_parameter.license_status.arn
+    ])
+    error_message = "Worker SSM access should be scoped to the license-status parameter."
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for statement in local.flex_control_plane_extra_policy_statements : [
+        for action in try(statement.Action, []) :
+        !startswith(action, "ssm:Delete")
+      ]
+    ]))
+    error_message = "Worker SSM access should not include parameter delete permissions."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in local.flex_control_plane_extra_policy_statements :
+      contains(try(statement.Action, []), "sqs:ReceiveMessage") &&
+      try(length(statement.Resource), 0) == 3 &&
+      try(contains(statement.Resource, aws_sqs_queue.webhooks.arn), false) &&
+      try(contains(statement.Resource, aws_sqs_queue.system.arn), false) &&
+      try(contains(statement.Resource, aws_sqs_queue.events.arn), false)
+    ])
+    error_message = "Worker SQS access should be limited to active queues, not DLQs."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in local.flex_control_plane_extra_policy_statements :
+      contains(try(statement.Action, []), "dynamodb:Query") &&
+      try(contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/reconcile-index"), false) &&
+      try(contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/pending-work-index"), false) &&
+      try(contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/daily-activity-index"), false) &&
+      !try(contains(statement.Resource, "${aws_dynamodb_table.workflow_jobs.arn}/index/*"), false)
+    ])
+    error_message = "Worker DynamoDB access should enumerate known workflow-job indexes."
   }
 }
 

@@ -111,7 +111,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   stack_name = var.stack_name
 
@@ -149,7 +149,7 @@ See [Private Networking](private-networking.md) for details on mode options.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -170,7 +170,7 @@ Enable shared persistent storage across all runners:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -190,7 +190,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -218,7 +218,7 @@ data "aws_ecr_pull_through_cache_rule" "docker_hub" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -268,7 +268,7 @@ resource "aws_ecr_pull_through_cache_rule" "docker_hub" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -299,7 +299,7 @@ See [WAF](waf.md) for managed webhook IP sync, user-managed ACL overrides, and G
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -320,7 +320,7 @@ See [GitHub App Config](github-app-config.md) for details.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -420,7 +420,7 @@ module "vpc_endpoints" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.1"
+  version = "v3.1.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

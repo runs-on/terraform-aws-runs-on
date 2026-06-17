@@ -54,7 +54,7 @@ resource "aws_wafv2_ip_set" "allowed_ips_ipv6" {
 
 resource "aws_cloudwatch_log_group" "github_waf_sync_lambda" {
   count             = local.using_managed_public_ingress_waf ? 1 : 0
-  name              = "/aws/lambda/${var.stack_name}-github-waf-sync"
+  name              = "/runs-on/${var.stack_name}/lambda/github-waf-sync"
   retention_in_days = 14
 
   tags = merge(
@@ -90,10 +90,24 @@ resource "aws_iam_role" "github_waf_sync" {
   )
 }
 
-resource "aws_iam_role_policy_attachment" "github_waf_sync_logs" {
-  count      = local.using_managed_public_ingress_waf ? 1 : 0
-  role       = aws_iam_role.github_waf_sync[0].name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+resource "aws_iam_role_policy" "github_waf_sync_logs" {
+  count = local.using_managed_public_ingress_waf ? 1 : 0
+  name  = "RunsOnGitHubWafSyncLogPermissions"
+  role  = aws_iam_role.github_waf_sync[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "${aws_cloudwatch_log_group.github_waf_sync_lambda[0].arn}:*"
+      },
+    ]
+  })
 }
 
 resource "aws_iam_role_policy" "github_waf_sync" {
@@ -131,6 +145,11 @@ resource "aws_lambda_function" "github_waf_sync" {
   filename         = data.archive_file.github_waf_sync[0].output_path
   source_code_hash = data.archive_file.github_waf_sync[0].output_base64sha256
 
+  logging_config {
+    log_format = "Text"
+    log_group  = aws_cloudwatch_log_group.github_waf_sync_lambda[0].name
+  }
+
   environment {
     variables = {
       RUNS_ON_GITHUB_META_URL      = "https://api.github.com/meta"
@@ -150,7 +169,7 @@ resource "aws_lambda_function" "github_waf_sync" {
   )
 
   depends_on = [
-    aws_iam_role_policy_attachment.github_waf_sync_logs[0],
+    aws_iam_role_policy.github_waf_sync_logs[0],
   ]
 }
 

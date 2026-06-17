@@ -55,16 +55,25 @@ locals {
         "ec2:DescribeVolumes",
         "ec2:DescribeSnapshots",
         "ec2:DescribeLaunchTemplateVersions",
-        "iam:GetRole",
       ]
       Resource = "*"
+    },
+    {
+      # The worker checks for the EC2 Spot service-linked role before creating
+      # it. GetRole on the runner instance role is granted alongside PassRole
+      # below.
+      Effect = "Allow"
+      Action = [
+        "iam:GetRole",
+      ]
+      Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
     },
     {
       Effect = "Allow"
       Action = [
         "iam:CreateServiceLinkedRole"
       ]
-      Resource = "arn:aws:iam::*:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+      Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
       Condition = {
         StringEquals = {
           "iam:AWSServiceName" = "spot.amazonaws.com"
@@ -87,7 +96,16 @@ locals {
       ]
       Resource = [
         "arn:aws:ec2:${var.region}::image/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:*",
+        "arn:aws:ec2:${var.region}:${var.account_id}:instance/*",
+        "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
+        "arn:aws:ec2:${var.region}:${var.account_id}:network-interface/*",
+        "arn:aws:ec2:${var.region}:${var.account_id}:security-group/*",
+        "arn:aws:ec2:${var.region}:${var.account_id}:subnet/*",
+        "arn:aws:ec2:${var.region}:${var.account_id}:launch-template/*",
+        "arn:aws:ec2:${var.region}:${var.account_id}:key-pair/*",
+        # Spot launches authorize RunInstances and tag-on-create CreateTags
+        # against the spot-instances-request resource.
+        "arn:aws:ec2:${var.region}:${var.account_id}:spot-instances-request/*",
       ]
     },
     {
@@ -118,7 +136,10 @@ locals {
         "ec2:DeleteVolume",
         "ec2:DeleteSnapshot",
       ]
-      Resource = "*"
+      Resource = [
+        "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
+        "arn:aws:ec2:${var.region}::snapshot/*",
+      ]
       Condition = {
         StringEquals = {
           "aws:ResourceTag/runs-on-stack-name" = var.stack_name
@@ -128,21 +149,30 @@ locals {
     {
       Effect = "Allow"
       Action = [
-        "s3:GetObject",
-        "s3:PutObject",
         "s3:ListBucket",
       ]
-      Resource = [
-        var.cache_bucket_arn,
-        "${var.cache_bucket_arn}/*",
-      ]
+      Resource = var.cache_bucket_arn
+      Condition = {
+        StringLike = {
+          "s3:prefix" = [
+            "cache",
+            "cache/*",
+            "agents",
+            "agents/*",
+            "runners",
+            "runners/*",
+          ]
+        }
+      }
     },
     {
       Effect = "Allow"
       Action = [
+        "s3:GetObject",
         "s3:PutObject",
       ]
       Resource = [
+        "${var.cache_bucket_arn}/cache/*",
         "${var.cache_bucket_arn}/runners/*",
         "${var.cache_bucket_arn}/agents/*",
       ]

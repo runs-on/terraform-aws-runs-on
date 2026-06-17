@@ -130,3 +130,20 @@ run "runner_custom_policy_arn_attaches_to_instance_role" {
     error_message = "custom runner policy attachment should use the configured policy ARN."
   }
 }
+
+run "default_runner_policies_are_scoped" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_role_policy_attachment.ec2_ecr_public.policy_arn == "arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicReadOnly"
+    error_message = "runner instances should only get read-only ECR Public access."
+  }
+
+  assert {
+    condition = alltrue([
+      for action in jsondecode(aws_iam_role_policy.ec2_cloudwatch_logs.policy).Statement[0].Action :
+      action != "logs:CreateLogGroup" && action != "logs:PutRetentionPolicy"
+    ])
+    error_message = "runner log policy should not manage the pre-created log group or retention."
+  }
+}

@@ -31,6 +31,8 @@ Plan-only tests are expected to be fast and deterministic because each test runs
 
 Apply-based smoke scenarios and the end-to-end GitHub integration test need AWS credentials and the scenario environment variables described in the test harness. Those runs are intentionally serialized because they are long-lived, quota-sensitive, and operate against real cloud resources.
 
+Live apply scenarios also need a real GitHub organization source for license validation. Set `GITHUB_ORG` directly, or set `RUNS_ON_TEST_REPO` to an `owner/repo` value so the harness can use the repository owner. The harness fails before deploy when neither value is set.
+
 ## CI Integration
 
 The monorepo `Terraform / Test` workflow runs the integration path with `make -C terraform test-integration-ci-image` on trusted same-repo pushes, trusted same-repo pull requests, and manual `workflow_dispatch` runs. That root `terraform/Makefile` target delegates to the Flex test module under `terraform/modules/flex/test/`.
@@ -54,6 +56,7 @@ That CI job exports these required environment variables into the Terratest proc
 The repository that runs `Terraform / Test` therefore needs these GitHub Actions settings configured:
 
 - `RUNS_ON_LICENSE_KEY`
+- `RUNS_ON_TEST_REPO`
 - `AWS_CI_ROLE_ARN`
 - repo variable `GH_APP_ID`
 - secret `GH_APP_PRIVATE_KEY`

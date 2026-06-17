@@ -16,5 +16,5 @@ github_organization = "your-github-org"        # TODO: Replace with your GitHub 
 license_key         = "YOUR-LICENSE-KEY-HERE"  # TODO: Replace with your RunsOn license key
 email               = "admin@example.com"      # TODO: Replace with your email
 
-ssh_allowed    = true          # Allow SSH access to runners
-ssh_cidr_range = "0.0.0.0/0"  # Restrict to your IP range for better security
+ssh_allowed    = false         # Set true only when SSH access to runners is needed
+ssh_cidr_range = "10.0.0.0/8" # Restrict to your trusted IP range when SSH is enabled
