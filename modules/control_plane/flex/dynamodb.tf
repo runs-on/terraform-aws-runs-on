@@ -128,6 +128,10 @@ resource "aws_dynamodb_table" "workflow_jobs" {
     attribute_name = "ttl"
   }
 
+  point_in_time_recovery {
+    enabled = true
+  }
+
   tags = merge(
     local.common_tags,
     {

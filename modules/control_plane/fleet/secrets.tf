@@ -32,7 +32,7 @@ data "archive_file" "config_materializer" {
 }
 
 resource "aws_cloudwatch_log_group" "config_materializer" {
-  name              = "/aws/lambda/${var.stack_name}-fleet-config-materializer"
+  name              = "/runs-on/${var.stack_name}/lambda/fleet-config-materializer"
   retention_in_days = 14
   tags              = var.tags
 }
@@ -85,13 +85,18 @@ resource "aws_iam_role_policy" "config_materializer" {
 resource "aws_lambda_function" "config_materializer" {
   function_name = "${var.stack_name}-fleet-config-materializer"
   role          = aws_iam_role.config_materializer.arn
-  runtime       = "python3.11"
+  runtime       = "python3.14"
   handler       = "index.handler"
   timeout       = 30
   memory_size   = 128
 
   filename         = data.archive_file.config_materializer.output_path
   source_code_hash = data.archive_file.config_materializer.output_base64sha256
+
+  logging_config {
+    log_format = "Text"
+    log_group  = aws_cloudwatch_log_group.config_materializer.name
+  }
 
   tags = merge(
     var.tags,

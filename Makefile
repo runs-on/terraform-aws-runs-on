@@ -12,6 +12,7 @@ TEST_PLAN_TOFU_MODULES = \
 	modules/flex \
 	modules/fleet \
 	modules/control_plane/alerts \
+	modules/control_plane/fleet \
 	modules/control_plane/flex \
 	modules/control_plane/runtime \
 	modules/runner/compute \

@@ -262,6 +262,8 @@ func TestPlanSourceTerraformECRPullThroughCacheWiring(t *testing.T) {
 	assert.Contains(t, computeIAMTF, `resource "aws_iam_role_policy" "ec2_ecr_pull_through_cache_access"`)
 	assert.Contains(t, computeIAMTF, `ecr:BatchImportUpstreamImage`)
 	assert.Contains(t, computeIAMTF, `ecr:CreateRepository`)
+	assert.Contains(t, computeIAMTF, `AmazonElasticContainerRegistryPublicReadOnly`)
+	assert.NotContains(t, computeIAMTF, `AmazonElasticContainerRegistryPublicFullAccess`)
 
 	assert.Contains(t, launchTemplatesTF, `RUNS_ON_ECR_PULL_THROUGH_CACHE=`)
 	assert.Contains(t, launchTemplatesTF, `RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR=`)
@@ -302,6 +304,7 @@ func TestPlanSourceFleetECRPullThroughCacheReleaseWiring(t *testing.T) {
 
 	assert.NotContains(t, deployWorkflow, "docker_hub_pull_through_cache_secret_arn")
 	assert.NotContains(t, deployWorkflow, `ecr_pull_through_cache_rules = {`)
+	assert.Contains(t, deployWorkflow, `-var "license_key=${RUNS_ON_LICENSE_KEY}"`)
 	assert.NotContains(t, previewWorkflow, "FLEET_DOCKER_HUB_PULL_THROUGH_CACHE_SECRET_ARN")
 	assert.NotContains(t, stageWorkflow, "FLEET_DOCKER_HUB_PULL_THROUGH_CACHE_SECRET_ARN")
 	assert.Contains(t, previewWorkflow, `if: ${{ always() && needs.build.result == 'success' && needs.deploy-fleet-private-true.result == 'success' }}`)
@@ -311,4 +314,20 @@ func TestPlanSourceFleetECRPullThroughCacheReleaseWiring(t *testing.T) {
 	assert.Contains(t, e2eWorkflow, "registry-1.docker.io")
 	assert.Contains(t, e2eWorkflow, "docker pull docker.io/library/node:22")
 	assert.Contains(t, e2eWorkflow, "docker run --rm docker.io/library/node:22 node --version")
+}
+
+func TestPlanSourceFlexCloudFormationUsesRepositoryLicenseSecret(t *testing.T) {
+	t.Parallel()
+
+	deployWorkflow := readRepoSource(t, ".github", "workflows", "core-deploy.yml")
+	previewWorkflow := readRepoSource(t, ".github", "workflows", "core-preview.yml")
+	stageWorkflow := readRepoSource(t, ".github", "workflows", "core-stage.yml")
+
+	assert.Contains(t, deployWorkflow, `runs_on_license_key:`)
+	assert.Contains(t, deployWorkflow, `RUNS_ON_LICENSE_KEY: ${{ secrets.runs_on_license_key }}`)
+	assert.Contains(t, deployWorkflow, `$overrides + {LicenseKey: $license_key}`)
+	assert.Contains(t, deployWorkflow, `bash ./scripts/write-cloudformation-parameters.sh "${PARAMETERS_FILE}"`)
+
+	assert.Equal(t, 3, strings.Count(previewWorkflow, "cloudformation_parameters_json: ${{ secrets.CLOUDFORMATION_PARAMETERS_PREVIEW_JSON }}\n      runs_on_license_key: ${{ secrets.RUNS_ON_LICENSE_KEY }}"))
+	assert.Equal(t, 3, strings.Count(stageWorkflow, "cloudformation_parameters_json: ${{ secrets.CLOUDFORMATION_PARAMETERS_STAGE_JSON }}\n      runs_on_license_key: ${{ secrets.RUNS_ON_LICENSE_KEY }}"))
 }

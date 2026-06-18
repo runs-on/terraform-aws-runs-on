@@ -9,7 +9,7 @@ data "archive_file" "job_diagnostics_resolver" {
 }
 
 resource "aws_cloudwatch_log_group" "job_diagnostics_resolver" {
-  name              = "/aws/lambda/${var.stack_name}-job-diagnostics-resolver"
+  name              = "/runs-on/${var.stack_name}/lambda/job-diagnostics-resolver"
   retention_in_days = 14
 
   tags = merge(
@@ -90,6 +90,11 @@ resource "aws_lambda_function" "job_diagnostics_resolver" {
 
   filename         = data.archive_file.job_diagnostics_resolver.output_path
   source_code_hash = data.archive_file.job_diagnostics_resolver.output_base64sha256
+
+  logging_config {
+    log_format = "Text"
+    log_group  = aws_cloudwatch_log_group.job_diagnostics_resolver.name
+  }
 
   environment {
     variables = {

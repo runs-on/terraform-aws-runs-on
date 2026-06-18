@@ -31,6 +31,12 @@ make test-plan    # Free Terratest plan checks
 - The mirrored public repo gets the released `app_image` and `app_tag` injected during mirror publication after the release image is built.
 - Do not create tags or GitHub releases from `terraform/`; use root `releasectl release final`.
 
+## IAM Policy Notes
+
+- `modules/control_plane/runtime` is shared by Flex and Fleet. Task-role IAM changes there affect both products.
+- The runtime EC2 launch policy intentionally enumerates resource types instead of using an account-wide EC2 wildcard. If launch behavior starts using new EC2 resource types, such as placement groups or targeted capacity reservations, update that allowlist and the policy-shape tests in the same change.
+- CloudFormation IAM parity is maintained explicitly in `../cloudformation/template.yaml`; keep both install paths aligned when tightening or expanding policy resources.
+
 ## Testing
 
 Tests in [`test/`](./test) use Terratest and deploy real AWS infrastructure. See [`test/README.md`](./test/README.md) for required environment variables, scenario costs, and cleanup expectations.
