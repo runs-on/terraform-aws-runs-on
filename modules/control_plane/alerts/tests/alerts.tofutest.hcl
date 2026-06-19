@@ -69,6 +69,11 @@ run "slack_and_budget_alerts" {
   }
 
   assert {
+    condition     = aws_lambda_function.slack_webhook[0].environment[0].variables["SLACK_WEBHOOK_URL"] == "https://hooks.slack.com/services/example"
+    error_message = "Webhook URL should be passed to the Lambda environment."
+  }
+
+  assert {
     condition = (
       aws_cloudwatch_log_group.slack_webhook[0].name == "/runs-on/test-plan/lambda/slack-webhook" &&
       aws_cloudwatch_log_group.slack_webhook[0].retention_in_days == 14 &&
@@ -93,5 +98,42 @@ run "slack_and_budget_alerts" {
   assert {
     condition     = length(aws_sns_topic_policy.alerts) == 1
     error_message = "Budget publish topic policy should be created when requested."
+  }
+}
+
+run "slack_bot_token_alerts" {
+  command = plan
+
+  variables {
+    slack_bot_token  = "xoxb-example-token"
+    slack_channel_id = "C0123ABCD"
+  }
+
+  assert {
+    condition     = length(aws_lambda_function.slack_webhook) == 1
+    error_message = "Slack Lambda should be created when a bot token + channel are set."
+  }
+
+  assert {
+    condition     = aws_lambda_function.slack_webhook[0].environment[0].variables["SLACK_BOT_TOKEN"] == "xoxb-example-token"
+    error_message = "Bot token should be passed to the Lambda environment."
+  }
+
+  assert {
+    condition     = aws_lambda_function.slack_webhook[0].environment[0].variables["SLACK_CHANNEL_ID"] == "C0123ABCD"
+    error_message = "Channel ID should be passed to the Lambda environment."
+  }
+}
+
+run "slack_bot_token_without_channel_is_disabled" {
+  command = plan
+
+  variables {
+    slack_bot_token = "xoxb-example-token"
+  }
+
+  assert {
+    condition     = length(aws_lambda_function.slack_webhook) == 0
+    error_message = "Bot mode must not enable the Lambda without a channel ID."
   }
 }

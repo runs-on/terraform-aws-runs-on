@@ -14,7 +14,9 @@ terraform {
 }
 
 locals {
-  slack_webhook_enabled  = trimspace(var.slack_webhook_url) != ""
+  slack_webhook_enabled  = nonsensitive(trimspace(var.slack_webhook_url) != "")
+  slack_bot_enabled      = nonsensitive(trimspace(var.slack_bot_token) != "" && trimspace(var.slack_channel_id) != "")
+  slack_enabled          = local.slack_webhook_enabled || local.slack_bot_enabled
   lambda_artifact_prefix = "${path.root}/.terraform/runs-on-${substr(sha1(path.cwd), 0, 8)}-${var.stack_name}"
 }
 
@@ -63,7 +65,7 @@ resource "aws_sns_topic_subscription" "email" {
 }
 
 resource "aws_iam_role" "slack_webhook" {
-  count = local.slack_webhook_enabled ? 1 : 0
+  count = local.slack_enabled ? 1 : 0
 
   name = "${var.stack_name}-slack-webhook-role"
 
@@ -89,7 +91,7 @@ resource "aws_iam_role" "slack_webhook" {
 }
 
 resource "aws_cloudwatch_log_group" "slack_webhook" {
-  count = local.slack_webhook_enabled ? 1 : 0
+  count = local.slack_enabled ? 1 : 0
 
   name              = "/runs-on/${var.stack_name}/lambda/slack-webhook"
   retention_in_days = 14
@@ -103,7 +105,7 @@ resource "aws_cloudwatch_log_group" "slack_webhook" {
 }
 
 resource "aws_iam_role_policy" "slack_webhook_logs" {
-  count = local.slack_webhook_enabled ? 1 : 0
+  count = local.slack_enabled ? 1 : 0
 
   name = "RunsOnSlackWebhookLogPermissions"
   role = aws_iam_role.slack_webhook[0].id
@@ -124,7 +126,7 @@ resource "aws_iam_role_policy" "slack_webhook_logs" {
 }
 
 resource "aws_lambda_function" "slack_webhook" {
-  count = local.slack_webhook_enabled ? 1 : 0
+  count = local.slack_enabled ? 1 : 0
 
   function_name = "${var.stack_name}-slack-webhook"
   role          = aws_iam_role.slack_webhook[0].arn
@@ -144,6 +146,8 @@ resource "aws_lambda_function" "slack_webhook" {
   environment {
     variables = {
       SLACK_WEBHOOK_URL = var.slack_webhook_url
+      SLACK_BOT_TOKEN   = var.slack_bot_token
+      SLACK_CHANNEL_ID  = var.slack_channel_id
       STACK_NAME        = var.stack_name
     }
   }
@@ -161,7 +165,7 @@ resource "aws_lambda_function" "slack_webhook" {
 }
 
 data "archive_file" "slack_webhook" {
-  count = local.slack_webhook_enabled ? 1 : 0
+  count = local.slack_enabled ? 1 : 0
 
   type        = "zip"
   output_path = "${local.lambda_artifact_prefix}-slack-webhook.zip"
@@ -173,7 +177,7 @@ data "archive_file" "slack_webhook" {
 }
 
 resource "aws_lambda_permission" "slack_webhook" {
-  count = local.slack_webhook_enabled ? 1 : 0
+  count = local.slack_enabled ? 1 : 0
 
   statement_id  = "AllowSNSInvoke"
   action        = "lambda:InvokeFunction"
@@ -183,7 +187,7 @@ resource "aws_lambda_permission" "slack_webhook" {
 }
 
 resource "aws_sns_topic_subscription" "slack_webhook" {
-  count = local.slack_webhook_enabled ? 1 : 0
+  count = local.slack_enabled ? 1 : 0
 
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "lambda"

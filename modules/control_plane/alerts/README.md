@@ -43,13 +43,15 @@ No modules.
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | RunsOn stack name used to name alerting resources. | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to alerting resources. | `map(string)` | n/a | yes |
 | <a name="input_allow_budgets_publish"></a> [allow\_budgets\_publish](#input\_allow\_budgets\_publish) | Allow AWS Budgets in this account to publish to the alert topic. | `bool` | `false` | no |
+| <a name="input_slack_bot_token"></a> [slack\_bot\_token](#input\_slack\_bot\_token) | Slack bot token (xoxb-...) for alert notifications via chat.postMessage. Takes precedence over slack\_webhook\_url when both are set. Requires slack\_channel\_id. | `string` | `""` | no |
+| <a name="input_slack_channel_id"></a> [slack\_channel\_id](#input\_slack\_channel\_id) | Slack channel ID or name to post alerts to when slack\_bot\_token is set (e.g. C0123ABCD or #channel). | `string` | `""` | no |
 | <a name="input_slack_webhook_url"></a> [slack\_webhook\_url](#input\_slack\_webhook\_url) | Slack webhook URL for alert notifications. | `string` | `""` | no |
 
 ## Outputs
 
 | Name | Description |
 |------|-------------|
-| <a name="output_slack_webhook_lambda_arn"></a> [slack\_webhook\_lambda\_arn](#output\_slack\_webhook\_lambda\_arn) | Slack webhook Lambda ARN when Slack alerting is enabled. |
+| <a name="output_slack_webhook_lambda_arn"></a> [slack\_webhook\_lambda\_arn](#output\_slack\_webhook\_lambda\_arn) | Slack alert Lambda ARN when Slack alerting (webhook or bot token) is enabled. |
 | <a name="output_topic_arn"></a> [topic\_arn](#output\_topic\_arn) | SNS topic ARN for RunsOn alerts. |
 | <a name="output_topic_name"></a> [topic\_name](#output\_topic\_name) | SNS topic name for RunsOn alerts. |
 <!-- END_TF_DOCS -->

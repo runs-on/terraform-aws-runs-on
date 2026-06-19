@@ -240,6 +240,25 @@ app_force_new_deployment = true
 
 for one apply, then remove it or set it back to `false` after the upgrade has completed.
 
+## Slack Alerts
+
+Alerts published to the stack's SNS topic can be forwarded to Slack in one of two
+modes. A single Lambda handles both; you configure whichever you prefer:
+
+- **Incoming Webhook** — set `alert_slack_webhook_url`. The Lambda POSTs the alert
+  to the webhook URL.
+- **Bot token (`chat.postMessage`)** — set `alert_slack_bot_token` (a `xoxb-...`
+  token with the `chat:write` scope) **and** `alert_slack_channel_id` (e.g.
+  `C0123ABCD` or `#channel`). The bot must be a member of the target channel
+  (invite it with `/invite @your-bot`). Bot tokens are app-managed and centrally
+  revocable, unlike per-channel webhook URLs.
+
+If both are configured, the **bot token takes precedence** and the webhook is
+ignored. Setting a bot token without a channel ID fails the plan (a bot token
+with no channel would silently disable Slack alerting). Both inputs are
+optional; when neither is set, alerts are delivered only via the SNS email
+subscription.
+
 ## Docs
 
 - [Examples](docs/examples.md)
@@ -321,6 +340,7 @@ Minimal key-policy statement:
 | Name | Type |
 |------|------|
 | [terraform_data.validate_public_subnets](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [terraform_data.validate_slack_bot_token](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 | [time_sleep.wait_for_nat](https://registry.terraform.io/providers/hashicorp/time/latest/docs/resources/sleep) | resource |
 
 ## Inputs
@@ -332,6 +352,8 @@ Minimal key-policy statement:
 | <a name="input_license_key"></a> [license\_key](#input\_license\_key) | RunsOn license key obtained from runs-on.com | `string` | n/a | yes |
 | <a name="input_public_subnet_ids"></a> [public\_subnet\_ids](#input\_public\_subnet\_ids) | List of public subnet IDs for runner instances. Required unless private\_mode is "only". | `list(string)` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | VPC ID where RunsOn infrastructure will be deployed | `string` | n/a | yes |
+| <a name="input_alert_slack_bot_token"></a> [alert\_slack\_bot\_token](#input\_alert\_slack\_bot\_token) | Slack bot token (xoxb-...) for alert notifications via chat.postMessage (optional). Takes precedence over alert\_slack\_webhook\_url when both are set. Requires alert\_slack\_channel\_id and the chat:write scope, with the bot invited to the target channel. | `string` | `""` | no |
+| <a name="input_alert_slack_channel_id"></a> [alert\_slack\_channel\_id](#input\_alert\_slack\_channel\_id) | Slack channel ID or name to post alerts to when alert\_slack\_bot\_token is set (e.g. C0123ABCD or #channel). Required when alert\_slack\_bot\_token is set. | `string` | `""` | no |
 | <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alert notifications (optional) | `string` | `""` | no |
 | <a name="input_app_budget_daily_usd"></a> [app\_budget\_daily\_usd](#input\_app\_budget\_daily\_usd) | Daily AWS cost budget in USD for this stack, filtered by the configured cost allocation tag. Set to 0 to disable the budget. For AWS Organizations member accounts, activate the cost allocation tag in the management account's Billing settings. | `number` | `10` | no |
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the RunsOn worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight queue messages retry after the SQS visibility timeout. | `string` | `"fargate"` | no |

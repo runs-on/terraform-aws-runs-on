@@ -16,6 +16,20 @@ check "private_mode_requires_subnets" {
   }
 }
 
+resource "terraform_data" "validate_slack_bot_token" {
+  input = {
+    bot_token_set = nonsensitive(trimspace(var.alert_slack_bot_token) != "")
+    channel_set   = trimspace(var.alert_slack_channel_id) != ""
+  }
+
+  lifecycle {
+    precondition {
+      condition     = nonsensitive(trimspace(var.alert_slack_bot_token) == "" || trimspace(var.alert_slack_channel_id) != "")
+      error_message = "alert_slack_channel_id is required when alert_slack_bot_token is set."
+    }
+  }
+}
+
 # Check blocks only warn, but this rule must fail invalid plans before apply.
 resource "terraform_data" "validate_public_subnets" {
   input = {
@@ -126,6 +140,8 @@ locals {
   flex_alerts = {
     email             = var.email
     slack_webhook_url = var.alert_slack_webhook_url
+    slack_bot_token   = var.alert_slack_bot_token
+    slack_channel_id  = var.alert_slack_channel_id
   }
 
   # Tags for all resources. Used by CLI for stack-level resource discovery.

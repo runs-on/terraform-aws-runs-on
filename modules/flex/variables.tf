@@ -484,6 +484,19 @@ variable "alert_slack_webhook_url" {
   sensitive   = true
 }
 
+variable "alert_slack_bot_token" {
+  description = "Slack bot token (xoxb-...) for alert notifications via chat.postMessage (optional). Takes precedence over alert_slack_webhook_url when both are set. Requires alert_slack_channel_id and the chat:write scope, with the bot invited to the target channel."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "alert_slack_channel_id" {
+  description = "Slack channel ID or name to post alerts to when alert_slack_bot_token is set (e.g. C0123ABCD or #channel). Required when alert_slack_bot_token is set."
+  type        = string
+  default     = ""
+}
+
 ###########################
 # Optional Features
 # Used by: optional module

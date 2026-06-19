@@ -5,6 +5,8 @@ module "alerts" {
   account_id            = var.account_id
   email                 = local.alerts.email
   slack_webhook_url     = local.alerts.slack_webhook_url
+  slack_bot_token       = local.alerts.slack_bot_token
+  slack_channel_id      = local.alerts.slack_channel_id
   allow_budgets_publish = local.operations.app_budget_daily_usd > 0
   tags                  = local.common_tags
 }
