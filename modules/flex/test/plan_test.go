@@ -71,6 +71,22 @@ func TestPlanSourceFleetConfigMaterializerWiring(t *testing.T) {
 	assert.Contains(t, mainTF, `deployment_method                      = "terraform"`)
 }
 
+func TestPlanSourceLambdaArtifactPathsDoNotDependOnWorkingDirectory(t *testing.T) {
+	t.Parallel()
+
+	files := map[string]string{
+		"control_plane/flex/main.tf":                      readTerraformSource(t, "modules", "control_plane", "flex", "main.tf"),
+		"control_plane/fleet/job_diagnostics_resolver.tf": readTerraformSource(t, "modules", "control_plane", "fleet", "job_diagnostics_resolver.tf"),
+		"control_plane/fleet/secrets.tf":                  readTerraformSource(t, "modules", "control_plane", "fleet", "secrets.tf"),
+		"control_plane/alerts/main.tf":                    readTerraformSource(t, "modules", "control_plane", "alerts", "main.tf"),
+	}
+
+	for name, source := range files {
+		assert.NotContains(t, source, "path.cwd", "%s should not make Lambda artifact filenames checkout-path dependent", name)
+		assert.Contains(t, source, "sha1(var.stack_name)", "%s should keep Lambda artifact filenames stable for a given stack", name)
+	}
+}
+
 func TestPlanSourceFleetCIStackKeepsPrivateSubnetsStable(t *testing.T) {
 	t.Parallel()
 

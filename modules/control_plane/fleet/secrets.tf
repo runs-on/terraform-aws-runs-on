@@ -1,6 +1,6 @@
 data "archive_file" "config_materializer" {
   type        = "zip"
-  output_path = "${path.root}/.terraform/runs-on-${substr(sha1(path.cwd), 0, 8)}-${var.stack_name}-fleet-config-materializer.zip"
+  output_path = "${path.root}/.terraform/runs-on-${substr(sha1(var.stack_name), 0, 8)}-${var.stack_name}-fleet-config-materializer.zip"
 
   source {
     content  = <<-PY

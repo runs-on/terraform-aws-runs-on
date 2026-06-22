@@ -15,7 +15,7 @@ terraform {
 
 locals {
   slack_webhook_enabled  = trimspace(var.slack_webhook_url) != ""
-  lambda_artifact_prefix = "${path.root}/.terraform/runs-on-${substr(sha1(path.cwd), 0, 8)}-${var.stack_name}"
+  lambda_artifact_prefix = "${path.root}/.terraform/runs-on-${substr(sha1(var.stack_name), 0, 8)}-${var.stack_name}"
 }
 
 resource "aws_sns_topic" "alerts" {

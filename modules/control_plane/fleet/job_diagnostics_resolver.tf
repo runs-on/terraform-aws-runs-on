@@ -1,6 +1,6 @@
 data "archive_file" "job_diagnostics_resolver" {
   type        = "zip"
-  output_path = "${path.root}/.terraform/runs-on-${substr(sha1(path.cwd), 0, 8)}-${var.stack_name}-job-diagnostics-resolver.zip"
+  output_path = "${path.root}/.terraform/runs-on-${substr(sha1(var.stack_name), 0, 8)}-${var.stack_name}-job-diagnostics-resolver.zip"
 
   source {
     content  = file("${path.module}/../../../lambdas/job_diagnostics_resolver.js")
