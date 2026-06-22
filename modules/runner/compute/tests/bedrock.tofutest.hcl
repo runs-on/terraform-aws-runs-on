@@ -131,6 +131,14 @@ run "runner_custom_policy_arn_attaches_to_instance_role" {
   }
 }
 
+run "computed_runner_custom_policy_arns_plan" {
+  command = plan
+
+  module {
+    source = "./tests/fixtures/computed-policy-arn"
+  }
+}
+
 run "default_runner_policies_are_scoped" {
   command = plan
 

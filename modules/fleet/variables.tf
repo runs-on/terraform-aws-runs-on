@@ -305,6 +305,12 @@ variable "runner_custom_policy_arn" {
   default     = ""
 }
 
+variable "runner_custom_policy_arns" {
+  description = "Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources."
+  type        = list(string)
+  default     = []
+}
+
 variable "enable_bedrock" {
   description = "Enable Amazon Bedrock access for EC2 runner instances."
   type        = bool

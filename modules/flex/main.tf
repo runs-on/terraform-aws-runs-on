@@ -191,19 +191,20 @@ module "compute" {
   region     = local.region
   account_id = local.account_id
 
-  stack_name               = var.stack_name
-  cost_allocation_tag      = var.cost_allocation_tag
-  network                  = module.network.network
-  extras                   = module.extras.extras
-  log_retention_days       = var.log_retention_days
-  permission_boundary_arn  = var.permission_boundary_arn
-  runner_custom_policy_arn = var.runner_custom_policy_arn
-  enable_bedrock           = var.enable_bedrock
-  app_tag                  = var.app_tag
-  bootstrap_tag            = var.bootstrap_tag
-  ipv6_enabled             = var.ipv6_enabled
-  runner_max_runtime       = var.runner_max_runtime
-  tags                     = local.common_tags
+  stack_name                = var.stack_name
+  cost_allocation_tag       = var.cost_allocation_tag
+  network                   = module.network.network
+  extras                    = module.extras.extras
+  log_retention_days        = var.log_retention_days
+  permission_boundary_arn   = var.permission_boundary_arn
+  runner_custom_policy_arn  = var.runner_custom_policy_arn
+  runner_custom_policy_arns = var.runner_custom_policy_arns
+  enable_bedrock            = var.enable_bedrock
+  app_tag                   = var.app_tag
+  bootstrap_tag             = var.bootstrap_tag
+  ipv6_enabled              = var.ipv6_enabled
+  runner_max_runtime        = var.runner_max_runtime
+  tags                      = local.common_tags
 }
 
 module "control_plane" {

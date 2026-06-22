@@ -180,10 +180,14 @@ func TestPlanSourceCustomPolicyWiring(t *testing.T) {
 	t.Parallel()
 
 	mainTF := readTerraformSource(t, "modules", "flex", "main.tf")
+	fleetMainTF := readTerraformSource(t, "modules", "fleet", "main.tf")
 	serviceTF := readTerraformSource(t, "modules", "control_plane", "flex", "service.tf")
 
 	assert.Contains(t, mainTF, "custom_policy_arn         = var.app_custom_policy_arn")
-	assert.Contains(t, mainTF, "runner_custom_policy_arn = var.runner_custom_policy_arn")
+	assert.Contains(t, mainTF, "runner_custom_policy_arn  = var.runner_custom_policy_arn")
+	assert.Contains(t, mainTF, "runner_custom_policy_arns = var.runner_custom_policy_arns")
+	assert.Contains(t, fleetMainTF, "runner_custom_policy_arn  = var.runner_custom_policy_arn")
+	assert.Contains(t, fleetMainTF, "runner_custom_policy_arns = var.runner_custom_policy_arns")
 	assert.Contains(t, serviceTF, "task_role_managed_policy_arns   = compact([local.runtime.custom_policy_arn])")
 }
 

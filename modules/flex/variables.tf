@@ -346,6 +346,12 @@ variable "runner_custom_policy_arn" {
   default     = ""
 }
 
+variable "runner_custom_policy_arns" {
+  description = "Optional managed IAM policy ARNs to attach to the EC2 runner instance role. Use this when policy ARNs are computed by other resources."
+  type        = list(string)
+  default     = []
+}
+
 variable "runner_config_auto_extends_from" {
   description = "Auto-extend runner configuration from this base config"
   type        = string

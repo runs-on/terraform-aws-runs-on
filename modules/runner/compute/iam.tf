@@ -49,6 +49,13 @@ resource "aws_iam_role_policy_attachment" "ec2_custom" {
   policy_arn = var.runner_custom_policy_arn
 }
 
+resource "aws_iam_role_policy_attachment" "ec2_custom_additional" {
+  count = length(var.runner_custom_policy_arns)
+
+  role       = aws_iam_role.ec2_instance.name
+  policy_arn = var.runner_custom_policy_arns[count.index]
+}
+
 # Inline policies for EC2 instances
 resource "aws_iam_role_policy" "ec2_read_only" {
   name = "ReadOnly"
