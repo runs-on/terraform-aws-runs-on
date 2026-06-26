@@ -156,6 +156,12 @@ variable "cache_bucket_namespace" {
   }
 }
 
+variable "cache_bucket_versioning_enabled" {
+  description = "Enable S3 object versioning for the cache bucket."
+  type        = bool
+  default     = false
+}
+
 variable "force_destroy_buckets" {
   description = "Allow S3 buckets to be destroyed even when not empty. Set to false for production environments to prevent accidental data loss."
   type        = bool
@@ -204,14 +210,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.2@sha256:fa273fb6a3974073e3c0c3348a3faa5dfef43c5a5f559da19cd8c44fd4fb1b67"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.3-rc.1@sha256:6bcc0213af0ef89c24ba01717a8d0994a06888eafc755f2cdc5da9e010296c8a"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.1.2"
+  default     = "v3.1.3-rc.1"
   nullable    = false
 }
 

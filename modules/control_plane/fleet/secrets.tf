@@ -1,36 +1,3 @@
-data "archive_file" "config_materializer" {
-  type        = "zip"
-  output_path = "${path.root}/.terraform/runs-on-${substr(sha1(path.cwd), 0, 8)}-${var.stack_name}-fleet-config-materializer.zip"
-
-  source {
-    content  = <<-PY
-      import boto3
-      from botocore.exceptions import ClientError
-
-      secrets = boto3.client("secretsmanager")
-
-
-      def handler(event, context):
-          secret_id = event["secret_id"]
-          secret_string = event["secret_string"]
-          client_request_token = event["client_request_token"]
-
-          try:
-              response = secrets.put_secret_value(
-                  SecretId=secret_id,
-                  SecretString=secret_string,
-                  ClientRequestToken=client_request_token,
-              )
-              return {"version_id": response["VersionId"]}
-          except ClientError as error:
-              if error.response.get("Error", {}).get("Code") == "ResourceExistsException":
-                  return {"version_id": client_request_token}
-              raise
-    PY
-    filename = "index.py"
-  }
-}
-
 resource "aws_cloudwatch_log_group" "config_materializer" {
   name              = "/runs-on/${var.stack_name}/lambda/fleet-config-materializer"
   retention_in_days = 14
@@ -90,8 +57,8 @@ resource "aws_lambda_function" "config_materializer" {
   timeout       = 30
   memory_size   = 128
 
-  filename         = data.archive_file.config_materializer.output_path
-  source_code_hash = data.archive_file.config_materializer.output_base64sha256
+  filename         = "${local.lambda_artifact_dir}/fleet-config-materializer.zip"
+  source_code_hash = filebase64sha256("${local.lambda_artifact_dir}/fleet-config-materializer.zip")
 
   logging_config {
     log_format = "Text"

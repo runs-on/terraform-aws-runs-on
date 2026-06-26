@@ -102,6 +102,32 @@ run "accepts_step_security_integration_key" {
   }
 }
 
+run "private_only_allows_omitted_public_subnets" {
+  command = plan
+
+  variables {
+    private_mode       = "only"
+    private_subnet_ids = ["subnet-22222222"]
+  }
+
+  assert {
+    condition     = output.workflow_contract.label == "runs-on/fleet=<fleet-name>/env=test"
+    error_message = "private_mode=only should plan without public subnets."
+  }
+}
+
+run "empty_public_subnets_rejected_unless_private_only" {
+  command = plan
+
+  variables {
+    public_subnet_ids  = []
+    private_mode       = "true"
+    private_subnet_ids = ["subnet-22222222"]
+  }
+
+  expect_failures = [terraform_data.validate_public_subnets]
+}
+
 run "rejects_invalid_capacity_provider" {
   command = plan
 

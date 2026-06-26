@@ -1,27 +1,6 @@
 # modules/flex_control_plane/ingress.tf
 # Public ingress API for setup, readiness, and webhook delivery
 
-data "archive_file" "public_ingress" {
-  type        = "zip"
-  output_path = "${local.lambda_artifact_prefix}-public-ingress.zip"
-
-  source {
-    content  = file("${path.module}/../../../lambdas/github_webhooks.js")
-    filename = "index.js"
-  }
-}
-
-data "archive_file" "github_apps_setup" {
-  count       = local.admin_routes_enabled ? 1 : 0
-  type        = "zip"
-  output_path = "${local.lambda_artifact_prefix}-github-apps-setup.zip"
-
-  source {
-    content  = file("${path.module}/../../../lambdas/github_apps_setup.js")
-    filename = "index.js"
-  }
-}
-
 resource "aws_cloudwatch_log_group" "public_ingress_lambda" {
   name              = "/runs-on/${var.stack_name}/lambda/public-ingress"
   retention_in_days = 14
@@ -116,8 +95,8 @@ resource "aws_lambda_function" "public_ingress" {
   timeout       = 15
   memory_size   = 256
 
-  filename         = data.archive_file.public_ingress.output_path
-  source_code_hash = data.archive_file.public_ingress.output_base64sha256
+  filename         = "${local.lambda_artifact_dir}/public-ingress.zip"
+  source_code_hash = filebase64sha256("${local.lambda_artifact_dir}/public-ingress.zip")
 
   logging_config {
     log_format = "Text"
@@ -265,8 +244,8 @@ resource "aws_lambda_function" "github_apps_setup" {
   timeout       = 15
   memory_size   = 256
 
-  filename         = data.archive_file.github_apps_setup[0].output_path
-  source_code_hash = data.archive_file.github_apps_setup[0].output_base64sha256
+  filename         = "${local.lambda_artifact_dir}/github-apps-setup.zip"
+  source_code_hash = filebase64sha256("${local.lambda_artifact_dir}/github-apps-setup.zip")
 
   logging_config {
     log_format = "Text"
@@ -402,6 +381,9 @@ resource "aws_api_gateway_integration" "setup_proxy" {
   uri                     = aws_lambda_function.github_apps_setup[0].invoke_arn
 }
 
+# Aikido exemption: GitHub webhook ingress is intentionally public. API Gateway cannot require
+# AWS auth or API keys for GitHub delivery; the Lambda only enqueues the raw payload and
+# X-Hub-Signature-256, and the Flex worker validates the signature after reading the SQS message.
 resource "aws_api_gateway_method" "github_webhooks" {
   rest_api_id   = aws_api_gateway_rest_api.public_ingress.id
   resource_id   = aws_api_gateway_resource.github_webhooks.id

@@ -102,13 +102,9 @@ variable "vpc_id" {
 }
 
 variable "public_subnet_ids" {
-  description = "Public subnet IDs used for runners and Fargate when private_mode=false."
+  description = "Public subnet IDs used for runners and Fargate. Required unless private_mode is \"only\"."
   type        = list(string)
-
-  validation {
-    condition     = length(var.public_subnet_ids) >= 1
-    error_message = "At least one public subnet ID is required."
-  }
+  default     = []
 }
 
 variable "private_subnet_ids" {
@@ -166,7 +162,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.2@sha256:fa273fb6a3974073e3c0c3348a3faa5dfef43c5a5f559da19cd8c44fd4fb1b67"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.3-rc.1@sha256:6bcc0213af0ef89c24ba01717a8d0994a06888eafc755f2cdc5da9e010296c8a"
 }
 
 variable "extra_env_vars" {
@@ -219,7 +215,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners."
   type        = string
-  default     = "v3.1.2"
+  default     = "v3.1.3-rc.1"
 }
 
 variable "runner_max_runtime" {
@@ -248,6 +244,12 @@ variable "cache_bucket_namespace" {
     condition     = contains(["global", "account-regional"], var.cache_bucket_namespace)
     error_message = "Cache bucket namespace must be either global or account-regional."
   }
+}
+
+variable "cache_bucket_versioning_enabled" {
+  description = "Enable S3 object versioning for the cache bucket."
+  type        = bool
+  default     = false
 }
 
 variable "force_destroy_buckets" {

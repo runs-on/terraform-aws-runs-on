@@ -27,7 +27,7 @@ resource "aws_s3_bucket_versioning" "cache" {
   bucket = aws_s3_bucket.cache.id
 
   versioning_configuration {
-    status = "Suspended"
+    status = var.cache_bucket_versioning_enabled ? "Enabled" : "Suspended"
   }
 }
 
