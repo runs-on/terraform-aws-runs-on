@@ -9,8 +9,8 @@ Registry pages:
 
 Product modules:
 
-- [RunsOn Flex](https://github.com/runs-on/terraform-aws-runs-on/blob/release/v3.1.2/modules/flex/README.md): webhook-driven control plane for ephemeral GitHub Actions runners
-- [RunsOn Fleet](https://github.com/runs-on/terraform-aws-runs-on/blob/release/v3.1.2/modules/fleet/README.md): scale-set-driven control plane for capacity-oriented runner fleets
+- [RunsOn Flex](https://github.com/runs-on/terraform-aws-runs-on/blob/release/v3.1.3/modules/flex/README.md): webhook-driven control plane for ephemeral GitHub Actions runners
+- [RunsOn Fleet](https://github.com/runs-on/terraform-aws-runs-on/blob/release/v3.1.3/modules/fleet/README.md): scale-set-driven control plane for capacity-oriented runner fleets
 
 The registry root is a landing page. Use the product module subdirectory explicitly.
 
@@ -19,22 +19,22 @@ The registry root is a landing page. Use the product module subdirectory explici
 ```hcl
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.2"
+  version = "v3.1.3"
 }
 ```
 
-See the [Flex minimal runnable example](https://github.com/runs-on/terraform-aws-runs-on/blob/release/v3.1.2/modules/flex/README.md#minimal-runnable-example-with-vpc-endpoint).
+See the [Flex minimal runnable example](https://github.com/runs-on/terraform-aws-runs-on/blob/release/v3.1.3/modules/flex/README.md#minimal-runnable-example-with-vpc-endpoint).
 
 ## Fleet
 
 ```hcl
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.1.2"
+  version = "v3.1.3"
 }
 ```
 
-See the [Fleet minimal enterprise example](https://github.com/runs-on/terraform-aws-runs-on/blob/release/v3.1.2/modules/fleet/README.md#minimal-enterprise-example).
+See the [Fleet minimal enterprise example](https://github.com/runs-on/terraform-aws-runs-on/blob/release/v3.1.3/modules/fleet/README.md#minimal-enterprise-example).
 
 ## Git Source
 
@@ -42,11 +42,11 @@ If you consume directly from Git, use the same subdirectory pattern:
 
 ```hcl
 module "runs_on_flex" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/flex?ref=release/v3.1.2"
+  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/flex?ref=release/v3.1.3"
 }
 
 module "runs_on_fleet" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/fleet?ref=release/v3.1.2"
+  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/fleet?ref=release/v3.1.3"
 }
 ```
 

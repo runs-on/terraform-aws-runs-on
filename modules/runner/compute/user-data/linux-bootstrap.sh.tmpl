@@ -54,6 +54,7 @@ Description=RunsOn Bootstrap Service
 After=network-online.target local-fs.target
 Wants=network-online.target
 Requires=local-fs.target
+RefuseManualStop=yes
 
 [Service]
 Type=simple

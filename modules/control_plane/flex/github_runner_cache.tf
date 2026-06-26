@@ -1,15 +1,5 @@
 # Scheduled GitHub runner mirror refresh for outdated runner retry recovery.
 
-data "archive_file" "github_runner_cache_refresh" {
-  type        = "zip"
-  output_path = "${local.lambda_artifact_prefix}-github-runner-cache-refresh.zip"
-
-  source {
-    content  = file("${path.module}/../../../lambdas/github_runner_cache_refresh.js")
-    filename = "index.js"
-  }
-}
-
 resource "aws_cloudwatch_log_group" "github_runner_cache_refresh_lambda" {
   name              = "/runs-on/${var.stack_name}/lambda/github-runner-cache-refresh"
   retention_in_days = 14
@@ -107,8 +97,8 @@ resource "aws_lambda_function" "github_runner_cache_refresh" {
   timeout       = 300
   memory_size   = 512
 
-  filename         = data.archive_file.github_runner_cache_refresh.output_path
-  source_code_hash = data.archive_file.github_runner_cache_refresh.output_base64sha256
+  filename         = "${local.lambda_artifact_dir}/github-runner-cache-refresh.zip"
+  source_code_hash = filebase64sha256("${local.lambda_artifact_dir}/github-runner-cache-refresh.zip")
 
   logging_config {
     log_format = "Text"
@@ -140,6 +130,9 @@ resource "aws_lambda_invocation" "github_runner_cache_refresh_seed" {
       bucket = var.extras.cache.bucket_name
     }
   })
+  triggers = {
+    lambda_version = aws_lambda_function.github_runner_cache_refresh.source_code_hash
+  }
 
   depends_on = [
     aws_iam_role_policy.github_runner_cache_refresh,

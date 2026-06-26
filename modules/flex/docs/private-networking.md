@@ -33,7 +33,7 @@ For fresh NAT Gateway deployments, set `private_mode_delay = "60s"` to allow the
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.2"
+  version = "v3.1.3"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
