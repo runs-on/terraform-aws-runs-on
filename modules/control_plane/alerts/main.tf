@@ -6,16 +6,12 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 6.0"
     }
-    archive = {
-      source  = "hashicorp/archive"
-      version = ">= 2.0"
-    }
   }
 }
 
 locals {
-  slack_webhook_enabled  = trimspace(var.slack_webhook_url) != ""
-  lambda_artifact_prefix = "${path.root}/.terraform/runs-on-${substr(sha1(path.cwd), 0, 8)}-${var.stack_name}"
+  slack_webhook_enabled = trimspace(var.slack_webhook_url) != ""
+  lambda_artifact_dir   = "${path.module}/../../../lambdas/dist"
 }
 
 resource "aws_sns_topic" "alerts" {
@@ -133,8 +129,8 @@ resource "aws_lambda_function" "slack_webhook" {
   timeout       = 10
   memory_size   = 128
 
-  filename         = data.archive_file.slack_webhook[0].output_path
-  source_code_hash = data.archive_file.slack_webhook[0].output_base64sha256
+  filename         = "${local.lambda_artifact_dir}/slack-webhook.zip"
+  source_code_hash = filebase64sha256("${local.lambda_artifact_dir}/slack-webhook.zip")
 
   logging_config {
     log_format = "Text"
@@ -158,18 +154,6 @@ resource "aws_lambda_function" "slack_webhook" {
   depends_on = [
     aws_iam_role_policy.slack_webhook_logs,
   ]
-}
-
-data "archive_file" "slack_webhook" {
-  count = local.slack_webhook_enabled ? 1 : 0
-
-  type        = "zip"
-  output_path = "${local.lambda_artifact_prefix}-slack-webhook.zip"
-
-  source {
-    content  = file("${path.module}/../../../lambdas/slack_webhook.py")
-    filename = "index.py"
-  }
 }
 
 resource "aws_lambda_permission" "slack_webhook" {

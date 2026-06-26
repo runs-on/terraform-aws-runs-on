@@ -1,17 +1,6 @@
 # modules/flex_control_plane/waf.tf
 # AWS WAF configuration for public ingress
 
-data "archive_file" "github_waf_sync" {
-  count       = local.using_managed_public_ingress_waf ? 1 : 0
-  type        = "zip"
-  output_path = "${local.lambda_artifact_prefix}-github-waf-sync.zip"
-
-  source {
-    content  = file("${path.module}/../../../lambdas/github_waf_sync.js")
-    filename = "index.js"
-  }
-}
-
 resource "aws_wafv2_ip_set" "allowed_ips_ipv4" {
   count              = local.using_managed_public_ingress_waf ? 1 : 0
   name               = "${var.stack_name}-allowed-ips-ipv4"
@@ -142,8 +131,8 @@ resource "aws_lambda_function" "github_waf_sync" {
   timeout       = 30
   memory_size   = 256
 
-  filename         = data.archive_file.github_waf_sync[0].output_path
-  source_code_hash = data.archive_file.github_waf_sync[0].output_base64sha256
+  filename         = "${local.lambda_artifact_dir}/github-waf-sync.zip"
+  source_code_hash = filebase64sha256("${local.lambda_artifact_dir}/github-waf-sync.zip")
 
   logging_config {
     log_format = "Text"

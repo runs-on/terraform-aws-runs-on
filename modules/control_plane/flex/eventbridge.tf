@@ -88,6 +88,8 @@ resource "aws_scheduler_schedule" "cost_report" {
 }
 
 resource "aws_scheduler_schedule" "cost_allocation_tag" {
+  count = local.operations.enable_cost_reports ? 1 : 0
+
   name                         = "${var.stack_name}-cost-allocation-tag"
   schedule_expression          = "cron(10 0 * * ? *)"
   schedule_expression_timezone = "UTC"
@@ -108,6 +110,11 @@ resource "aws_scheduler_schedule" "cost_allocation_tag" {
       "detail-type" = "RunsOn Cost Allocation Tag"
     })
   }
+}
+
+moved {
+  from = aws_scheduler_schedule.cost_allocation_tag
+  to   = aws_scheduler_schedule.cost_allocation_tag[0]
 }
 
 ###########################

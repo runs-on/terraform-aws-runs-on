@@ -6,10 +6,6 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 6.33"
     }
-    archive = {
-      source  = "hashicorp/archive"
-      version = ">= 2.0"
-    }
   }
 }
 
@@ -22,7 +18,7 @@ locals {
   alerts                                = var.alerts
   common_tags                           = var.tags
   admin_routes_enabled                  = local.operations.enable_admin_routes
-  lambda_artifact_prefix                = "${path.root}/.terraform/runs-on-${substr(sha1(path.cwd), 0, 8)}-${var.stack_name}"
+  lambda_artifact_dir                   = "${path.module}/../../../lambdas/dist"
   public_ingress_web_acl_arn_trimmed    = trimspace(local.operations.public_ingress_web_acl_arn)
   using_user_managed_public_ingress_waf = local.operations.enable_waf && local.public_ingress_web_acl_arn_trimmed != ""
   using_managed_public_ingress_waf      = local.operations.enable_waf && local.public_ingress_web_acl_arn_trimmed == "" && trimspace(local.github.enterprise_url) == ""

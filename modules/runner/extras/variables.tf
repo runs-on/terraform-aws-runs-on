@@ -29,6 +29,12 @@ variable "cache_bucket_namespace" {
   }
 }
 
+variable "cache_bucket_versioning_enabled" {
+  description = "Enable S3 object versioning for the cache bucket."
+  type        = bool
+  default     = false
+}
+
 variable "force_destroy_buckets" {
   description = "Allow S3 buckets to be destroyed even when not empty"
   type        = bool

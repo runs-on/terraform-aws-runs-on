@@ -174,6 +174,7 @@ module "extras" {
   stack_name                         = var.stack_name
   cache_expiration_days              = var.cache_expiration_days
   cache_bucket_namespace             = var.cache_bucket_namespace
+  cache_bucket_versioning_enabled    = var.cache_bucket_versioning_enabled
   force_destroy_buckets              = var.force_destroy_buckets
   enable_efs                         = var.enable_efs
   enable_ecr                         = var.enable_ecr
