@@ -173,6 +173,19 @@ run "baseline_identity_and_outputs" {
   }
 }
 
+run "exports_alerts_with_slack_webhook" {
+  command = plan
+
+  variables {
+    alert_slack_webhook_url = "https://hooks.slack.com/services/example"
+  }
+
+  assert {
+    condition     = output.alerts.slack_webhook_lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:mock"
+    error_message = "Flex root alerts output should expose the non-secret Slack webhook Lambda ARN."
+  }
+}
+
 run "private_mode_delay_creates_nat_wait" {
   command = plan
 

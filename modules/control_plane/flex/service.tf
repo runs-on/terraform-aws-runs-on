@@ -7,7 +7,7 @@ locals {
       Action = [
         "ssm:GetParameters",
       ]
-      Resource = "arn:aws:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/secrets/otel-exporter-headers"
+      Resource = "arn:${local.partition}:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/secrets/otel-exporter-headers"
     },
   ] : []
 
@@ -121,7 +121,7 @@ locals {
         "logs:PutLogEvents",
         "logs:DescribeLogStreams",
       ]
-      Resource = "arn:aws:logs:${var.region}:${var.account_id}:log-group:${local.worker_log_group_name}:*"
+      Resource = "arn:${local.partition}:logs:${var.region}:${var.account_id}:log-group:${local.worker_log_group_name}:*"
     },
   ]
 }

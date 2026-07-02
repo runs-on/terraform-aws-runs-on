@@ -14,7 +14,7 @@ resource "aws_iam_role" "ec2_instance" {
       {
         Effect = "Allow"
         Principal = {
-          Service = "ec2.amazonaws.com"
+          Service = data.aws_service_principal.ec2.name
         }
         Action = "sts:AssumeRole"
       }
@@ -34,12 +34,7 @@ resource "aws_iam_role" "ec2_instance" {
 # Attach AWS managed policies
 resource "aws_iam_role_policy_attachment" "ec2_ssm" {
   role       = aws_iam_role.ec2_instance.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-}
-
-resource "aws_iam_role_policy_attachment" "ec2_ecr_public" {
-  role       = aws_iam_role.ec2_instance.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicReadOnly"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_role_policy_attachment" "ec2_custom" {
@@ -47,6 +42,13 @@ resource "aws_iam_role_policy_attachment" "ec2_custom" {
 
   role       = aws_iam_role.ec2_instance.name
   policy_arn = var.runner_custom_policy_arn
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_custom_additional" {
+  count = length(var.runner_custom_policy_arns)
+
+  role       = aws_iam_role.ec2_instance.name
+  policy_arn = var.runner_custom_policy_arns[count.index]
 }
 
 # Inline policies for EC2 instances
@@ -99,7 +101,7 @@ resource "aws_iam_role_policy" "ec2_create_tags" {
         Action = [
           "ec2:CreateTags"
         ]
-        Resource = "arn:aws:ec2:${var.region}:${var.account_id}:instance/*"
+        Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:instance/*"
         Condition = {
           StringEquals = {
             "aws:ARN" = "$${ec2:SourceInstanceARN}"
@@ -123,8 +125,8 @@ resource "aws_iam_role_policy" "ec2_create_tags_volumes" {
           "ec2:CreateTags"
         ]
         Resource = [
-          "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
-          "arn:aws:ec2:${var.region}:*:snapshot/*"
+          "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+          "arn:${local.partition}:ec2:${var.region}:*:snapshot/*"
         ]
       }
     ]
@@ -146,7 +148,7 @@ resource "aws_iam_role_policy" "ec2_cloudwatch_logs" {
           "logs:DescribeLogStreams"
         ]
         Resource = [
-          "arn:aws:logs:${var.region}:${var.account_id}:log-group:${local.log_group_name}:*"
+          "arn:${local.partition}:logs:${var.region}:${var.account_id}:log-group:${local.log_group_name}:*"
         ]
       }
     ]
@@ -304,8 +306,8 @@ resource "aws_iam_role_policy" "ec2_snapshot_create" {
           "ec2:CreateSnapshot"
         ]
         Resource = [
-          "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
-          "arn:aws:ec2:${var.region}::snapshot/*"
+          "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+          "arn:${local.partition}:ec2:${var.region}::snapshot/*"
         ]
       }
     ]
@@ -328,9 +330,9 @@ resource "aws_iam_role_policy" "ec2_snapshot_lifecycle" {
           "ec2:DeleteSnapshot"
         ]
         Resource = [
-          "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
-          "arn:aws:ec2:${var.region}::snapshot/*",
-          "arn:aws:ec2:${var.region}:${var.account_id}:instance/*"
+          "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+          "arn:${local.partition}:ec2:${var.region}::snapshot/*",
+          "arn:${local.partition}:ec2:${var.region}:${var.account_id}:instance/*"
         ]
         Condition = {
           StringEquals = {
@@ -435,8 +437,8 @@ resource "aws_iam_role_policy" "ec2_ecr_pull_through_cache_access" {
         Resource = distinct(flatten([
           for rule in values(var.extras.pull_through_cache.rules) :
           rule.ecr_repository_prefix == "ROOT" ?
-          ["arn:aws:ecr:${var.region}:${var.account_id}:repository/*"] :
-          ["arn:aws:ecr:${var.region}:${var.account_id}:repository/${rule.ecr_repository_prefix}/*"]
+          ["arn:${local.partition}:ecr:${var.region}:${var.account_id}:repository/*"] :
+          ["arn:${local.partition}:ecr:${var.region}:${var.account_id}:repository/${rule.ecr_repository_prefix}/*"]
         ]))
       }
     ]
@@ -460,9 +462,9 @@ resource "aws_iam_role_policy" "ec2_bedrock_access" {
           "bedrock:ListInferenceProfiles"
         ]
         Resource = [
-          "arn:aws:bedrock:*:*:foundation-model/*",
-          "arn:aws:bedrock:*:*:inference-profile/*",
-          "arn:aws:bedrock:*:*:application-inference-profile/*"
+          "arn:${local.partition}:bedrock:*:*:foundation-model/*",
+          "arn:${local.partition}:bedrock:*:*:inference-profile/*",
+          "arn:${local.partition}:bedrock:*:*:application-inference-profile/*"
         ]
       }
     ]

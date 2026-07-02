@@ -11,6 +11,7 @@ terraform {
 
 # Local variables
 locals {
+  partition                             = data.aws_partition.current.partition
   github                                = var.github
   runtime                               = var.runtime
   runner                                = var.runner
@@ -39,7 +40,7 @@ locals {
   })
 
   public_ingress_stage_name = "prod"
-  public_ingress_base_url   = "https://${aws_api_gateway_rest_api.public_ingress.id}.execute-api.${var.region}.amazonaws.com/${local.public_ingress_stage_name}"
+  public_ingress_base_url   = "https://${aws_api_gateway_rest_api.public_ingress.id}.execute-api.${var.region}.${data.aws_partition.current.dns_suffix}/${local.public_ingress_stage_name}"
   worker_log_group_name     = "/aws/ecs/${var.stack_name}/flexd"
   app_size_presets = {
     small = {
@@ -132,3 +133,5 @@ locals {
 
   base_env_vars = { for k, v in local.all_env_vars : k => v if v != "" }
 }
+
+data "aws_partition" "current" {}
