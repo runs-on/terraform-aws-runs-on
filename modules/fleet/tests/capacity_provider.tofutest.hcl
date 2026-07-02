@@ -1,4 +1,11 @@
 mock_provider "aws" {
+  mock_data "aws_partition" {
+    defaults = {
+      dns_suffix = "amazonaws.com"
+      partition  = "aws"
+    }
+  }
+
   mock_data "aws_region" {
     defaults = {
       region = "us-east-1"
@@ -20,6 +27,18 @@ mock_provider "aws" {
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::123456789012:role/test-plan-role"
+    }
+  }
+
+  mock_resource "aws_cloudwatch_log_group" {
+    defaults = {
+      arn = "arn:aws:logs:us-east-1:123456789012:log-group:mock"
+    }
+  }
+
+  mock_resource "aws_lambda_function" {
+    defaults = {
+      arn = "arn:aws:lambda:us-east-1:123456789012:function:mock"
     }
   }
 
@@ -73,6 +92,19 @@ run "defaults_to_fargate_capacity_provider" {
   assert {
     condition     = local.fleet_runtime.capacity_provider == "FARGATE"
     error_message = "Fleet should default to the FARGATE capacity provider."
+  }
+}
+
+run "exports_alerts_with_slack_webhook" {
+  command = plan
+
+  variables {
+    alert_slack_webhook_url = "https://hooks.slack.com/services/example"
+  }
+
+  assert {
+    condition     = output.alerts.slack_webhook_lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:mock"
+    error_message = "Fleet root alerts output should expose the non-secret Slack webhook Lambda ARN."
   }
 }
 

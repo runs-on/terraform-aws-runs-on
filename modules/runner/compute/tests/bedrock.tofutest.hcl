@@ -1,4 +1,11 @@
 mock_provider "aws" {
+  mock_data "aws_partition" {
+    defaults = {
+      dns_suffix = "amazonaws.com"
+      partition  = "aws"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       unique_id = "AROATESTSTACKROLEID"
@@ -131,12 +138,20 @@ run "runner_custom_policy_arn_attaches_to_instance_role" {
   }
 }
 
+run "computed_runner_custom_policy_arns_plan" {
+  command = plan
+
+  module {
+    source = "./tests/fixtures/computed-policy-arn"
+  }
+}
+
 run "default_runner_policies_are_scoped" {
   command = plan
 
   assert {
-    condition     = aws_iam_role_policy_attachment.ec2_ecr_public.policy_arn == "arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicReadOnly"
-    error_message = "runner instances should only get read-only ECR Public access."
+    condition     = length(aws_iam_role_policy_attachment.ec2_custom_additional) == 0
+    error_message = "additional custom runner policy attachments should default to empty."
   }
 
   assert {

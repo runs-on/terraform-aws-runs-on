@@ -10,6 +10,7 @@ terraform {
 }
 
 locals {
+  partition              = data.aws_partition.current.partition
   has_ebs_encryption_key = trimspace(var.ebs_encryption_key_id) != ""
   ebs_encryption_policy_statements = concat(
     local.has_ebs_encryption_key ? [
@@ -66,14 +67,14 @@ locals {
       Action = [
         "iam:GetRole",
       ]
-      Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+      Resource = "arn:${local.partition}:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
     },
     {
       Effect = "Allow"
       Action = [
         "iam:CreateServiceLinkedRole"
       ]
-      Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+      Resource = "arn:${local.partition}:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
       Condition = {
         StringEquals = {
           "iam:AWSServiceName" = "spot.amazonaws.com"
@@ -95,17 +96,17 @@ locals {
         "ec2:RunInstances",
       ]
       Resource = [
-        "arn:aws:ec2:${var.region}::image/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:instance/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:network-interface/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:security-group/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:subnet/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:launch-template/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:key-pair/*",
+        "arn:${local.partition}:ec2:${var.region}::image/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:instance/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:network-interface/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:security-group/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:subnet/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:launch-template/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:key-pair/*",
         # Spot launches authorize RunInstances and tag-on-create CreateTags
         # against the spot-instances-request resource.
-        "arn:aws:ec2:${var.region}:${var.account_id}:spot-instances-request/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:spot-instances-request/*",
       ]
     },
     {
@@ -123,7 +124,7 @@ locals {
         "ec2:StopInstances",
         "ec2:StartInstances",
       ]
-      Resource = "arn:aws:ec2:${var.region}:${var.account_id}:instance/*"
+      Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:instance/*"
       Condition = {
         StringEquals = {
           "aws:ResourceTag/runs-on-stack-name" = var.stack_name
@@ -137,8 +138,8 @@ locals {
         "ec2:DeleteSnapshot",
       ]
       Resource = [
-        "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
-        "arn:aws:ec2:${var.region}::snapshot/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+        "arn:${local.partition}:ec2:${var.region}::snapshot/*",
       ]
       Condition = {
         StringEquals = {
@@ -185,6 +186,8 @@ data "aws_kms_key" "ebs_encryption" {
 
   key_id = trimspace(var.ebs_encryption_key_id)
 }
+
+data "aws_partition" "current" {}
 
 resource "aws_cloudwatch_log_group" "this" {
   name              = var.log_group_name
@@ -252,7 +255,7 @@ resource "aws_iam_role" "execution" {
 
 resource "aws_iam_role_policy_attachment" "execution" {
   role       = aws_iam_role.execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 resource "aws_iam_role_policy" "execution_extra" {

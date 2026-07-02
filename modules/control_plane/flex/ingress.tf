@@ -210,14 +210,14 @@ resource "aws_iam_role_policy" "github_apps_setup" {
         Action = [
           "iam:GetRole",
         ]
-        Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+        Resource = "arn:${local.partition}:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
       },
       {
         Effect = "Allow"
         Action = [
           "iam:CreateServiceLinkedRole",
         ]
-        Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+        Resource = "arn:${local.partition}:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
         Condition = {
           StringEquals = {
             "iam:AWSServiceName" = "spot.amazonaws.com"
@@ -469,7 +469,7 @@ resource "aws_lambda_permission" "public_ingress" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.public_ingress.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.region}:${var.account_id}:${aws_api_gateway_rest_api.public_ingress.id}/${local.public_ingress_stage_name}/POST/github/webhooks"
+  source_arn    = "arn:${local.partition}:execute-api:${var.region}:${var.account_id}:${aws_api_gateway_rest_api.public_ingress.id}/${local.public_ingress_stage_name}/POST/github/webhooks"
 }
 
 resource "aws_lambda_permission" "github_apps_setup" {
@@ -478,5 +478,5 @@ resource "aws_lambda_permission" "github_apps_setup" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.github_apps_setup[0].function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "arn:aws:execute-api:${var.region}:${var.account_id}:${aws_api_gateway_rest_api.public_ingress.id}/${local.public_ingress_stage_name}/GET/*"
+  source_arn    = "arn:${local.partition}:execute-api:${var.region}:${var.account_id}:${aws_api_gateway_rest_api.public_ingress.id}/${local.public_ingress_stage_name}/GET/*"
 }

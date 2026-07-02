@@ -22,7 +22,7 @@ Public module source:
 ```hcl
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.1.3"
+  version = "v3.1.4"
 }
 ```
 
@@ -164,7 +164,7 @@ locals {
 
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.1.3"
+  version = "v3.1.4"
 
   stack_name             = var.stack_name
   github_enterprise_pat  = var.github_enterprise_pat
@@ -212,6 +212,8 @@ jobs:
 Fleet names GitHub scale sets with stack scope, so stack `runs-on-fleet-preview-v3` and fleet `linux-small` create scale set `runs-on-fleet-preview-v3-linux-small`. Fleet v1 creates runtime capacity from GitHub assigned-job demand.
 
 Fleet has one routing environment per stack. The module writes `environment` into every generated pool spec; `fleets.<fleet-name>.env` is not a supported override.
+
+Destroying the AWS stack does not necessarily delete GitHub runner scale sets. Recreating the same stack and fleet in the same runner group can reuse an existing GitHub scale set; Fleet updates its labels on startup, so verify the `fleetd` service has rolled if a changed `environment` is not reflected.
 
 ## Architecture
 
@@ -353,7 +355,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alert notifications (optional) | `string` | `""` | no |
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the Fleet worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight assigned jobs are reconciled by the Fleet runtime. | `string` | `"fargate"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the Fleet worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. | `string` | `"v3.1.3"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. | `string` | `"v3.1.4-rc.1"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap release tag used by the shared compute bootstrap template. | `string` | `"v0.1.17"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |
@@ -379,9 +381,10 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | Private subnet IDs used for Fargate and runners when private\_mode is enabled. | `list(string)` | `[]` | no |
 | <a name="input_public_subnet_ids"></a> [public\_subnet\_ids](#input\_public\_subnet\_ids) | Public subnet IDs used for runners and Fargate. Required unless private\_mode is "only". | `list(string)` | `[]` | no |
 | <a name="input_runner_custom_policy_arn"></a> [runner\_custom\_policy\_arn](#input\_runner\_custom\_policy\_arn) | Optional managed policy attached to the EC2 runner role. | `string` | `""` | no |
+| <a name="input_runner_custom_policy_arns"></a> [runner\_custom\_policy\_arns](#input\_runner\_custom\_policy\_arns) | Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources. | `list(string)` | `[]` | no |
 | <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Additional custom tags propagated to launched runner instances. | `list(string)` | `[]` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes passed to the shared compute bootstrap template. | `number` | `60` | no |
-| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.3@sha256:4e464e38792a8838c2847a0c0393dba4f504065249b257d38f85df4bd7c81ce6"` | no |
+| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.4-rc.1@sha256:e6dedcf309757ce25ff533b6d56c90d54c0e8514ad42a993de4829e7a266a8d7"` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for runners and the Fleet worker. Leave empty to create a dedicated group. | `list(string)` | `[]` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH ingress when the module creates its own security group. | `bool` | `false` | no |
 | <a name="input_ssh_cidr_range"></a> [ssh\_cidr\_range](#input\_ssh\_cidr\_range) | CIDR range allowed for SSH access when the module creates its own security group. | `string` | `"0.0.0.0/0"` | no |

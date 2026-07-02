@@ -162,7 +162,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.3@sha256:4e464e38792a8838c2847a0c0393dba4f504065249b257d38f85df4bd7c81ce6"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.4-rc.1@sha256:e6dedcf309757ce25ff533b6d56c90d54c0e8514ad42a993de4829e7a266a8d7"
 }
 
 variable "extra_env_vars" {
@@ -215,7 +215,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners."
   type        = string
-  default     = "v3.1.3"
+  default     = "v3.1.4-rc.1"
 }
 
 variable "runner_max_runtime" {
@@ -305,6 +305,12 @@ variable "runner_custom_policy_arn" {
   description = "Optional managed policy attached to the EC2 runner role."
   type        = string
   default     = ""
+}
+
+variable "runner_custom_policy_arns" {
+  description = "Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources."
+  type        = list(string)
+  default     = []
 }
 
 variable "enable_bedrock" {

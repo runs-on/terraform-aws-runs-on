@@ -45,10 +45,12 @@ func TestPlanSourceTerraformLambdaArtifactsAreBundled(t *testing.T) {
 		{"modules", "control_plane", "flex", "waf.tf"},
 	} {
 		source := readTerraformSource(t, parts...)
-		assert.NotContains(t, source, `data "archive_file"`, strings.Join(parts, "/"))
-		assert.NotContains(t, source, `data.archive_file`, strings.Join(parts, "/"))
-		assert.NotContains(t, source, `hashicorp/archive`, strings.Join(parts, "/"))
-		assert.NotContains(t, source, `path.root}/.terraform`, strings.Join(parts, "/"))
+		path := strings.Join(parts, "/")
+		assert.NotContains(t, source, `data "archive_file"`, path)
+		assert.NotContains(t, source, `data.archive_file`, path)
+		assert.NotContains(t, source, `hashicorp/archive`, path)
+		assert.NotContains(t, source, `path.root}/.terraform`, path)
+		assert.NotContains(t, source, `path.cwd`, path)
 	}
 
 	for _, artifact := range []struct {
@@ -234,10 +236,14 @@ func TestPlanSourceCustomPolicyWiring(t *testing.T) {
 	t.Parallel()
 
 	mainTF := readTerraformSource(t, "modules", "flex", "main.tf")
+	fleetMainTF := readTerraformSource(t, "modules", "fleet", "main.tf")
 	serviceTF := readTerraformSource(t, "modules", "control_plane", "flex", "service.tf")
 
 	assert.Contains(t, mainTF, "custom_policy_arn         = var.app_custom_policy_arn")
-	assert.Contains(t, mainTF, "runner_custom_policy_arn = var.runner_custom_policy_arn")
+	assert.Contains(t, mainTF, "runner_custom_policy_arn  = var.runner_custom_policy_arn")
+	assert.Contains(t, mainTF, "runner_custom_policy_arns = var.runner_custom_policy_arns")
+	assert.Contains(t, fleetMainTF, "runner_custom_policy_arn  = var.runner_custom_policy_arn")
+	assert.Contains(t, fleetMainTF, "runner_custom_policy_arns = var.runner_custom_policy_arns")
 	assert.Contains(t, serviceTF, "task_role_managed_policy_arns   = compact([local.runtime.custom_policy_arn])")
 }
 
@@ -329,7 +335,7 @@ func TestPlanSourceTerraformECRPullThroughCacheWiring(t *testing.T) {
 	assert.Contains(t, computeIAMTF, `resource "aws_iam_role_policy" "ec2_ecr_pull_through_cache_access"`)
 	assert.Contains(t, computeIAMTF, `ecr:BatchImportUpstreamImage`)
 	assert.Contains(t, computeIAMTF, `ecr:CreateRepository`)
-	assert.Contains(t, computeIAMTF, `AmazonElasticContainerRegistryPublicReadOnly`)
+	assert.NotContains(t, computeIAMTF, `AmazonElasticContainerRegistryPublicReadOnly`)
 	assert.NotContains(t, computeIAMTF, `AmazonElasticContainerRegistryPublicFullAccess`)
 
 	assert.Contains(t, launchTemplatesTF, `RUNS_ON_ECR_PULL_THROUGH_CACHE=`)

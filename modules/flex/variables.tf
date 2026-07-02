@@ -210,14 +210,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.3@sha256:4e464e38792a8838c2847a0c0393dba4f504065249b257d38f85df4bd7c81ce6"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.4-rc.1@sha256:e6dedcf309757ce25ff533b6d56c90d54c0e8514ad42a993de4829e7a266a8d7"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.1.3"
+  default     = "v3.1.4-rc.1"
   nullable    = false
 }
 
@@ -350,6 +350,12 @@ variable "runner_custom_policy_arn" {
   description = "Optional managed IAM policy ARN to attach to the EC2 runner instance role."
   type        = string
   default     = ""
+}
+
+variable "runner_custom_policy_arns" {
+  description = "Optional managed IAM policy ARNs to attach to the EC2 runner instance role. Use this when policy ARNs are computed by other resources."
+  type        = list(string)
+  default     = []
 }
 
 variable "runner_config_auto_extends_from" {
