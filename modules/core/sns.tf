@@ -82,7 +82,7 @@ resource "aws_lambda_function" "slack_webhook" {
 
   function_name = "${var.stack_name}-slack-webhook"
   role          = aws_iam_role.slack_webhook[0].arn
-  runtime       = "python3.11"
+  runtime       = "python3.14"
   handler       = "index.handler"
   timeout       = 10
   memory_size   = 128
