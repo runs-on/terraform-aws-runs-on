@@ -8,6 +8,21 @@ check "private_mode_requires_subnets" {
   }
 }
 
+# Check blocks only warn, but this rule must fail invalid plans before apply.
+resource "terraform_data" "validate_public_subnets" {
+  input = {
+    private_mode      = var.private_mode
+    public_subnet_ids = var.public_subnet_ids
+  }
+
+  lifecycle {
+    precondition {
+      condition     = length(var.public_subnet_ids) >= 1 || var.private_mode == "only"
+      error_message = "At least one public subnet ID is required unless private_mode is \"only\"."
+    }
+  }
+}
+
 locals {
   region = data.aws_region.current.region
 
@@ -79,6 +94,7 @@ module "extras" {
   stack_name                         = var.stack_name
   cache_expiration_days              = var.cache_expiration_days
   cache_bucket_namespace             = var.cache_bucket_namespace
+  cache_bucket_versioning_enabled    = var.cache_bucket_versioning_enabled
   force_destroy_buckets              = var.force_destroy_buckets
   enable_efs                         = false
   enable_ecr                         = false

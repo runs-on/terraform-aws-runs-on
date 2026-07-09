@@ -217,6 +217,46 @@ run "zero_budget_skips_budget_resources" {
 
 }
 
+run "disabled_cost_reports_skip_cost_schedules" {
+  command = plan
+
+  assert {
+    condition     = length(aws_scheduler_schedule.cost_report) == 0
+    error_message = "Cost report schedule should be absent when enable_cost_reports is false."
+  }
+
+  assert {
+    condition     = length(aws_scheduler_schedule.cost_allocation_tag) == 0
+    error_message = "Cost allocation tag schedule should be absent when enable_cost_reports is false."
+  }
+}
+
+run "enabled_cost_reports_create_cost_schedules" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 0
+      enable_cost_reports               = true
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = false
+      public_ingress_web_acl_arn        = ""
+    }
+  }
+
+  assert {
+    condition     = length(aws_scheduler_schedule.cost_report) == 1
+    error_message = "Cost report schedule should be created when enable_cost_reports is true."
+  }
+
+  assert {
+    condition     = length(aws_scheduler_schedule.cost_allocation_tag) == 1
+    error_message = "Cost allocation tag schedule should be created when enable_cost_reports is true."
+  }
+}
+
 run "positive_budget_creates_budget_resources" {
   command = plan
 

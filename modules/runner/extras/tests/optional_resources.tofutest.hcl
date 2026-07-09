@@ -69,6 +69,26 @@ run "cache_bucket_defaults_to_global_namespace" {
     condition     = aws_s3_bucket.cache.bucket_prefix == "test-plan-cache-"
     error_message = "Global cache bucket should keep the existing bucket prefix naming."
   }
+
+  assert {
+    condition     = aws_s3_bucket_versioning.cache.versioning_configuration[0].status == "Suspended"
+    error_message = "Cache bucket versioning should be suspended by default."
+  }
+}
+
+run "cache_bucket_versioning_can_be_enabled" {
+  command = plan
+
+  variables {
+    cache_bucket_versioning_enabled = true
+    enable_efs                      = false
+    enable_ecr                      = false
+  }
+
+  assert {
+    condition     = aws_s3_bucket_versioning.cache.versioning_configuration[0].status == "Enabled"
+    error_message = "Cache bucket versioning should be enabled when requested."
+  }
 }
 
 run "cache_bucket_can_use_account_regional_namespace" {

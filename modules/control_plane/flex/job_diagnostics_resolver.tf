@@ -1,13 +1,3 @@
-data "archive_file" "job_diagnostics_resolver" {
-  type        = "zip"
-  output_path = "${local.lambda_artifact_prefix}-job-diagnostics-resolver.zip"
-
-  source {
-    content  = file("${path.module}/../../../lambdas/job_diagnostics_resolver.js")
-    filename = "index.js"
-  }
-}
-
 resource "aws_cloudwatch_log_group" "job_diagnostics_resolver" {
   name              = "/runs-on/${var.stack_name}/lambda/job-diagnostics-resolver"
   retention_in_days = 14
@@ -88,8 +78,8 @@ resource "aws_lambda_function" "job_diagnostics_resolver" {
   timeout       = 30
   memory_size   = 256
 
-  filename         = data.archive_file.job_diagnostics_resolver.output_path
-  source_code_hash = data.archive_file.job_diagnostics_resolver.output_base64sha256
+  filename         = "${local.lambda_artifact_dir}/job-diagnostics-resolver.zip"
+  source_code_hash = filebase64sha256("${local.lambda_artifact_dir}/job-diagnostics-resolver.zip")
 
   logging_config {
     log_format = "Text"

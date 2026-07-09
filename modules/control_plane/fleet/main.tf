@@ -6,17 +6,14 @@ terraform {
       source  = "hashicorp/aws"
       version = ">= 6.0"
     }
-    archive = {
-      source  = "hashicorp/archive"
-      version = ">= 2.0"
-    }
   }
 }
 
 locals {
-  github        = var.github
-  runtime       = var.runtime
-  control_plane = var.control_plane
+  github              = var.github
+  runtime             = var.runtime
+  control_plane       = var.control_plane
+  lambda_artifact_dir = "${path.module}/../../../lambdas/dist"
   # Fleet has one routing environment per stack. Normalize any fleet-level env
   # value before persisting the runtime config so lanes cannot drift by entry.
   catalog = {
