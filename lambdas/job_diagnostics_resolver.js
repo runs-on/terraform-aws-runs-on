@@ -544,10 +544,11 @@ async function deliveryMetadata(githubClient, credentials, observed, diagnostics
   });
 }
 
-function baseResponse(product, facts) {
+function baseResponse(product, facts, stackName = '') {
   return {
     status: 'not_found',
     product,
+    stack_name: trim(stackName),
     request: facts,
     github: {
       workflow_job: null,
@@ -561,7 +562,7 @@ function baseResponse(product, facts) {
 }
 
 async function resolveFlex(aws, facts, options) {
-  const response = baseResponse('flex', facts);
+  const response = baseResponse('flex', facts, process.env.RUNS_ON_STACK_NAME);
   const stackConfig = await loadSecretJSON(
     aws,
     process.env.RUNS_ON_STACK_CONFIG_SECRET_ARN,
@@ -615,12 +616,12 @@ async function resolveFlex(aws, facts, options) {
 }
 
 async function resolveFleet(aws, facts, options) {
-  const response = baseResponse('fleet', facts);
   const config = await loadSecretJSON(
     aws,
     process.env.RUNS_ON_FLEET_CONFIG_SECRET_ARN,
     'fleet config',
   );
+  const response = baseResponse('fleet', facts, config?.infra?.stack_name);
   const tableName = trim(process.env.RUNS_ON_CLAIMS_TABLE || config?.infra?.claim_table_name);
   if (!tableName) throw new Error('fleet claims table is not configured');
   if (!facts.workflow_job_id) throw new Error('workflow_job_id is required');

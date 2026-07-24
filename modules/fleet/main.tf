@@ -26,6 +26,32 @@ resource "terraform_data" "validate_public_subnets" {
 locals {
   region = data.aws_region.current.region
 
+  # These patterns mirror the control plane's sticky-label parser so Terraform
+  # rejects bad Fleet catalog entries before deploying an unusable runner.
+  sticky_disk_name_pattern       = "^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$"
+  sticky_disk_size_pattern       = "^\\+?[1-9][0-9]*(gb|g|tb)$"
+  sticky_disk_throughput_pattern = "^[+-]?[0-9]+(mbs|mbps)$"
+  sticky_disk_iops_pattern       = "^[+-]?[0-9]+iops$"
+  sticky_disk_setting_pattern    = "^(gp3|gp2|io1|io2|st1|sc1|standard|\\+?[1-9][0-9]*(gb|g|tb)|[+-]?[0-9]+(mbs|mbps|iops))$"
+  sticky_disk_volume_types       = ["gp3", "gp2", "io1", "io2", "st1", "sc1", "standard"]
+  fleet_runner_sticky_specs = {
+    for name, runner in var.runners :
+    name => try(trimspace(tostring(runner.sticky)), "")
+    if try(trimspace(tostring(runner.sticky)), "") != ""
+  }
+  fleet_runner_invalid_sticky_types = [
+    for name, runner in var.runners : name
+    if can(runner.sticky) && try(runner.sticky != null, false) && !can(tostring(runner.sticky))
+  ]
+  fleet_runner_sticky_parts = {
+    for name, spec in local.fleet_runner_sticky_specs :
+    name => [for part in split(":", spec) : lower(trimspace(part))]
+  }
+  fleet_runner_sticky_setting_parts = {
+    for name, parts in local.fleet_runner_sticky_parts :
+    name => can(regex(local.sticky_disk_setting_pattern, parts[0])) ? parts : slice(parts, 1, length(parts))
+  }
+
   fleet_github = {
     app_id          = var.github_app_id
     app_private_key = var.github_app_private_key
@@ -47,20 +73,26 @@ locals {
   }
 
   fleet_runtime = {
-    image              = var.runtime_image
-    size               = var.app_size
-    capacity_provider  = upper(var.app_capacity_provider)
-    maintenance_mode   = var.maintenance_mode
-    log_retention_days = var.log_retention_days
-    extra_env_vars     = var.extra_env_vars
+    image                     = var.runtime_image
+    size                      = var.app_size
+    capacity_provider         = upper(var.app_capacity_provider)
+    maintenance_mode          = var.maintenance_mode
+    log_retention_days        = var.log_retention_days
+    otel_exporter_endpoint    = var.otel_exporter_endpoint
+    otel_exporter_headers     = var.otel_exporter_headers
+    otel_exporter_temporality = var.otel_exporter_temporality
+    otel_logs_enabled         = var.otel_logs_enabled
+    otel_traces_enabled       = var.otel_traces_enabled
+    extra_env_vars            = var.extra_env_vars
   }
 
   fleet_control_plane = {
-    environment         = var.environment
-    private_mode        = var.private_mode
-    cost_allocation_tag = var.cost_allocation_tag
-    app_tag             = var.app_tag
-    runner_custom_tags  = var.runner_custom_tags
+    environment          = var.environment
+    private_mode         = var.private_mode
+    cost_allocation_tag  = var.cost_allocation_tag
+    app_tag              = var.app_tag
+    runner_custom_tags   = var.runner_custom_tags
+    spot_circuit_breaker = var.spot_circuit_breaker
   }
 
   common_tags = merge(
@@ -68,10 +100,49 @@ locals {
     {
       "runs-on-stack-name"      = var.stack_name
       "runs-on-environment"     = var.environment
-      Environment               = var.environment
       (var.cost_allocation_tag) = var.stack_name
     }
   )
+}
+
+# Unlike a check block, this precondition fails the plan. Runtime validation
+# remains authoritative for non-Terraform deployments and future parser drift.
+resource "terraform_data" "validate_runner_sticky_specs" {
+  input = {
+    specs         = local.fleet_runner_sticky_specs
+    invalid_types = local.fleet_runner_invalid_sticky_types
+  }
+
+  lifecycle {
+    precondition {
+      condition = length(local.fleet_runner_invalid_sticky_types) == 0 && alltrue([
+        for name, parts in local.fleet_runner_sticky_parts :
+        (can(regex(local.sticky_disk_setting_pattern, parts[0])) || can(regex(local.sticky_disk_name_pattern, parts[0]))) &&
+        length(local.fleet_runner_sticky_setting_parts[name]) > 0 &&
+        alltrue([
+          for part in local.fleet_runner_sticky_setting_parts[name] :
+          can(regex(local.sticky_disk_setting_pattern, part))
+        ]) &&
+        length([
+          for part in local.fleet_runner_sticky_setting_parts[name] : part
+          if can(regex(local.sticky_disk_size_pattern, part))
+        ]) == 1 &&
+        length([
+          for part in local.fleet_runner_sticky_setting_parts[name] : part
+          if contains(local.sticky_disk_volume_types, part)
+        ]) <= 1 &&
+        length([
+          for part in local.fleet_runner_sticky_setting_parts[name] : part
+          if can(regex(local.sticky_disk_throughput_pattern, part))
+        ]) <= 1 &&
+        length([
+          for part in local.fleet_runner_sticky_setting_parts[name] : part
+          if can(regex(local.sticky_disk_iops_pattern, part))
+        ]) <= 1
+      ])
+      error_message = "Each Fleet runner sticky value must be a string using [name:]<size>, optionally followed by one volume type, throughput, and IOPS setting."
+    }
+  }
 }
 
 module "network" {
@@ -112,19 +183,21 @@ module "compute" {
   region     = local.region
   account_id = data.aws_caller_identity.current.account_id
 
-  stack_name               = var.stack_name
-  cost_allocation_tag      = var.cost_allocation_tag
-  network                  = module.network.network
-  extras                   = module.extras.extras
-  log_retention_days       = var.log_retention_days
-  permission_boundary_arn  = var.permission_boundary_arn
-  runner_custom_policy_arn = var.runner_custom_policy_arn
-  enable_bedrock           = var.enable_bedrock
-  bootstrap_tag            = var.bootstrap_tag
-  app_tag                  = var.app_tag
-  runner_max_runtime       = var.runner_max_runtime
-  ipv6_enabled             = var.ipv6_enabled
-  tags                     = local.common_tags
+  stack_name                  = var.stack_name
+  cost_allocation_tag         = var.cost_allocation_tag
+  network                     = module.network.network
+  extras                      = module.extras.extras
+  log_retention_days          = var.log_retention_days
+  permission_boundary_arn     = var.permission_boundary_arn
+  runner_custom_policy_arns   = var.runner_custom_policy_arns
+  enable_bedrock              = var.enable_bedrock
+  enable_cache_isolation      = var.enable_cache_isolation
+  enable_stickydisk_isolation = var.enable_stickydisk_isolation
+  bootstrap_tag               = var.bootstrap_tag
+  app_tag                     = var.app_tag
+  runner_max_runtime          = var.runner_max_runtime
+  ipv6_enabled                = var.ipv6_enabled
+  tags                        = local.common_tags
 }
 
 module "control_plane" {
@@ -143,6 +216,7 @@ module "control_plane" {
   runtime                           = local.fleet_runtime
   integration_step_security_api_key = var.integration_step_security_api_key
   control_plane                     = local.fleet_control_plane
+  enable_cache_isolation            = var.enable_cache_isolation
   tags                              = local.common_tags
 }
 

@@ -64,7 +64,8 @@ enable_ecr = false  # Enable ephemeral ECR registry
 
 # Optional: reference existing regional ECR pull-through cache rules.
 # Create, import, or look up the account/region-level rule outside RunsOn.
-# Docker Hub ROOT is the only transparent Docker daemon mirror mode.
+# Rules must use a named prefix (e.g. docker-hub); Docker Hub mirroring is
+# transparent via the runner-local registry mirror.
 # ecr_pull_through_cache_rules = {
 #   docker_hub = data.aws_ecr_pull_through_cache_rule.docker_hub
 #   quay       = data.aws_ecr_pull_through_cache_rule.quay

@@ -64,9 +64,9 @@ variable "extras" {
       repository_url  = string
     })
     pull_through_cache = object({
-      enabled                = bool
-      registry_url           = string
-      docker_hub_transparent = bool
+      enabled           = bool
+      registry_url      = string
+      docker_hub_prefix = string
       rules = map(object({
         ecr_repository_prefix      = string
         upstream_registry_url      = string
@@ -150,7 +150,7 @@ variable "runtime" {
     force_new_deployment      = bool
     private_mode              = string
     ecr_repository_url        = string
-    custom_policy_arn         = string
+    custom_policy_arns        = list(string)
     otel_exporter_endpoint    = string
     otel_exporter_headers     = string
     otel_exporter_temporality = string
@@ -183,6 +183,9 @@ variable "operations" {
     enable_admin_routes               = bool
     enable_waf                        = bool
     public_ingress_web_acl_arn        = string
+    # Opt-in: runner extras (e.g. s3-cache, otel) that are always enabled for
+    # every runner, regardless of label or repo config overrides.
+    mandatory_extras = optional(list(string), [])
   })
 }
 
@@ -202,4 +205,10 @@ variable "alerts" {
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)
+}
+
+variable "enable_cache_isolation" {
+  description = "Vend brokered, per-repository cache credentials to runners. When false, the always-created broker stays idle and runners use direct cache access"
+  type        = bool
+  default     = false
 }
