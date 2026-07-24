@@ -11,12 +11,15 @@ terraform {
 
 # Local variables
 locals {
+  partition                             = data.aws_partition.current.partition
   github                                = var.github
   runtime                               = var.runtime
   runner                                = var.runner
   operations                            = var.operations
   alerts                                = var.alerts
   common_tags                           = var.tags
+  github_enterprise_url                 = trimsuffix(trimspace(local.github.enterprise_url), "/")
+  github_token_issuer                   = local.github_enterprise_url != "" ? "${local.github_enterprise_url}/_services/token" : "https://token.actions.githubusercontent.com"
   admin_routes_enabled                  = local.operations.enable_admin_routes
   lambda_artifact_dir                   = "${path.module}/../../../lambdas/dist"
   public_ingress_web_acl_arn_trimmed    = trimspace(local.operations.public_ingress_web_acl_arn)
@@ -39,7 +42,7 @@ locals {
   })
 
   public_ingress_stage_name = "prod"
-  public_ingress_base_url   = "https://${aws_api_gateway_rest_api.public_ingress.id}.execute-api.${var.region}.amazonaws.com/${local.public_ingress_stage_name}"
+  public_ingress_base_url   = "https://${aws_api_gateway_rest_api.public_ingress.id}.execute-api.${var.region}.${data.aws_partition.current.dns_suffix}/${local.public_ingress_stage_name}"
   worker_log_group_name     = "/aws/ecs/${var.stack_name}/flexd"
   app_size_presets = {
     small = {
@@ -68,6 +71,7 @@ locals {
     Region                             = var.region
     LicenseKey                         = var.license_key
     BucketCache                        = var.extras.cache.bucket_name
+    CacheCredentialBrokerFunctionName  = var.enable_cache_isolation ? aws_lambda_function.cache_credential_broker.function_name : ""
     InstanceRoleName                   = var.compute.runner_iam.role_name
     SshAllowed                         = local.runner.ssh_allowed ? "true" : "false"
     LaunchTemplateLinuxDefault         = var.compute.launch_templates.linux_default.id
@@ -98,6 +102,7 @@ locals {
     WorkflowJobsTable                  = aws_dynamodb_table.workflow_jobs.name
     JobDiagnosticsResolverFunctionName = aws_lambda_function.job_diagnostics_resolver.function_name
     CostReportsEnabled                 = local.operations.enable_cost_reports ? "true" : "false"
+    MandatoryExtras                    = local.operations.mandatory_extras
     CostAllocationTag                  = var.cost_allocation_tag
     SpotCircuitBreaker                 = local.operations.spot_circuit_breaker
     IntegrationStepSecurityApiKey      = local.operations.integration_step_security_api_key
@@ -132,3 +137,5 @@ locals {
 
   base_env_vars = { for k, v in local.all_env_vars : k => v if v != "" }
 }
+
+data "aws_partition" "current" {}

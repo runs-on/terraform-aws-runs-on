@@ -173,6 +173,19 @@ run "baseline_identity_and_outputs" {
   }
 }
 
+run "exports_alerts_with_slack_webhook" {
+  command = plan
+
+  variables {
+    alert_slack_webhook_url = "https://hooks.slack.com/services/example"
+  }
+
+  assert {
+    condition     = output.alerts.slack_webhook_lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:mock"
+    error_message = "Flex root alerts output should expose the non-secret Slack webhook Lambda ARN."
+  }
+}
+
 run "private_mode_delay_creates_nat_wait" {
   command = plan
 
@@ -211,13 +224,13 @@ run "app_force_new_deployment_flows_to_runtime" {
   }
 }
 
-run "ecr_pull_through_cache_docker_hub_root" {
+run "ecr_pull_through_cache_docker_hub_prefix" {
   command = plan
 
   variables {
     ecr_pull_through_cache_rules = {
       docker_hub = {
-        ecr_repository_prefix = "ROOT"
+        ecr_repository_prefix = "docker-hub"
         upstream_registry_url = "registry-1.docker.io"
       }
     }
@@ -234,9 +247,24 @@ run "ecr_pull_through_cache_docker_hub_root" {
   }
 
   assert {
-    condition     = output.platform.optional_features.pull_through_cache.docker_hub_transparent == true
-    error_message = "Docker Hub ROOT rule should enable transparent Docker Hub mirror mode."
+    condition     = output.platform.optional_features.pull_through_cache.docker_hub_prefix == "docker-hub"
+    error_message = "The Docker Hub rule prefix should be exported for the runner-local registry mirror."
   }
+}
+
+run "ecr_pull_through_cache_root_prefix_is_rejected" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      docker_hub = {
+        ecr_repository_prefix = "ROOT"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+    }
+  }
+
+  expect_failures = [var.ecr_pull_through_cache_rules]
 }
 
 run "ecr_pull_through_cache_multiple_providers" {
@@ -261,8 +289,8 @@ run "ecr_pull_through_cache_multiple_providers" {
   }
 
   assert {
-    condition     = output.platform.optional_features.pull_through_cache.docker_hub_transparent == false
-    error_message = "Non-Docker-Hub rules should not enable transparent Docker Hub mirror mode."
+    condition     = output.platform.optional_features.pull_through_cache.docker_hub_prefix == ""
+    error_message = "Non-Docker-Hub rules should not export a Docker Hub mirror prefix."
   }
 }
 
@@ -272,18 +300,18 @@ run "ecr_pull_through_cache_accepts_official_rule_objects" {
   variables {
     ecr_pull_through_cache_rules = {
       docker_hub = {
-        ecr_repository_prefix      = "ROOT"
+        ecr_repository_prefix      = "docker-hub"
         upstream_registry_url      = "registry-1.docker.io"
         upstream_repository_prefix = ""
         registry_id                = "123456789012"
         credential_arn             = "arn:aws:secretsmanager:us-east-1:123456789012:secret:ecr-pullthroughcache/docker-hub"
-        id                         = "ROOT"
+        id                         = "docker-hub"
       }
     }
   }
 
   assert {
-    condition     = output.platform.optional_features.pull_through_cache.docker_hub_transparent == true
+    condition     = output.platform.optional_features.pull_through_cache.docker_hub_prefix == "docker-hub"
     error_message = "Official rule resource/data source objects should be accepted and normalized."
   }
 }
@@ -294,7 +322,7 @@ run "ecr_pull_through_cache_empty_rule_reference_is_rejected" {
   variables {
     ecr_pull_through_cache_rules = {
       docker_hub = {
-        ecr_repository_prefix = "ROOT"
+        ecr_repository_prefix = "docker-hub"
         upstream_registry_url = ""
       }
     }
@@ -309,17 +337,59 @@ run "ecr_pull_through_cache_duplicate_prefix_is_rejected" {
   variables {
     ecr_pull_through_cache_rules = {
       first = {
-        ecr_repository_prefix = "ROOT"
+        ecr_repository_prefix = "docker-hub"
         upstream_registry_url = "registry-1.docker.io"
       }
       second = {
-        ecr_repository_prefix = "ROOT"
+        ecr_repository_prefix = "docker-hub"
         upstream_registry_url = "registry-1.docker.io"
       }
     }
   }
 
   expect_failures = [var.ecr_pull_through_cache_rules]
+}
+
+run "ecr_pull_through_cache_multiple_transparent_docker_hub_rules_are_rejected" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      first = {
+        ecr_repository_prefix = "docker-hub-one"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+      second = {
+        ecr_repository_prefix = "docker-hub-two"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+    }
+  }
+
+  expect_failures = [var.ecr_pull_through_cache_rules]
+}
+
+run "ecr_pull_through_cache_allows_prefixed_and_transparent_docker_hub_rules" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      transparent = {
+        ecr_repository_prefix = "docker-hub"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+      upstream_prefixed = {
+        ecr_repository_prefix      = "docker-hub-library"
+        upstream_registry_url      = "registry-1.docker.io"
+        upstream_repository_prefix = "library"
+      }
+    }
+  }
+
+  assert {
+    condition     = output.platform.optional_features.pull_through_cache.docker_hub_prefix == "docker-hub"
+    error_message = "Only the unprefixed Docker Hub rule should configure transparent mirroring."
+  }
 }
 
 run "empty_public_subnets_rejected_unless_private_only" {
