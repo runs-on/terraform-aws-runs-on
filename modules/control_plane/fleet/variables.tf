@@ -144,12 +144,17 @@ variable "tags" {
 variable "runtime" {
   description = "Fleet ECS runtime settings"
   type = object({
-    image              = string
-    size               = string
-    capacity_provider  = string
-    maintenance_mode   = bool
-    log_retention_days = number
-    extra_env_vars     = map(string)
+    image                     = string
+    size                      = string
+    capacity_provider         = string
+    maintenance_mode          = bool
+    log_retention_days        = number
+    otel_exporter_endpoint    = string
+    otel_exporter_headers     = string
+    otel_exporter_temporality = string
+    otel_logs_enabled         = bool
+    otel_traces_enabled       = bool
+    extra_env_vars            = map(string)
   })
 }
 
@@ -162,10 +167,17 @@ variable "integration_step_security_api_key" {
 variable "control_plane" {
   description = "Fleet control plane settings published into the runtime secret"
   type = object({
-    environment         = string
-    private_mode        = string
-    cost_allocation_tag = string
-    app_tag             = string
-    runner_custom_tags  = list(string)
+    environment          = string
+    private_mode         = string
+    cost_allocation_tag  = string
+    app_tag              = string
+    runner_custom_tags   = list(string)
+    spot_circuit_breaker = optional(string, "")
   })
+}
+
+variable "enable_cache_isolation" {
+  description = "Vend brokered, per-repository cache credentials to runners. When false, the always-created broker stays idle and runners use direct cache access"
+  type        = bool
+  default     = false
 }

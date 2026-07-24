@@ -89,6 +89,7 @@ resource "aws_lambda_function" "job_diagnostics_resolver" {
   environment {
     variables = {
       RUNS_ON_PRODUCT                 = "flex"
+      RUNS_ON_STACK_NAME              = var.stack_name
       RUNS_ON_STACK_CONFIG_SECRET_ARN = aws_secretsmanager_secret.runs_on_stack_config.arn
       RUNS_ON_GITHUB_APPS_SECRET_ARN  = aws_secretsmanager_secret.runs_on_github_apps.arn
       RUNS_ON_WORKFLOW_JOBS_TABLE     = aws_dynamodb_table.workflow_jobs.name

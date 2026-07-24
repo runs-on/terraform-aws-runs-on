@@ -1,4 +1,11 @@
 mock_provider "aws" {
+  mock_data "aws_partition" {
+    defaults = {
+      dns_suffix = "amazonaws.com"
+      partition  = "aws"
+    }
+  }
+
   mock_data "aws_region" {
     defaults = {
       region = "us-east-1"
@@ -20,6 +27,18 @@ mock_provider "aws" {
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::123456789012:role/test-plan-role"
+    }
+  }
+
+  mock_resource "aws_cloudwatch_log_group" {
+    defaults = {
+      arn = "arn:aws:logs:us-east-1:123456789012:log-group:mock"
+    }
+  }
+
+  mock_resource "aws_lambda_function" {
+    defaults = {
+      arn = "arn:aws:lambda:us-east-1:123456789012:function:mock"
     }
   }
 
@@ -76,6 +95,38 @@ run "defaults_to_fargate_capacity_provider" {
   }
 }
 
+run "multiple_transparent_docker_hub_rules_are_rejected" {
+  command = plan
+
+  variables {
+    ecr_pull_through_cache_rules = {
+      first = {
+        ecr_repository_prefix = "docker-hub-one"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+      second = {
+        ecr_repository_prefix = "docker-hub-two"
+        upstream_registry_url = "registry-1.docker.io"
+      }
+    }
+  }
+
+  expect_failures = [var.ecr_pull_through_cache_rules]
+}
+
+run "exports_alerts_with_slack_webhook" {
+  command = plan
+
+  variables {
+    alert_slack_webhook_url = "https://hooks.slack.com/services/example"
+  }
+
+  assert {
+    condition     = output.alerts.slack_webhook_lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:mock"
+    error_message = "Fleet root alerts output should expose the non-secret Slack webhook Lambda ARN."
+  }
+}
+
 run "can_use_fargate_spot_capacity_provider" {
   command = plan
 
@@ -100,6 +151,58 @@ run "accepts_step_security_integration_key" {
     condition     = nonsensitive(var.integration_step_security_api_key) == "step-security-secret"
     error_message = "Fleet should accept the StepSecurity integration key."
   }
+}
+
+run "accepts_valid_runner_sticky_spec" {
+  command = plan
+
+  variables {
+    runners = {
+      small-x64 = {
+        cpu    = 2
+        ram    = 4
+        family = ["c7"]
+        image  = "ubuntu24-full-x64"
+        sticky = "go-cache:gp3:750mbs:20gb:6000iops"
+      }
+    }
+  }
+}
+
+run "rejects_invalid_runner_sticky_spec" {
+  command = plan
+
+  variables {
+    runners = {
+      small-x64 = {
+        cpu    = 2
+        ram    = 4
+        family = ["c7"]
+        image  = "ubuntu24-full-x64"
+        sticky = "not-a-size"
+      }
+    }
+  }
+
+  expect_failures = [terraform_data.validate_runner_sticky_specs]
+}
+
+run "rejects_non_string_runner_sticky_spec" {
+  command = plan
+
+  variables {
+    runners = {
+      small-x64 = {
+        cpu    = 2
+        ram    = 4
+        family = ["c7"]
+        image  = "ubuntu24-full-x64"
+        sticky = ["20gb"]
+      }
+    }
+  }
+
+  expect_failures = [terraform_data.validate_runner_sticky_specs]
 }
 
 run "private_only_allows_omitted_public_subnets" {

@@ -10,5 +10,5 @@ output "topic_name" {
 
 output "slack_webhook_lambda_arn" {
   description = "Slack webhook Lambda ARN when Slack alerting is enabled."
-  value       = local.slack_webhook_enabled ? aws_lambda_function.slack_webhook[0].arn : null
+  value       = nonsensitive(local.slack_webhook_enabled ? aws_lambda_function.slack_webhook[0].arn : null)
 }

@@ -1,4 +1,11 @@
 mock_provider "aws" {
+  mock_data "aws_partition" {
+    defaults = {
+      dns_suffix = "amazonaws.com"
+      partition  = "aws"
+    }
+  }
+
   mock_resource "aws_cloudwatch_log_group" {
     defaults = {
       arn = "arn:aws:logs:us-east-1:123456789012:log-group:mock"
@@ -98,10 +105,10 @@ variables {
       repository_url  = ""
     }
     pull_through_cache = {
-      enabled                = false
-      registry_url           = ""
-      docker_hub_transparent = false
-      rules                  = {}
+      enabled           = false
+      registry_url      = ""
+      docker_hub_prefix = ""
+      rules             = {}
     }
   }
 
@@ -184,7 +191,7 @@ variables {
     force_new_deployment      = false
     private_mode              = "false"
     ecr_repository_url        = ""
-    custom_policy_arn         = ""
+    custom_policy_arns        = []
     otel_exporter_endpoint    = ""
     otel_exporter_headers     = ""
     otel_exporter_temporality = "cumulative"
@@ -539,7 +546,7 @@ run "otel_headers_add_ssm_parameter_and_execution_policy" {
       force_new_deployment      = false
       private_mode              = "false"
       ecr_repository_url        = ""
-      custom_policy_arn         = ""
+      custom_policy_arns        = []
       otel_exporter_endpoint    = ""
       otel_exporter_headers     = "x-signoz-ingestion-key=test"
       otel_exporter_temporality = "cumulative"
@@ -596,5 +603,42 @@ run "github_runner_cache_refresh_seed_uses_cache_bucket" {
   assert {
     condition     = jsondecode(aws_lambda_invocation.github_runner_cache_refresh_seed.input).input.bucket == "test-cache"
     error_message = "GitHub runner cache refresh seed should use the configured cache bucket name."
+  }
+}
+
+run "cache_isolation_disabled_keeps_broker_idle" {
+  command = plan
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
+    error_message = "Cache credential broker Lambda should always be created."
+  }
+
+  assert {
+    condition     = aws_iam_role.cache_credential_broker.name == "test-plan-cache-broker-role"
+    error_message = "Cache credential broker role should always be created."
+  }
+
+  assert {
+    condition     = local.stack_config_base.CacheCredentialBrokerFunctionName == ""
+    error_message = "Stack config should carry an empty broker function name so runners use direct cache access."
+  }
+}
+
+run "cache_isolation_enabled_deploys_broker" {
+  command = plan
+
+  variables {
+    enable_cache_isolation = true
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
+    error_message = "enable_cache_isolation should keep the cache credential broker Lambda available."
+  }
+
+  assert {
+    condition     = local.stack_config_base.CacheCredentialBrokerFunctionName == "test-plan-cache-broker"
+    error_message = "Stack config should carry the broker function name so runners request brokered credentials."
   }
 }
