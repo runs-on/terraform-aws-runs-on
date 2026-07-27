@@ -10,7 +10,7 @@ single_nat_gateway = true  # Set false for HA (3 NAT gateways)
 
 # Monitoring
 app_budget_daily_usd = 10  # Daily stack cost budget in USD
-enable_cost_reports = true  # Daily cost emails
+enable_cost_reports = "daily" # Options: no, daily, weekly, monthly
 
 # Security
 ssh_allowed    = false  # Set true to enable SSH to runners

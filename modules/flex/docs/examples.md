@@ -111,7 +111,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   stack_name = var.stack_name
 
@@ -149,7 +149,7 @@ See [Private Networking](private-networking.md) for details on mode options.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -170,7 +170,7 @@ Enable shared persistent storage across all runners:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -190,7 +190,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -207,18 +207,49 @@ module "runs-on" {
 
 Create, import, or look up ECR pull-through cache rules outside RunsOn, then pass the Terraform resource or data source object into the module. Pull-through cache rules are account/region-level ECR settings, so multiple RunsOn stacks in the same account and region can safely share the same rule reference.
 
-Docker Hub can be transparent only when the referenced rule uses `ecr_repository_prefix = "ROOT"` and `upstream_registry_url = "registry-1.docker.io"`, and runners opt in with `extras=ecr-pull-through`. In that mode, portable image references such as `docker.io/library/node:22` are routed through ECR by Docker's native registry mirror support. Other providers should use explicit ECR cache references such as `<account>.dkr.ecr.<region>.amazonaws.com/ghcr/org/image:tag`.
+Every rule must use a named `ecr_repository_prefix` (for example `docker-hub`): runner IAM access is scoped to `repository/<prefix>/*`, so workflow jobs can never read ECR repositories outside the cache namespaces. The special `ROOT` prefix is rejected with a validation error because it would require granting runners access to every repository in the account.
+
+On Linux runners, when a rule targets `registry-1.docker.io` and runners opt in with `extras=ecr-pull-through`, Docker Hub mirroring is transparent: the runs-on agent serves a local registry mirror on `127.0.0.1:6871` that rewrites Docker Hub paths onto the rule's prefix and authenticates to ECR, and points dockerd's `registry-mirrors` at it. If the mirror is ever unavailable, dockerd silently falls back to pulling from Docker Hub directly — jobs keep working. Windows runners do not configure ECR Docker credentials or transparent Docker Hub mirroring automatically; workflows must authenticate and use explicit ECR cache paths. Configure at most one Docker Hub rule without an `upstream_repository_prefix`; additional Docker Hub rules must scope an upstream prefix and use explicit ECR image paths.
+
+What is covered transparently, with zero workflow changes:
+
+- `docker pull nginx`, `docker pull docker.io/library/node:22`, and any image reference in scripts
+- GitHub Actions `services:` containers and `container:` jobs
+- `docker build` with the default builder (BuildKit embedded in dockerd honors the daemon's registry mirrors)
+
+Two cases need explicit configuration:
+
+- `docker buildx` with the `docker-container` driver runs its own BuildKit daemon, which reads neither `daemon.json` nor host loopback by default. Point it at the mirror when creating the builder:
+
+  ```yaml
+  - uses: docker/setup-buildx-action@v3
+    with:
+      driver-opts: network=host
+      buildkitd-config-inline: |
+        [registry."docker.io"]
+          mirrors = ["127.0.0.1:6871"]
+        [registry."127.0.0.1:6871"]
+          http = true
+  ```
+
+  Without this, buildx pulls base images from Docker Hub directly (nothing breaks; the pulls just bypass the cache).
+
+- Other upstream registries (ghcr.io, quay.io, ...) have no Docker-native mirror mechanism, so reference their cache namespaces explicitly. The runner exports `RUNS_ON_ECR_PULL_THROUGH_CACHE` with the registry host, and the agent pre-authenticates Docker against it:
+
+  ```bash
+  docker pull "${RUNS_ON_ECR_PULL_THROUGH_CACHE}/ghcr/my-org/my-tool:v2"
+  ```
 
 Reference an existing rule:
 
 ```hcl
 data "aws_ecr_pull_through_cache_rule" "docker_hub" {
-  ecr_repository_prefix = "ROOT"
+  ecr_repository_prefix = "docker-hub"
 }
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -261,14 +292,14 @@ resource "aws_secretsmanager_secret_version" "dockerhub_pull_through" {
 }
 
 resource "aws_ecr_pull_through_cache_rule" "docker_hub" {
-  ecr_repository_prefix = "ROOT"
+  ecr_repository_prefix = "docker-hub"
   upstream_registry_url = "registry-1.docker.io"
   credential_arn        = aws_secretsmanager_secret.dockerhub_pull_through.arn
 }
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -282,6 +313,9 @@ module "runs-on" {
   }
 }
 ```
+
+> [!IMPORTANT]
+> **Migrating from a `ROOT` rule** (supported briefly in earlier releases): create a new rule with a named prefix such as `docker-hub` and pass it to the module instead. The old `ROOT` rule and its root-level cache repositories (`library/node`, ...) can then be deleted; the prefixed rule repopulates its own namespace on first pull.
 
 Enable the runner-side ECR login and Docker Hub mirror per runner:
 
@@ -299,7 +333,7 @@ See [WAF](waf.md) for managed webhook IP sync, user-managed ACL overrides, and G
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -320,7 +354,7 @@ See [GitHub App Config](github-app-config.md) for details.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -420,7 +454,7 @@ module "vpc_endpoints" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

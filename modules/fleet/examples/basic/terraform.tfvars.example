@@ -47,5 +47,6 @@ fleets = {
     timezone     = "UTC"
     runner_group = "xxxx"
     runner       = "small-x64"
+    max_runners  = 200
   }
 }
