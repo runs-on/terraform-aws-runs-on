@@ -94,7 +94,7 @@ locals {
     force_new_deployment      = var.app_force_new_deployment
     private_mode              = var.private_mode
     ecr_repository_url        = var.app_ecr_repository_url
-    custom_policy_arn         = var.app_custom_policy_arn
+    custom_policy_arns        = var.app_custom_policy_arns
     otel_exporter_endpoint    = var.otel_exporter_endpoint
     otel_exporter_headers     = var.otel_exporter_headers
     otel_exporter_temporality = var.otel_exporter_temporality
@@ -121,6 +121,135 @@ locals {
     enable_admin_routes               = var.enable_admin_routes
     enable_waf                        = var.enable_waf
     public_ingress_web_acl_arn        = var.public_ingress_web_acl_arn
+    mandatory_extras                  = var.mandatory_extras
+  }
+
+  # Match the ECS environment merge and the runtime's boolean parsing so
+  # diagnostics describe the process configuration after extra_env_vars wins.
+  flex_effective_otel_exporter_endpoint = trimspace(lookup(
+    var.extra_env_vars,
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    var.otel_exporter_endpoint,
+  ))
+  flex_effective_otel_headers_configured = anytrue(flatten([
+    for headers in [
+      var.otel_exporter_headers,
+      lookup(var.extra_env_vars, "OTEL_EXPORTER_OTLP_HEADERS", ""),
+      ] : [
+      for pair in split(",", headers) :
+      trimspace(split("=", pair)[0]) != "" &&
+      trimspace(join("=", slice(split("=", pair), 1, length(split("=", pair))))) != ""
+    ]
+  ]))
+  flex_effective_otel_temporality_raw = trimspace(lookup(
+    var.extra_env_vars,
+    "OTEL_EXPORTER_OTLP_TEMPORALITY",
+    var.otel_exporter_temporality,
+  ))
+  flex_effective_otel_logs_raw = lower(trimspace(lookup(
+    var.extra_env_vars,
+    "OTEL_LOGS_ENABLED",
+    var.otel_logs_enabled ? "true" : "false",
+  )))
+  flex_effective_otel_traces_raw = lower(trimspace(lookup(
+    var.extra_env_vars,
+    "OTEL_TRACES_ENABLED",
+    var.otel_traces_enabled ? "true" : "false",
+  )))
+  flex_effective_otel_logs_enabled = (
+    contains(["1", "true", "yes", "on"], local.flex_effective_otel_logs_raw) ? true :
+    contains(["0", "false", "no", "off"], local.flex_effective_otel_logs_raw) ? false :
+    local.flex_effective_otel_exporter_endpoint != ""
+  )
+  flex_effective_otel_traces_enabled = !contains(
+    ["0", "false", "no", "off"],
+    local.flex_effective_otel_traces_raw,
+  )
+  flex_effective_logger_level_raw = lookup(
+    var.extra_env_vars,
+    "RUNS_ON_LOGGER_LEVEL",
+    var.logger_level,
+  )
+  flex_effective_logger_level = contains(
+    ["trace", "debug", "info", "warn"],
+    local.flex_effective_logger_level_raw,
+  ) ? local.flex_effective_logger_level_raw : "info"
+  flex_ebs_encryption_key = lower(trimspace(var.ebs_encryption_key_id))
+  flex_ebs_encryption_mode = local.flex_ebs_encryption_key == "" ? "unspecified" : (
+    local.flex_ebs_encryption_key == "alias/aws/ebs" ||
+    can(regex("^arn:[^:]+:kms:[^:]+:[^:]+:alias/aws/ebs$", local.flex_ebs_encryption_key))
+    ? "aws-managed"
+    : "explicit"
+  )
+  flex_effective_runner_custom_tags_configured = anytrue(flatten([
+    for raw_tag in var.runner_custom_tags : [
+      for tag in split(",", trimspace(raw_tag)) :
+      tag != "" && !startswith(tag, "runs-on-")
+    ]
+  ]))
+
+  flex_diagnostic_settings = {
+    schema_version    = 1
+    app_tag           = var.app_tag
+    deployment_method = "terraform"
+    cache = {
+      isolation_enabled         = var.enable_cache_isolation
+      expiration_days           = var.cache_expiration_days
+      bucket_versioning_enabled = var.cache_bucket_versioning_enabled
+      mandatory_extras          = var.mandatory_extras
+    }
+    sticky_disk = {
+      isolation_enabled       = var.enable_stickydisk_isolation
+      configured_runner_count = null
+    }
+    storage = {
+      ebs_encryption_mode = local.flex_ebs_encryption_mode
+      efs_enabled         = var.enable_efs
+    }
+    buildkit = {
+      ephemeral_registry_enabled = var.enable_ecr
+      pull_through_rule_count    = length(var.ecr_pull_through_cache_rules)
+      docker_hub_mirror_enabled = anytrue([
+        for rule in values(var.ecr_pull_through_cache_rules) :
+        lower(trimspace(rule.upstream_registry_url)) == "registry-1.docker.io" &&
+        try(trimspace(rule.upstream_repository_prefix), "") == ""
+      ])
+    }
+    runner = {
+      max_runtime_minutes         = var.runner_max_runtime
+      config_auto_extends_enabled = !contains(["", "."], var.runner_config_auto_extends_from)
+      custom_policy_count         = length(var.runner_custom_policy_arns)
+      custom_tags_configured      = local.flex_effective_runner_custom_tags_configured
+      bedrock_enabled             = var.enable_bedrock
+    }
+    scheduling = {
+      spot_circuit_breaker = var.spot_circuit_breaker
+    }
+    network = {
+      private_mode         = var.private_mode
+      ipv6_enabled         = var.ipv6_enabled
+      ssh_allowed          = var.ssh_allowed
+      public_subnet_count  = length(var.public_subnet_ids)
+      private_subnet_count = length(var.private_subnet_ids)
+    }
+    runtime = {
+      app_size            = var.app_size
+      capacity_provider   = upper(var.app_capacity_provider)
+      maintenance_mode    = var.maintenance_mode
+      github_api_strategy = var.github_api_strategy
+    }
+    telemetry = {
+      exporter_configured      = local.flex_effective_otel_exporter_endpoint != ""
+      headers_configured       = local.flex_effective_otel_headers_configured
+      temporality              = local.flex_effective_otel_temporality_raw == "" ? "cumulative" : local.flex_effective_otel_temporality_raw
+      logs_enabled             = local.flex_effective_otel_logs_enabled
+      traces_enabled           = local.flex_effective_otel_traces_enabled
+      logger_level             = local.flex_effective_logger_level
+      ec2_log_group_configured = trimspace(module.compute.compute.runner_logs.group_name) != ""
+    }
+    integrations = {
+      step_security_configured = trimspace(var.integration_step_security_api_key) != ""
+    }
   }
 
   flex_alerts = {
@@ -136,7 +265,6 @@ locals {
       "runs-on-product"         = "flex"
       "runs-on-environment"     = var.environment
       "runs-on-stack-name"      = var.stack_name
-      Environment               = var.environment
       (var.cost_allocation_tag) = var.stack_name
     }
   )
@@ -192,19 +320,21 @@ module "compute" {
   region     = local.region
   account_id = local.account_id
 
-  stack_name               = var.stack_name
-  cost_allocation_tag      = var.cost_allocation_tag
-  network                  = module.network.network
-  extras                   = module.extras.extras
-  log_retention_days       = var.log_retention_days
-  permission_boundary_arn  = var.permission_boundary_arn
-  runner_custom_policy_arn = var.runner_custom_policy_arn
-  enable_bedrock           = var.enable_bedrock
-  app_tag                  = var.app_tag
-  bootstrap_tag            = var.bootstrap_tag
-  ipv6_enabled             = var.ipv6_enabled
-  runner_max_runtime       = var.runner_max_runtime
-  tags                     = local.common_tags
+  stack_name                  = var.stack_name
+  cost_allocation_tag         = var.cost_allocation_tag
+  network                     = module.network.network
+  extras                      = module.extras.extras
+  log_retention_days          = var.log_retention_days
+  permission_boundary_arn     = var.permission_boundary_arn
+  runner_custom_policy_arns   = var.runner_custom_policy_arns
+  enable_bedrock              = var.enable_bedrock
+  enable_cache_isolation      = var.enable_cache_isolation
+  enable_stickydisk_isolation = var.enable_stickydisk_isolation
+  app_tag                     = var.app_tag
+  bootstrap_tag               = var.bootstrap_tag
+  ipv6_enabled                = var.ipv6_enabled
+  runner_max_runtime          = var.runner_max_runtime
+  tags                        = local.common_tags
 }
 
 module "control_plane" {
@@ -213,19 +343,21 @@ module "control_plane" {
   region     = local.region
   account_id = local.account_id
 
-  stack_name          = var.stack_name
-  environment         = var.environment
-  cost_allocation_tag = var.cost_allocation_tag
-  license_key         = var.license_key
-  network             = module.network.network
-  extras              = module.extras.extras
-  compute             = module.compute.compute
-  github              = local.flex_github
-  runtime             = local.flex_runtime
-  runner              = local.flex_runner
-  operations          = local.flex_operations
-  alerts              = local.flex_alerts
-  tags                = local.common_tags
+  stack_name             = var.stack_name
+  environment            = var.environment
+  cost_allocation_tag    = var.cost_allocation_tag
+  license_key            = var.license_key
+  network                = module.network.network
+  extras                 = module.extras.extras
+  compute                = module.compute.compute
+  github                 = local.flex_github
+  runtime                = local.flex_runtime
+  runner                 = local.flex_runner
+  operations             = local.flex_operations
+  diagnostic_settings    = local.flex_diagnostic_settings
+  alerts                 = local.flex_alerts
+  enable_cache_isolation = var.enable_cache_isolation
+  tags                   = local.common_tags
 
   # Ensure NAT gateway is ready before the worker service starts
   depends_on = [

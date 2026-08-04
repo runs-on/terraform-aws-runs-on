@@ -1,4 +1,11 @@
 mock_provider "aws" {
+  mock_data "aws_partition" {
+    defaults = {
+      dns_suffix = "amazonaws.com"
+      partition  = "aws"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       unique_id = "AROATESTSTACKROLEID"
@@ -56,10 +63,10 @@ variables {
       repository_url  = ""
     }
     pull_through_cache = {
-      enabled                = false
-      registry_url           = ""
-      docker_hub_transparent = false
-      rules                  = {}
+      enabled           = false
+      registry_url      = ""
+      docker_hub_prefix = ""
+      rules             = {}
     }
   }
 }
@@ -113,21 +120,29 @@ run "enable_bedrock_creates_expected_policy" {
   }
 }
 
-run "runner_custom_policy_arn_attaches_to_instance_role" {
+run "runner_custom_policy_arns_attach_to_instance_role" {
   command = plan
 
   variables {
-    runner_custom_policy_arn = "arn:aws:iam::123456789012:policy/RunsOnRunnerCustom"
+    runner_custom_policy_arns = ["arn:aws:iam::123456789012:policy/RunsOnRunnerCustom"]
   }
 
   assert {
-    condition     = length(aws_iam_role_policy_attachment.ec2_custom) == 1
-    error_message = "runner_custom_policy_arn should create one custom runner policy attachment."
+    condition     = length(aws_iam_role_policy_attachment.ec2_custom_additional) == 1
+    error_message = "runner_custom_policy_arns should create one custom runner policy attachment."
   }
 
   assert {
-    condition     = aws_iam_role_policy_attachment.ec2_custom[0].policy_arn == "arn:aws:iam::123456789012:policy/RunsOnRunnerCustom"
+    condition     = aws_iam_role_policy_attachment.ec2_custom_additional[0].policy_arn == "arn:aws:iam::123456789012:policy/RunsOnRunnerCustom"
     error_message = "custom runner policy attachment should use the configured policy ARN."
+  }
+}
+
+run "computed_runner_custom_policy_arns_plan" {
+  command = plan
+
+  module {
+    source = "./tests/fixtures/computed-policy-arn"
   }
 }
 
@@ -135,8 +150,8 @@ run "default_runner_policies_are_scoped" {
   command = plan
 
   assert {
-    condition     = aws_iam_role_policy_attachment.ec2_ecr_public.policy_arn == "arn:aws:iam::aws:policy/AmazonElasticContainerRegistryPublicReadOnly"
-    error_message = "runner instances should only get read-only ECR Public access."
+    condition     = length(aws_iam_role_policy_attachment.ec2_custom_additional) == 0
+    error_message = "additional custom runner policy attachments should default to empty."
   }
 
   assert {
@@ -145,5 +160,47 @@ run "default_runner_policies_are_scoped" {
       action != "logs:CreateLogGroup" && action != "logs:PutRetentionPolicy"
     ])
     error_message = "runner log policy should not manage the pre-created log group or retention."
+  }
+
+  assert {
+    condition     = aws_iam_role_policy.ec2_ecr_public_read_only.name == "EcrPublicReadOnly"
+    error_message = "runner instances should get default ECR Public read access through an inline policy."
+  }
+
+  assert {
+    condition = alltrue([
+      for action in [
+        "ecr-public:GetAuthorizationToken",
+        "ecr-public:BatchCheckLayerAvailability",
+        "ecr-public:GetRepositoryPolicy",
+        "ecr-public:DescribeRepositories",
+        "ecr-public:DescribeRegistries",
+        "ecr-public:DescribeImages",
+        "ecr-public:DescribeImageTags",
+        "ecr-public:GetRepositoryCatalogData",
+        "ecr-public:GetRegistryCatalogData",
+      ] : contains(jsondecode(aws_iam_role_policy.ec2_ecr_public_read_only.policy).Statement[0].Action, action)
+    ])
+    error_message = "ECR Public inline policy should include the expected read actions."
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role_policy.ec2_ecr_public_read_only.policy).Statement[0].Resource == "*"
+    error_message = "ECR Public read actions should support arbitrary public mirror repositories."
+  }
+
+  assert {
+    condition     = contains(jsondecode(aws_iam_role_policy.ec2_ecr_public_read_only.policy).Statement[1].Action, "sts:GetServiceBearerToken")
+    error_message = "ECR Public inline policy should allow STS bearer token retrieval."
+  }
+
+  assert {
+    condition     = jsondecode(aws_iam_role_policy.ec2_ecr_public_read_only.policy).Statement[1].Condition.StringEquals["sts:AWSServiceName"] == "ecr-public.amazonaws.com"
+    error_message = "STS bearer token permission should be constrained to ECR Public."
+  }
+
+  assert {
+    condition     = aws_iam_role_policy_attachment.ec2_ssm.policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    error_message = "the only default managed runner policy attachment should remain SSM core."
   }
 }

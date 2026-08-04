@@ -155,6 +155,19 @@ run "ecr_only_skips_efs" {
   }
 
   assert {
+    condition = (
+      length(jsondecode(aws_ecr_lifecycle_policy.ephemeral[0].policy).rules) == 1 &&
+      jsondecode(aws_ecr_lifecycle_policy.ephemeral[0].policy).rules[0].rulePriority == 1 &&
+      jsondecode(aws_ecr_lifecycle_policy.ephemeral[0].policy).rules[0].selection.tagStatus == "any" &&
+      jsondecode(aws_ecr_lifecycle_policy.ephemeral[0].policy).rules[0].selection.countType == "sinceImagePushed" &&
+      jsondecode(aws_ecr_lifecycle_policy.ephemeral[0].policy).rules[0].selection.countUnit == "days" &&
+      jsondecode(aws_ecr_lifecycle_policy.ephemeral[0].policy).rules[0].selection.countNumber == 10 &&
+      jsondecode(aws_ecr_lifecycle_policy.ephemeral[0].policy).rules[0].action.type == "expire"
+    )
+    error_message = "ECR lifecycle policy should expire all images 10 days after they are pushed."
+  }
+
+  assert {
     condition     = length(aws_efs_file_system.this_unprotected) == 0 && length(aws_efs_file_system.this_protected) == 0
     error_message = "EFS file systems should not be planned when enable_efs is false."
   }

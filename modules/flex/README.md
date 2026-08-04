@@ -20,7 +20,7 @@ Public module source:
 ```hcl
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 }
 ```
 
@@ -133,7 +133,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   stack_name = var.stack_name
 
@@ -335,12 +335,12 @@ Minimal key-policy statement:
 | <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alert notifications (optional) | `string` | `""` | no |
 | <a name="input_app_budget_daily_usd"></a> [app\_budget\_daily\_usd](#input\_app\_budget\_daily\_usd) | Daily AWS cost budget in USD for this stack, filtered by the configured cost allocation tag. Set to 0 to disable the budget. For AWS Organizations member accounts, activate the cost allocation tag in the management account's Billing settings. | `number` | `10` | no |
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the RunsOn worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight queue messages retry after the SQS visibility timeout. | `string` | `"fargate"` | no |
-| <a name="input_app_custom_policy_arn"></a> [app\_custom\_policy\_arn](#input\_app\_custom\_policy\_arn) | Optional managed IAM policy ARN to attach to the RunsOn service role. | `string` | `""` | no |
+| <a name="input_app_custom_policy_arns"></a> [app\_custom\_policy\_arns](#input\_app\_custom\_policy\_arns) | Optional managed IAM policy ARNs to attach to the RunsOn service role. | `list(string)` | `[]` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, the worker service will pull from this private ECR instead of public ECR. | `string` | `""` | no |
 | <a name="input_app_force_new_deployment"></a> [app\_force\_new\_deployment](#input\_app\_force\_new\_deployment) | Force a new ECS deployment of the RunsOn control-plane service. Set to true for one apply when migrating existing installs across the v3.0.6 ECS capacity provider change or when changing app\_capacity\_provider. | `bool` | `false` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.3@sha256:4e464e38792a8838c2847a0c0393dba4f504065249b257d38f85df4bd7c81ce6"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.0-rc.5@sha256:5178577402c3e2445cbf465419a38f02a8c2affcbe49ccc8642453f86baa756f"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.1.3"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.2.0-rc.5"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |
@@ -350,10 +350,12 @@ Minimal key-policy statement:
 | <a name="input_ecr_pull_through_cache_rules"></a> [ecr\_pull\_through\_cache\_rules](#input\_ecr\_pull\_through\_cache\_rules) | Existing ECR pull-through cache rules to reference for runner image pulls. Create or import the regional rules outside the RunsOn module. | <pre>map(object({<br/>    ecr_repository_prefix      = string<br/>    upstream_registry_url      = string<br/>    upstream_repository_prefix = optional(string)<br/>  }))</pre> | `{}` | no |
 | <a name="input_enable_admin_routes"></a> [enable\_admin\_routes](#input\_enable\_admin\_routes) | Enable the admin Lambda routes (`/`, `/setup`, `/setup/{proxy+}`, `/readyz`) on the public ingress | `bool` | `true` | no |
 | <a name="input_enable_bedrock"></a> [enable\_bedrock](#input\_enable\_bedrock) | Enable Amazon Bedrock access for EC2 runner instances. | `bool` | `false` | no |
-| <a name="input_enable_cost_reports"></a> [enable\_cost\_reports](#input\_enable\_cost\_reports) | Enable automated cost reports sent to alert email | `bool` | `true` | no |
+| <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in | `bool` | `false` | no |
+| <a name="input_enable_cost_reports"></a> [enable\_cost\_reports](#input\_enable\_cost\_reports) | Cost report email cadence: no, daily, weekly, or monthly. Legacy true/false values must be replaced with daily/no when upgrading. | `string` | `"daily"` | no |
 | <a name="input_enable_default_dashboard"></a> [enable\_default\_dashboard](#input\_enable\_default\_dashboard) | Create the default RunsOn CloudWatch dashboard. Set to false when managing a custom dashboard separately. | `bool` | `true` | no |
 | <a name="input_enable_ecr"></a> [enable\_ecr](#input\_enable\_ecr) | Enable ECR repository for ephemeral Docker image storage | `bool` | `false` | no |
 | <a name="input_enable_efs"></a> [enable\_efs](#input\_enable\_efs) | Enable EFS file system for shared storage across runners | `bool` | `false` | no |
+| <a name="input_enable_stickydisk_isolation"></a> [enable\_stickydisk\_isolation](#input\_enable\_stickydisk\_isolation) | Remove the legacy EBS volume/snapshot permissions from the runner instance role, so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action. Opt-in | `bool` | `false` | no |
 | <a name="input_enable_waf"></a> [enable\_waf](#input\_enable\_waf) | Enable AWS WAF for the public ingress | `bool` | `false` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name used for resource tagging and RunsOn job filtering. RunsOn will only process jobs with an 'env' label matching this value. See https://runs-on.com/configuration/environments/ for details. | `string` | `"production"` | no |
 | <a name="input_extra_env_vars"></a> [extra\_env\_vars](#input\_extra\_env\_vars) | Additional environment variables to set on the worker service | `map(string)` | `{}` | no |
@@ -371,6 +373,7 @@ Minimal key-policy statement:
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain CloudWatch logs for EC2 instances | `number` | `7` | no |
 | <a name="input_logger_level"></a> [logger\_level](#input\_logger\_level) | Logging level for RunsOn service (debug, info, warn, error) | `string` | `"info"` | no |
 | <a name="input_maintenance_mode"></a> [maintenance\_mode](#input\_maintenance\_mode) | Enable maintenance mode (disables queue processing and leader election) | `bool` | `false` | no |
+| <a name="input_mandatory_extras"></a> [mandatory\_extras](#input\_mandatory\_extras) | Runner extras (e.g. s3-cache, otel) that are always enabled for every runner, regardless of label or repo config overrides. | `list(string)` | `[]` | no |
 | <a name="input_otel_exporter_endpoint"></a> [otel\_exporter\_endpoint](#input\_otel\_exporter\_endpoint) | OpenTelemetry exporter endpoint for observability (optional) | `string` | `""` | no |
 | <a name="input_otel_exporter_headers"></a> [otel\_exporter\_headers](#input\_otel\_exporter\_headers) | OpenTelemetry exporter headers (optional) | `string` | `""` | no |
 | <a name="input_otel_exporter_temporality"></a> [otel\_exporter\_temporality](#input\_otel\_exporter\_temporality) | OTLP metrics temporality: cumulative (default) or delta | `string` | `"cumulative"` | no |
@@ -383,7 +386,7 @@ Minimal key-policy statement:
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | List of private subnet IDs for runner instances (required if private\_mode is not 'false') | `list(string)` | `[]` | no |
 | <a name="input_public_ingress_web_acl_arn"></a> [public\_ingress\_web\_acl\_arn](#input\_public\_ingress\_web\_acl\_arn) | Optional user-managed AWS WAFv2 Web ACL ARN to associate with the public ingress. When set, RunsOn will not manage webhook IP synchronization. | `string` | `""` | no |
 | <a name="input_runner_config_auto_extends_from"></a> [runner\_config\_auto\_extends\_from](#input\_runner\_config\_auto\_extends\_from) | Auto-extend runner configuration from this base config | `string` | `".github-private"` | no |
-| <a name="input_runner_custom_policy_arn"></a> [runner\_custom\_policy\_arn](#input\_runner\_custom\_policy\_arn) | Optional managed IAM policy ARN to attach to the EC2 runner instance role. | `string` | `""` | no |
+| <a name="input_runner_custom_policy_arns"></a> [runner\_custom\_policy\_arns](#input\_runner\_custom\_policy\_arns) | Optional managed IAM policy ARNs to attach to the EC2 runner instance role. Use this when policy ARNs are computed by other resources. | `list(string)` | `[]` | no |
 | <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Custom tags to apply to runner instances (comma-separated list) | `list(string)` | `[]` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes for runners before forced termination | `number` | `720` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for runner instances and the worker service. If empty list provided, security groups will be created automatically. | `list(string)` | `[]` | no |

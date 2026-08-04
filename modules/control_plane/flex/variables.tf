@@ -64,9 +64,9 @@ variable "extras" {
       repository_url  = string
     })
     pull_through_cache = object({
-      enabled                = bool
-      registry_url           = string
-      docker_hub_transparent = bool
+      enabled           = bool
+      registry_url      = string
+      docker_hub_prefix = string
       rules = map(object({
         ecr_repository_prefix      = string
         upstream_registry_url      = string
@@ -150,7 +150,7 @@ variable "runtime" {
     force_new_deployment      = bool
     private_mode              = string
     ecr_repository_url        = string
-    custom_policy_arn         = string
+    custom_policy_arns        = list(string)
     otel_exporter_endpoint    = string
     otel_exporter_headers     = string
     otel_exporter_temporality = string
@@ -177,13 +177,21 @@ variable "operations" {
   type = object({
     app_budget_daily_usd              = number
     enable_default_dashboard          = optional(bool, true)
-    enable_cost_reports               = bool
+    enable_cost_reports               = optional(string, "daily")
     spot_circuit_breaker              = string
     integration_step_security_api_key = string
     enable_admin_routes               = bool
     enable_waf                        = bool
     public_ingress_web_acl_arn        = string
+    # Opt-in: runner extras (e.g. s3-cache, otel) that are always enabled for
+    # every runner, regardless of label or repo config overrides.
+    mandatory_extras = optional(list(string), [])
   })
+
+  validation {
+    condition     = contains(["no", "daily", "weekly", "monthly"], var.operations.enable_cost_reports)
+    error_message = "operations.enable_cost_reports must be one of: no, daily, weekly, monthly."
+  }
 }
 
 variable "alerts" {
@@ -202,4 +210,16 @@ variable "alerts" {
 variable "tags" {
   description = "Additional tags for all resources"
   type        = map(string)
+}
+
+variable "enable_cache_isolation" {
+  description = "Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes"
+  type        = bool
+  default     = false
+}
+
+variable "diagnostic_settings" {
+  description = "Non-sensitive stack settings exposed by the job diagnostics resolver"
+  type        = any
+  default     = {}
 }

@@ -51,25 +51,12 @@ resource "aws_ecr_lifecycle_policy" "ephemeral" {
     rules = [
       {
         rulePriority = 1
-        description  = "Keep last 10 images"
+        description  = "Expire images older than 10 days"
         selection = {
-          tagStatus     = "tagged"
-          tagPrefixList = ["v"]
-          countType     = "imageCountMoreThan"
-          countNumber   = 10
-        }
-        action = {
-          type = "expire"
-        }
-      },
-      {
-        rulePriority = 2
-        description  = "Remove untagged images after 1 day"
-        selection = {
-          tagStatus   = "untagged"
+          tagStatus   = "any"
           countType   = "sinceImagePushed"
           countUnit   = "days"
-          countNumber = 1
+          countNumber = 10
         }
         action = {
           type = "expire"

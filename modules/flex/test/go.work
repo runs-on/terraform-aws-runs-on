@@ -1,4 +1,4 @@
-go 1.26.3
+go 1.26.5
 
 // Keep Terraform test wiring isolated from the root workspace. This module has a
 // specialized Terratest dependency graph and should resolve on its own.
