@@ -10,6 +10,7 @@ terraform {
 }
 
 locals {
+  partition              = data.aws_partition.current.partition
   has_ebs_encryption_key = trimspace(var.ebs_encryption_key_id) != ""
   ebs_encryption_policy_statements = concat(
     local.has_ebs_encryption_key ? [
@@ -52,9 +53,11 @@ locals {
         "ec2:DescribeInstances",
         "ec2:DescribeSubnets",
         "ec2:DescribeRouteTables",
+        "ec2:DescribeSpotPriceHistory",
         "ec2:DescribeVolumes",
         "ec2:DescribeSnapshots",
         "ec2:DescribeLaunchTemplateVersions",
+        "pricing:GetProducts",
       ]
       Resource = "*"
     },
@@ -66,14 +69,14 @@ locals {
       Action = [
         "iam:GetRole",
       ]
-      Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+      Resource = "arn:${local.partition}:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
     },
     {
       Effect = "Allow"
       Action = [
         "iam:CreateServiceLinkedRole"
       ]
-      Resource = "arn:aws:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
+      Resource = "arn:${local.partition}:iam::${var.account_id}:role/aws-service-role/spot.amazonaws.com/AWSServiceRoleForEC2Spot"
       Condition = {
         StringEquals = {
           "iam:AWSServiceName" = "spot.amazonaws.com"
@@ -95,17 +98,17 @@ locals {
         "ec2:RunInstances",
       ]
       Resource = [
-        "arn:aws:ec2:${var.region}::image/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:instance/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:network-interface/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:security-group/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:subnet/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:launch-template/*",
-        "arn:aws:ec2:${var.region}:${var.account_id}:key-pair/*",
+        "arn:${local.partition}:ec2:${var.region}::image/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:instance/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:network-interface/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:security-group/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:subnet/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:launch-template/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:key-pair/*",
         # Spot launches authorize RunInstances and tag-on-create CreateTags
         # against the spot-instances-request resource.
-        "arn:aws:ec2:${var.region}:${var.account_id}:spot-instances-request/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:spot-instances-request/*",
       ]
     },
     {
@@ -123,7 +126,7 @@ locals {
         "ec2:StopInstances",
         "ec2:StartInstances",
       ]
-      Resource = "arn:aws:ec2:${var.region}:${var.account_id}:instance/*"
+      Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:instance/*"
       Condition = {
         StringEquals = {
           "aws:ResourceTag/runs-on-stack-name" = var.stack_name
@@ -137,8 +140,109 @@ locals {
         "ec2:DeleteSnapshot",
       ]
       Resource = [
-        "arn:aws:ec2:${var.region}:${var.account_id}:volume/*",
-        "arn:aws:ec2:${var.region}::snapshot/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+        "arn:${local.partition}:ec2:${var.region}::snapshot/*",
+      ]
+      Condition = {
+        StringEquals = {
+          "aws:ResourceTag/runs-on-stack-name" = var.stack_name
+        }
+      }
+    },
+    # Sticky disks (sticky label): the control plane creates the per-job cache
+    # volume (tagged at creation), restores from stack-owned snapshots, and
+    # snapshots the volume at job completion. Runner instances hold none of
+    # these permissions.
+    {
+      Effect = "Allow"
+      Action = [
+        "ec2:CreateVolume",
+      ]
+      Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*"
+      Condition = {
+        StringEquals = {
+          "aws:RequestTag/runs-on-stack-name" = var.stack_name
+        }
+      }
+    },
+    {
+      # Restoring a volume from a snapshot authorizes against the source
+      # snapshot resource as well.
+      Effect = "Allow"
+      Action = [
+        "ec2:CreateVolume",
+      ]
+      Resource = "arn:${local.partition}:ec2:${var.region}::snapshot/*"
+      Condition = {
+        StringEquals = {
+          "aws:ResourceTag/runs-on-stack-name" = var.stack_name
+        }
+      }
+    },
+    {
+      Effect = "Allow"
+      Action = [
+        "ec2:CreateSnapshot",
+      ]
+      Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*"
+      Condition = {
+        StringEquals = {
+          "aws:ResourceTag/runs-on-stack-name" = var.stack_name
+        }
+      }
+    },
+    {
+      Effect = "Allow"
+      Action = [
+        "ec2:CreateSnapshot",
+      ]
+      Resource = "arn:${local.partition}:ec2:${var.region}::snapshot/*"
+      Condition = {
+        StringEquals = {
+          "aws:RequestTag/runs-on-stack-name" = var.stack_name
+        }
+      }
+    },
+    {
+      # Tag-on-create only: covers the TagSpecifications passed to
+      # CreateVolume/CreateSnapshot.
+      Effect = "Allow"
+      Action = [
+        "ec2:CreateTags",
+      ]
+      Resource = [
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+        "arn:${local.partition}:ec2:${var.region}::snapshot/*",
+      ]
+      Condition = {
+        StringEquals = {
+          "ec2:CreateAction" = ["CreateVolume", "CreateSnapshot"]
+        }
+      }
+    },
+    {
+      # Sticky-disk finalization clears the runs-on-stickydisk-pending tag
+      # after a snapshot (or an intentional no-snapshot release) so the
+      # pending-volume finalizer cannot process the volume twice.
+      Effect = "Allow"
+      Action = [
+        "ec2:DeleteTags",
+      ]
+      Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*"
+      Condition = {
+        StringEquals = {
+          "aws:ResourceTag/runs-on-stack-name" = var.stack_name
+        }
+      }
+    },
+    {
+      Effect = "Allow"
+      Action = [
+        "ec2:AttachVolume",
+      ]
+      Resource = [
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:instance/*",
+        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
       ]
       Condition = {
         StringEquals = {
@@ -177,6 +281,17 @@ locals {
         "${var.cache_bucket_arn}/agents/*",
       ]
     },
+    # Withdraw per-runner config handoffs (e.g. a stickydisk.json whose volume
+    # will never attach) so agents cannot consume a stale assignment.
+    {
+      Effect = "Allow"
+      Action = [
+        "s3:DeleteObject",
+      ]
+      Resource = [
+        "${var.cache_bucket_arn}/runners/*",
+      ]
+    },
   ]
 }
 
@@ -185,6 +300,8 @@ data "aws_kms_key" "ebs_encryption" {
 
   key_id = trimspace(var.ebs_encryption_key_id)
 }
+
+data "aws_partition" "current" {}
 
 resource "aws_cloudwatch_log_group" "this" {
   name              = var.log_group_name
@@ -252,7 +369,7 @@ resource "aws_iam_role" "execution" {
 
 resource "aws_iam_role_policy_attachment" "execution" {
   role       = aws_iam_role.execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
 resource "aws_iam_role_policy" "execution_extra" {
@@ -352,6 +469,9 @@ resource "aws_ecs_service" "this" {
 
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
   deployment_maximum_percent         = var.deployment_maximum_percent
+  # ECS rejects maximumPercent <= 100 while Availability Zone Rebalancing is
+  # enabled. Stop-before-start services therefore disable rebalancing.
+  availability_zone_rebalancing = var.deployment_maximum_percent <= 100 ? "DISABLED" : null
 
   capacity_provider_strategy {
     capacity_provider = var.capacity_provider

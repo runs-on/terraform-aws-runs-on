@@ -110,7 +110,7 @@ variable "private_subnet_ids" {
 }
 
 variable "images" {
-  description = "Optional custom image catalog using the config module ImageSpec shape. Built-in image names such as ubuntu24-full-x64 do not need entries here."
+  description = "Optional custom image catalog using the config module ImageSpec shape. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here."
   type        = map(any)
   default     = {}
 }

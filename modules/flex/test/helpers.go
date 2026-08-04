@@ -93,6 +93,17 @@ type ScenarioConfig struct {
 	PrivateMode string // "false", "true", "always", "only" — implies EnableNAT when not "false"
 	AWSRegion   string
 
+	// ECRPullThroughCacheRules references regional rules created outside the
+	// module. Integration CI uses the shared Docker Hub rule to exercise the
+	// runner-local mirror through the real Flex Terraform path.
+	ECRPullThroughCacheRules map[string]map[string]string
+
+	// Isolation flags (default false = legacy behavior). The private and full
+	// scenarios enable both so e2e covers legacy and isolated modes without a
+	// dedicated lane.
+	EnableCacheIsolation      bool
+	EnableStickyDiskIsolation bool
+
 	// App version overrides are injected by the caller or the ci-image Make targets.
 	AppImage         string
 	AppTag           string
@@ -237,6 +248,8 @@ func (c ScenarioConfig) ToModuleVars(vpcID string, publicSubnets, privateSubnets
 		"app_size":                           "medium",
 		"force_destroy_buckets":              c.ForceDestroyBuckets,
 		"prevent_destroy_optional_resources": false,
+		"enable_cache_isolation":             c.EnableCacheIsolation,
+		"enable_stickydisk_isolation":        c.EnableStickyDiskIsolation,
 	}
 
 	if c.AppImage != "" {
@@ -247,6 +260,9 @@ func (c ScenarioConfig) ToModuleVars(vpcID string, publicSubnets, privateSubnets
 	}
 	if c.AppECRRepository != "" {
 		vars["app_ecr_repository_url"] = c.AppECRRepository
+	}
+	if len(c.ECRPullThroughCacheRules) > 0 {
+		vars["ecr_pull_through_cache_rules"] = c.ECRPullThroughCacheRules
 	}
 
 	if c.PrivateMode != "" && c.PrivateMode != "false" {
@@ -302,7 +318,7 @@ type terraformTestPaths struct {
 	VPCFixtureDir string
 }
 
-func copyTerraformRoot(t *testing.T, prefix string) string {
+func copyTerraformRootUnmanaged(t *testing.T, prefix string) (string, func()) {
 	t.Helper()
 
 	safePrefix := strings.NewReplacer("/", "-", "\\", "-", " ", "-").Replace(prefix)
@@ -310,7 +326,23 @@ func copyTerraformRoot(t *testing.T, prefix string) string {
 	// and lambda-source references when Terratest runs from an isolated temp dir.
 	terraformWorkspace, err := files.CopyTerraformFolderToTemp("../../../", safePrefix)
 	require.NoError(t, err, "Failed to copy terraform tree to temp dir")
-	return filepath.Join(terraformWorkspace, "modules", "flex")
+	// CopyTerraformFolderToTemp never cleans up, and each copy grows to
+	// ~800MB once tofu init downloads providers — enough leaked trees fill
+	// the disk on developer machines and CI runners alike.
+	cleanup := func() {
+		// The returned path is a child of the dedicated temp dir the helper
+		// created; remove the whole thing.
+		_ = os.RemoveAll(filepath.Dir(terraformWorkspace))
+	}
+	return filepath.Join(terraformWorkspace, "modules", "flex"), cleanup
+}
+
+func copyTerraformRoot(t *testing.T, prefix string) string {
+	t.Helper()
+
+	terraformRoot, cleanup := copyTerraformRootUnmanaged(t, prefix)
+	t.Cleanup(cleanup)
+	return terraformRoot
 }
 
 func newScenarioPaths(t *testing.T) terraformTestPaths {
@@ -390,6 +422,15 @@ func integrationScenarioConfigFromEnv(t *testing.T) ScenarioConfig {
 	cfg.GithubAppClientSecret = os.Getenv("GITHUB_APP_CLIENT_SECRET")
 	cfg.EnableEFS = os.Getenv("ENABLE_EFS") == "true"
 	cfg.EnableECR = os.Getenv("ENABLE_ECR") == "true"
+	if os.Getenv("ENABLE_ECR_PULL_THROUGH_CACHE") == "true" {
+		cfg.ECRPullThroughCacheRules = map[string]map[string]string{
+			"docker_hub": {
+				"ecr_repository_prefix":      "docker-hub",
+				"upstream_registry_url":      "registry-1.docker.io",
+				"upstream_repository_prefix": "",
+			},
+		}
+	}
 
 	if pm := os.Getenv("PRIVATE_MODE"); pm != "" && pm != "false" {
 		cfg.PrivateMode = pm
@@ -416,14 +457,36 @@ func quietTerraformOptionsInCI(t *testing.T, options *terraform.Options) *terraf
 	return quietOptions
 }
 
+// isRetryableTerraformCommandError reports whether a failed init hit a
+// transient provider registry/download error worth retrying. Shared by the
+// plan-test helper and the integration scenario harness.
+func isRetryableTerraformCommandError(args []string, out string) bool {
+	if len(args) == 0 || args[0] != "init" {
+		return false
+	}
+
+	return strings.Contains(out, "Failed to install provider") ||
+		strings.Contains(out, "Failed to resolve provider packages") ||
+		strings.Contains(out, "the request failed after") ||
+		strings.Contains(out, "Client.Timeout exceeded") ||
+		strings.Contains(out, "Client.Timeout or context cancellation while reading body")
+}
+
 func initAndApply(t *testing.T, name string, options *terraform.Options) {
 	t.Helper()
 
-	_, err := terraform.InitE(t, options)
+	// Provider downloads flake on registry/network timeouts; retry init on
+	// the same transient patterns the plan-test helper recognizes.
+	out, err := terraform.InitE(t, options)
+	for attempt := 2; err != nil && attempt <= 3 && isRetryableTerraformCommandError([]string{"init"}, out); attempt++ {
+		t.Logf("%s init hit a transient provider error; retrying (attempt %d/3)", name, attempt)
+		time.Sleep(time.Duration(attempt-1) * 10 * time.Second)
+		out, err = terraform.InitE(t, options)
+	}
 	require.NoError(t, err, "%s init should succeed", name)
 
 	applyOptions := quietTerraformOptionsInCI(t, options)
-	out, err := terraform.ApplyE(t, applyOptions)
+	out, err = terraform.ApplyE(t, applyOptions)
 	if err != nil {
 		if strings.TrimSpace(out) != "" {
 			t.Logf("%s apply output:\n%s", name, out)
