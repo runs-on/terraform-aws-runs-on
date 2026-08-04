@@ -1,4 +1,11 @@
 mock_provider "aws" {
+  mock_data "aws_partition" {
+    defaults = {
+      dns_suffix = "amazonaws.com"
+      partition  = "aws"
+    }
+  }
+
   mock_data "aws_region" {
     defaults = {
       region = "us-east-1"
@@ -142,22 +149,82 @@ variables {
   tags = {}
 
   runtime = {
-    image              = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:test"
-    size               = "small"
-    capacity_provider  = "FARGATE"
-    maintenance_mode   = false
-    log_retention_days = 7
-    extra_env_vars     = {}
+    image                     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:test"
+    size                      = "small"
+    capacity_provider         = "FARGATE"
+    maintenance_mode          = false
+    log_retention_days        = 7
+    otel_exporter_endpoint    = ""
+    otel_exporter_headers     = ""
+    otel_exporter_temporality = "cumulative"
+    otel_logs_enabled         = true
+    otel_traces_enabled       = true
+    extra_env_vars            = {}
   }
 
   integration_step_security_api_key = "step-security-secret"
 
   control_plane = {
-    environment         = "test"
-    private_mode        = "false"
-    cost_allocation_tag = "stack"
-    app_tag             = "dev"
-    runner_custom_tags  = []
+    environment          = "test"
+    private_mode         = "false"
+    cost_allocation_tag  = "stack"
+    app_tag              = "dev"
+    runner_custom_tags   = []
+    spot_circuit_breaker = "3/20/45"
+  }
+}
+
+run "otel_headers_add_ssm_parameter_and_execution_policy" {
+  command = plan
+
+  variables {
+    runtime = {
+      image                     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:test"
+      size                      = "small"
+      capacity_provider         = "FARGATE"
+      maintenance_mode          = false
+      log_retention_days        = 7
+      otel_exporter_endpoint    = "https://collector.example.com:4318"
+      otel_exporter_headers     = "x-signoz-ingestion-key=test"
+      otel_exporter_temporality = "delta"
+      otel_logs_enabled         = true
+      otel_traces_enabled       = false
+      extra_env_vars            = {}
+    }
+  }
+
+  assert {
+    condition     = length(aws_ssm_parameter.otel_exporter_headers) == 1 && aws_ssm_parameter.otel_exporter_headers[0].type == "SecureString"
+    error_message = "OTEL headers should be stored as an SSM SecureString when configured."
+  }
+
+  assert {
+    condition     = length(local.fleet_extra_execution_role_statements) == 1
+    error_message = "OTEL headers should add an extra execution-role policy statement."
+  }
+
+  assert {
+    condition     = local.fleet_extra_execution_role_statements[0].Action == ["ssm:GetParameters"]
+    error_message = "OTEL execution policy should grant only ssm:GetParameters."
+  }
+
+  assert {
+    condition     = local.fleet_extra_execution_role_statements[0].Resource == "arn:aws:ssm:us-east-1:123456789012:parameter/test-plan/secrets/otel-exporter-headers"
+    error_message = "OTEL execution policy should be scoped to the headers parameter."
+  }
+}
+
+run "without_otel_headers_skips_ssm_parameter_and_execution_policy" {
+  command = plan
+
+  assert {
+    condition     = length(aws_ssm_parameter.otel_exporter_headers) == 0
+    error_message = "OTEL headers parameter should be absent when no headers are configured."
+  }
+
+  assert {
+    condition     = length(local.fleet_extra_execution_role_statements) == 0
+    error_message = "Extra execution-role policy statements should be absent when no ECS secret is configured."
   }
 }
 
@@ -185,6 +252,11 @@ run "fleet_config_secret_is_deleted_immediately" {
   }
 
   assert {
+    condition     = local.secret_payload.spot_circuit_breaker == "3/20/45"
+    error_message = "Fleet config secret should carry the spot circuit breaker setting."
+  }
+
+  assert {
     condition = alltrue([
       aws_cloudwatch_log_group.config_materializer.name == "/runs-on/test-plan/lambda/fleet-config-materializer",
       aws_cloudwatch_log_group.job_diagnostics_resolver.name == "/runs-on/test-plan/lambda/job-diagnostics-resolver",
@@ -208,5 +280,77 @@ run "fleet_config_secret_is_deleted_immediately" {
       aws_lambda_function.job_diagnostics_resolver.logging_config[0].log_group == aws_cloudwatch_log_group.job_diagnostics_resolver.name,
     ])
     error_message = "Fleet Lambda functions should write to their managed log groups."
+  }
+}
+
+run "cache_isolation_disabled_keeps_broker_idle" {
+  command = plan
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
+    error_message = "Cache credential broker Lambda should always be created."
+  }
+
+  assert {
+    condition     = aws_iam_role.cache_credential_broker.name == "test-plan-cache-broker-role"
+    error_message = "Cache credential broker role should always be created."
+  }
+
+  assert {
+    condition     = local.secret_payload.infra.cache_credential_broker_function_name == ""
+    error_message = "Fleet config should carry an empty broker function name so runners use direct cache access."
+  }
+}
+
+run "cache_isolation_enabled_deploys_broker" {
+  command = plan
+
+  variables {
+    enable_cache_isolation = true
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
+    error_message = "enable_cache_isolation should keep the cache credential broker Lambda available."
+  }
+
+  assert {
+    condition     = local.secret_payload.infra.cache_credential_broker_function_name == "test-plan-cache-broker"
+    error_message = "Fleet config should carry the broker function name so runners request brokered credentials."
+  }
+}
+
+run "github_api_root_base_url_derives_normalized_broker_issuer" {
+  command = plan
+
+  variables {
+    github = {
+      app_id          = null
+      app_private_key = null
+      enterprise_pat  = "ghp_test"
+      base_url        = "https://ghe.example.com/api/v3"
+      enterprise      = "test-enterprise"
+      license_key     = "test-license"
+    }
+  }
+
+  assert {
+    condition     = local.normalized_github_base_url == "https://ghe.example.com"
+    error_message = "Fleet should strip a terminal /api/v3 from github_base_url before runtime URL derivation."
+  }
+
+  assert {
+    condition     = nonsensitive(local.secret_payload.github_base_url) == "https://ghe.example.com"
+    error_message = "Fleet runtime config should receive the normalized GitHub host root."
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_ENTERPRISE_URL == "https://ghe.example.com"
+    error_message = "Fleet broker should receive the normalized GHES host root."
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_TOKEN_ISSUER == "https://ghe.example.com/_services/token"
+    error_message = "Fleet broker issuer should match the control-plane JWKS issuer."
   }
 }

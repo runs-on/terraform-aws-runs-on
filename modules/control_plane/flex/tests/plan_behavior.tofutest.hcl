@@ -1,4 +1,11 @@
 mock_provider "aws" {
+  mock_data "aws_partition" {
+    defaults = {
+      dns_suffix = "amazonaws.com"
+      partition  = "aws"
+    }
+  }
+
   mock_resource "aws_cloudwatch_log_group" {
     defaults = {
       arn = "arn:aws:logs:us-east-1:123456789012:log-group:mock"
@@ -98,10 +105,10 @@ variables {
       repository_url  = ""
     }
     pull_through_cache = {
-      enabled                = false
-      registry_url           = ""
-      docker_hub_transparent = false
-      rules                  = {}
+      enabled           = false
+      registry_url      = ""
+      docker_hub_prefix = ""
+      rules             = {}
     }
   }
 
@@ -184,7 +191,7 @@ variables {
     force_new_deployment      = false
     private_mode              = "false"
     ecr_repository_url        = ""
-    custom_policy_arn         = ""
+    custom_policy_arns        = []
     otel_exporter_endpoint    = ""
     otel_exporter_headers     = ""
     otel_exporter_temporality = "cumulative"
@@ -196,7 +203,7 @@ variables {
 
   operations = {
     app_budget_daily_usd              = 0
-    enable_cost_reports               = false
+    enable_cost_reports               = "no"
     spot_circuit_breaker              = ""
     integration_step_security_api_key = ""
     enable_admin_routes               = true
@@ -222,22 +229,22 @@ run "disabled_cost_reports_skip_cost_schedules" {
 
   assert {
     condition     = length(aws_scheduler_schedule.cost_report) == 0
-    error_message = "Cost report schedule should be absent when enable_cost_reports is false."
+    error_message = "Cost report schedule should be absent when enable_cost_reports is no."
   }
 
   assert {
     condition     = length(aws_scheduler_schedule.cost_allocation_tag) == 0
-    error_message = "Cost allocation tag schedule should be absent when enable_cost_reports is false."
+    error_message = "Cost allocation tag schedule should be absent when enable_cost_reports is no."
   }
 }
 
-run "enabled_cost_reports_create_cost_schedules" {
+run "daily_cost_reports_create_daily_schedule" {
   command = plan
 
   variables {
     operations = {
       app_budget_daily_usd              = 0
-      enable_cost_reports               = true
+      enable_cost_reports               = "daily"
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -248,12 +255,69 @@ run "enabled_cost_reports_create_cost_schedules" {
 
   assert {
     condition     = length(aws_scheduler_schedule.cost_report) == 1
-    error_message = "Cost report schedule should be created when enable_cost_reports is true."
+    error_message = "Cost report schedule should be created when enable_cost_reports is daily."
+  }
+
+  assert {
+    condition     = aws_scheduler_schedule.cost_report[0].schedule_expression == "cron(5 0 * * ? *)"
+    error_message = "Daily cost reports should run every day at 00:05 UTC."
   }
 
   assert {
     condition     = length(aws_scheduler_schedule.cost_allocation_tag) == 1
-    error_message = "Cost allocation tag schedule should be created when enable_cost_reports is true."
+    error_message = "Cost allocation tag schedule should be created when cost reports are enabled."
+  }
+}
+
+run "weekly_cost_reports_create_weekly_schedule" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 0
+      enable_cost_reports               = "weekly"
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = false
+      public_ingress_web_acl_arn        = ""
+    }
+  }
+
+  assert {
+    condition     = aws_scheduler_schedule.cost_report[0].schedule_expression == "cron(5 0 ? * MON *)"
+    error_message = "Weekly cost reports should run each Monday at 00:05 UTC."
+  }
+
+  assert {
+    condition     = aws_scheduler_schedule.cost_allocation_tag[0].schedule_expression == "cron(10 0 * * ? *)"
+    error_message = "Cost allocation tag activation should remain daily."
+  }
+}
+
+run "monthly_cost_reports_create_monthly_schedule" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 0
+      enable_cost_reports               = "monthly"
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = false
+      public_ingress_web_acl_arn        = ""
+    }
+  }
+
+  assert {
+    condition     = aws_scheduler_schedule.cost_report[0].schedule_expression == "cron(5 0 1 * ? *)"
+    error_message = "Monthly cost reports should run on the first day of each month at 00:05 UTC."
+  }
+
+  assert {
+    condition     = aws_scheduler_schedule.cost_allocation_tag[0].schedule_expression == "cron(10 0 * * ? *)"
+    error_message = "Cost allocation tag activation should remain daily."
   }
 }
 
@@ -263,7 +327,7 @@ run "positive_budget_creates_budget_resources" {
   variables {
     operations = {
       app_budget_daily_usd              = 10
-      enable_cost_reports               = false
+      enable_cost_reports               = "no"
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -284,7 +348,7 @@ run "managed_waf_creates_sync_resources" {
   variables {
     operations = {
       app_budget_daily_usd              = 0
-      enable_cost_reports               = false
+      enable_cost_reports               = "no"
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -331,7 +395,7 @@ run "default_dashboard_can_be_disabled" {
     operations = {
       app_budget_daily_usd              = 0
       enable_default_dashboard          = false
-      enable_cost_reports               = false
+      enable_cost_reports               = "no"
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -352,7 +416,7 @@ run "user_managed_waf_skips_sync_resources" {
   variables {
     operations = {
       app_budget_daily_usd              = 0
-      enable_cost_reports               = false
+      enable_cost_reports               = "no"
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -383,7 +447,7 @@ run "admin_routes_disabled_skips_setup_resources" {
   variables {
     operations = {
       app_budget_daily_usd              = 0
-      enable_cost_reports               = false
+      enable_cost_reports               = "no"
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = false
@@ -539,7 +603,7 @@ run "otel_headers_add_ssm_parameter_and_execution_policy" {
       force_new_deployment      = false
       private_mode              = "false"
       ecr_repository_url        = ""
-      custom_policy_arn         = ""
+      custom_policy_arns        = []
       otel_exporter_endpoint    = ""
       otel_exporter_headers     = "x-signoz-ingestion-key=test"
       otel_exporter_temporality = "cumulative"
@@ -596,5 +660,42 @@ run "github_runner_cache_refresh_seed_uses_cache_bucket" {
   assert {
     condition     = jsondecode(aws_lambda_invocation.github_runner_cache_refresh_seed.input).input.bucket == "test-cache"
     error_message = "GitHub runner cache refresh seed should use the configured cache bucket name."
+  }
+}
+
+run "cache_isolation_disabled_keeps_broker_idle" {
+  command = plan
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
+    error_message = "Cache credential broker Lambda should always be created."
+  }
+
+  assert {
+    condition     = aws_iam_role.cache_credential_broker.name == "test-plan-cache-broker-role"
+    error_message = "Cache credential broker role should always be created."
+  }
+
+  assert {
+    condition     = local.stack_config_base.CacheCredentialBrokerFunctionName == ""
+    error_message = "Stack config should carry an empty broker function name so runners use direct cache access."
+  }
+}
+
+run "cache_isolation_enabled_deploys_broker" {
+  command = plan
+
+  variables {
+    enable_cache_isolation = true
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
+    error_message = "enable_cache_isolation should keep the cache credential broker Lambda available."
+  }
+
+  assert {
+    condition     = local.stack_config_base.CacheCredentialBrokerFunctionName == "test-plan-cache-broker"
+    error_message = "Stack config should carry the broker function name so runners request brokered credentials."
   }
 }
