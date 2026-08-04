@@ -10,7 +10,8 @@ terraform {
 }
 
 locals {
-  slack_webhook_enabled = trimspace(var.slack_webhook_url) != ""
+  # Only the webhook URL is secret; whether Slack alerting is configured is safe metadata for counts and outputs.
+  slack_webhook_enabled = nonsensitive(trimspace(var.slack_webhook_url) != "")
   lambda_artifact_dir   = "${path.module}/../../../lambdas/dist"
 }
 

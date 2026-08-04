@@ -59,6 +59,22 @@ function boolValue(value) {
   return value === true || value === 'true';
 }
 
+function optionalBoolValue(value) {
+  if (value === undefined || value === null || value === '') return null;
+  return boolValue(value);
+}
+
+function optionalNumberValue(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function optionalStringValue(value) {
+  const normalized = trim(value);
+  return normalized || null;
+}
+
 function parseJSON(value, label) {
   const raw = trim(value);
   if (!raw) return {};
@@ -136,11 +152,119 @@ function stringSet(values) {
   return result;
 }
 
+// The stack and Fleet config secrets contain credentials and infrastructure
+// identifiers. Keep diagnostics on an explicit allowlist instead of returning
+// either secret wholesale.
+function normalizeStackSettings(config = {}) {
+  const source = config.DiagnosticSettings || config.diagnostic_settings || {};
+  const infra = config.infra || {};
+  const cache = source.cache || {};
+  const stickyDisk = source.sticky_disk || {};
+  const storage = source.storage || {};
+  const buildkit = source.buildkit || {};
+  const runner = source.runner || {};
+  const scheduling = source.scheduling || {};
+  const network = source.network || {};
+  const runtime = source.runtime || {};
+  const telemetry = source.telemetry || {};
+  const integrations = source.integrations || {};
+  const brokerConfigured = trim(
+    config.CacheCredentialBrokerFunctionName || infra.cache_credential_broker_function_name,
+  ) !== '';
+
+  return {
+    schema_version: optionalNumberValue(source.schema_version) || 1,
+    app_tag: optionalStringValue(source.app_tag || config.AppTag || infra.app_tag),
+    deployment_method: optionalStringValue(
+      source.deployment_method || config.DeploymentMethod || infra.deployment_method,
+    ),
+    cache: {
+      isolation_enabled: cache.isolation_enabled === undefined
+        ? brokerConfigured
+        : optionalBoolValue(cache.isolation_enabled),
+      credential_broker_configured: brokerConfigured,
+      expiration_days: optionalNumberValue(cache.expiration_days),
+      bucket_versioning_enabled: optionalBoolValue(cache.bucket_versioning_enabled),
+      mandatory_extras: Array.isArray(cache.mandatory_extras)
+        ? stringSet(cache.mandatory_extras)
+        : null,
+    },
+    sticky_disk: {
+      isolation_enabled: optionalBoolValue(stickyDisk.isolation_enabled),
+      configured_runner_count: optionalNumberValue(stickyDisk.configured_runner_count),
+    },
+    storage: {
+      ebs_encryption_mode: optionalStringValue(storage.ebs_encryption_mode),
+      efs_enabled: optionalBoolValue(storage.efs_enabled),
+    },
+    buildkit: {
+      ephemeral_registry_enabled: optionalBoolValue(buildkit.ephemeral_registry_enabled),
+      pull_through_rule_count: optionalNumberValue(buildkit.pull_through_rule_count),
+      docker_hub_mirror_enabled: optionalBoolValue(buildkit.docker_hub_mirror_enabled),
+    },
+    runner: {
+      max_runtime_minutes: optionalNumberValue(runner.max_runtime_minutes),
+      config_auto_extends_enabled: optionalBoolValue(runner.config_auto_extends_enabled),
+      custom_policy_count: optionalNumberValue(runner.custom_policy_count),
+      custom_tags_configured: optionalBoolValue(runner.custom_tags_configured),
+      bedrock_enabled: optionalBoolValue(runner.bedrock_enabled),
+    },
+    scheduling: {
+      spot_circuit_breaker: optionalStringValue(scheduling.spot_circuit_breaker),
+    },
+    network: {
+      private_mode: optionalStringValue(network.private_mode),
+      ipv6_enabled: optionalBoolValue(network.ipv6_enabled),
+      ssh_allowed: optionalBoolValue(network.ssh_allowed),
+      public_subnet_count: optionalNumberValue(network.public_subnet_count),
+      private_subnet_count: optionalNumberValue(network.private_subnet_count),
+    },
+    runtime: {
+      app_size: optionalStringValue(runtime.app_size),
+      capacity_provider: optionalStringValue(runtime.capacity_provider),
+      maintenance_mode: optionalBoolValue(runtime.maintenance_mode),
+      github_api_strategy: optionalStringValue(runtime.github_api_strategy),
+    },
+    telemetry: {
+      exporter_configured: optionalBoolValue(telemetry.exporter_configured),
+      headers_configured: optionalBoolValue(telemetry.headers_configured),
+      temporality: optionalStringValue(telemetry.temporality),
+      logs_enabled: optionalBoolValue(telemetry.logs_enabled),
+      traces_enabled: optionalBoolValue(telemetry.traces_enabled),
+      logger_level: optionalStringValue(telemetry.logger_level),
+      ec2_log_group_configured: optionalBoolValue(telemetry.ec2_log_group_configured),
+    },
+    integrations: {
+      step_security_configured: optionalBoolValue(integrations.step_security_configured),
+    },
+  };
+}
+
 function instanceIDFromRunnerName(runnerName) {
   const parts = trim(runnerName).split('--');
   if (parts.length < 2) return '';
   const instanceID = trim(parts[1]);
   return instanceID.startsWith('i-') ? instanceID : '';
+}
+
+function normalizeSpotInterruption(record, product) {
+  const isFleet = product === 'fleet';
+  const detected = boolValue(isFleet ? record?.spot_interrupted : record?.was_interrupted);
+  const instanceIDs = isFleet && Array.isArray(record?.interrupted_instance_ids)
+    ? stringSet(record.interrupted_instance_ids)
+    : null;
+  let source = '';
+  if (isFleet) {
+    source = record?.spot_interruption_source || (detected ? 'claim_record' : '');
+  } else if (detected) {
+    source = 'workflow_job_record';
+  }
+  return {
+    detected,
+    interrupted_at: isFleet ? optionalStringValue(record?.spot_interrupted_at) : null,
+    source: optionalStringValue(source),
+    instance_ids: instanceIDs,
+  };
 }
 
 function createdAtFromLocal(record) {
@@ -212,6 +336,7 @@ function normalizeFlexRecord(record) {
     instance_ids: instanceIDs,
     status: trim(record.status),
     scheduling_state: trim(record.scheduling_state),
+    spot_interruption: normalizeSpotInterruption(record, 'flex'),
     created_at: createdAtFromLocal(record),
     completed_at: trim(record.completed_at),
     record,
@@ -235,6 +360,7 @@ function normalizeFleetClaim(record) {
     instance_ids: instanceIDs,
     status: trim(record.state),
     scheduling_state: trim(record.state),
+    spot_interruption: normalizeSpotInterruption(record, 'fleet'),
     created_at: createdAtFromLocal(record),
     completed_at: trim(record.completed_at),
     record,
@@ -359,10 +485,37 @@ function credentialsFromFleetConfig(config) {
   };
 }
 
-async function loadSecretJSON(aws, secretID, label) {
+async function loadSecretJSONWithProvenance(aws, secretID, label, versionID = '') {
   if (!trim(secretID)) throw new Error(`${label} secret ARN is not configured`);
-  const output = await aws.getSecretValue({ SecretId: secretID });
-  return parseJSON(output?.SecretString, label);
+  const input = { SecretId: secretID };
+  const pinnedVersionID = trim(versionID);
+  if (pinnedVersionID) input.VersionId = pinnedVersionID;
+  const output = await aws.getSecretValue(input);
+  return {
+    value: parseJSON(output?.SecretString, label),
+    versionPinned: pinnedVersionID !== '',
+  };
+}
+
+async function loadSecretJSON(aws, secretID, label) {
+  return (await loadSecretJSONWithProvenance(aws, secretID, label)).value;
+}
+
+function attachCurrentStackSettings(response, configSecret) {
+  response.stack_settings = normalizeStackSettings(configSecret.value);
+  // Retained records do not carry the config version used by their worker, so
+  // identify these as resolver-deployment settings instead of job-effective.
+  response.stack_settings_provenance = {
+    source: 'resolver_deployment_config',
+    scope: 'current_stack',
+    version_pinned: configSecret.versionPinned,
+    job_effective: 'unknown',
+  };
+  response.diagnostics.push({
+    level: 'info',
+    code: 'stack_settings_scope_current',
+    message: 'Stack settings describe the resolver deployment config; the diagnosed job-effective config version is not recorded.',
+  });
 }
 
 async function getFlexRecord(aws, tableName, jobID) {
@@ -544,10 +697,11 @@ async function deliveryMetadata(githubClient, credentials, observed, diagnostics
   });
 }
 
-function baseResponse(product, facts) {
+function baseResponse(product, facts, stackName = '') {
   return {
     status: 'not_found',
     product,
+    stack_name: trim(stackName),
     request: facts,
     github: {
       workflow_job: null,
@@ -561,12 +715,15 @@ function baseResponse(product, facts) {
 }
 
 async function resolveFlex(aws, facts, options) {
-  const response = baseResponse('flex', facts);
-  const stackConfig = await loadSecretJSON(
+  const response = baseResponse('flex', facts, process.env.RUNS_ON_STACK_NAME);
+  const stackConfigSecret = await loadSecretJSONWithProvenance(
     aws,
     process.env.RUNS_ON_STACK_CONFIG_SECRET_ARN,
     'stack config',
+    process.env.RUNS_ON_STACK_CONFIG_SECRET_VERSION,
   );
+  const stackConfig = stackConfigSecret.value;
+  attachCurrentStackSettings(response, stackConfigSecret);
   const githubAppsSecretARN = trim(process.env.RUNS_ON_GITHUB_APPS_SECRET_ARN || stackConfig.GitHubAppsSecretArn);
   const tableName = trim(process.env.RUNS_ON_WORKFLOW_JOBS_TABLE || stackConfig.WorkflowJobsTable);
   if (!tableName) throw new Error('workflow jobs table is not configured');
@@ -615,12 +772,15 @@ async function resolveFlex(aws, facts, options) {
 }
 
 async function resolveFleet(aws, facts, options) {
-  const response = baseResponse('fleet', facts);
-  const config = await loadSecretJSON(
+  const configSecret = await loadSecretJSONWithProvenance(
     aws,
     process.env.RUNS_ON_FLEET_CONFIG_SECRET_ARN,
     'fleet config',
+    process.env.RUNS_ON_FLEET_CONFIG_SECRET_VERSION,
   );
+  const config = configSecret.value;
+  const response = baseResponse('fleet', facts, config?.infra?.stack_name);
+  attachCurrentStackSettings(response, configSecret);
   const tableName = trim(process.env.RUNS_ON_CLAIMS_TABLE || config?.infra?.claim_table_name);
   if (!tableName) throw new Error('fleet claims table is not configured');
   if (!facts.workflow_job_id) throw new Error('workflow_job_id is required');
@@ -707,5 +867,7 @@ module.exports = {
   unmarshalItem,
   normalizeFlexRecord,
   normalizeFleetClaim,
+  normalizeSpotInterruption,
+  normalizeStackSettings,
   handler,
 };

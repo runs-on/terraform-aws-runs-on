@@ -74,7 +74,7 @@ output "tables" {
 output "dashboard" {
   description = "Flex dashboard resources"
   value = local.operations.enable_default_dashboard ? {
-    url  = "https://${var.region}.console.aws.amazon.com/cloudwatch/home?region=${var.region}#dashboards:name=${var.stack_name}-Dashboard"
+    url  = "https://${var.region}.console.aws.amazon.com/cloudwatch/home?region=${var.region}#dashboards/dashboard/${var.stack_name}-Dashboard"
     name = aws_cloudwatch_dashboard.runs_on[0].dashboard_name
   } : null
 }

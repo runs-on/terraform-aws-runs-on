@@ -244,6 +244,10 @@ func runFunctionalValidations(t *testing.T, clients *AWSClients, r ScenarioResul
 		ValidateS3AccessFromEC2(t, clients, instanceID, r.CacheBucket())
 	})
 
+	t.Run("EBSPermissions", func(t *testing.T) {
+		ValidateEBSPermissionsFromEC2(t, clients, instanceID, r.Config.EnableStickyDiskIsolation)
+	})
+
 	if r.Config.EnableEFS {
 		t.Run("EFSMount", func(t *testing.T) {
 			ValidateEFSMountFromEC2(t, clients, instanceID, r.EFSFileSystemID())
@@ -499,6 +503,8 @@ func isAccessDenied(output string) bool {
 }
 
 // ValidateS3AccessFromEC2 verifies that an EC2 instance has the correct S3 access per IAM policy.
+// Direct cache clients intentionally retain stack-shared cache/* access in both modes. Magic Cache
+// isolation applies only to scoped-cache/*, whose denial is validated by the cache E2E workflow.
 func ValidateS3AccessFromEC2(t *testing.T, clients *AWSClients, instanceID, cacheBucket string) {
 	ctx := context.Background()
 
@@ -513,25 +519,36 @@ func ValidateS3AccessFromEC2(t *testing.T, clients *AWSClients, instanceID, cach
 	require.NotEmpty(t, userId, "UserId should not be empty")
 	t.Logf("EC2 instance aws:userid = %s", userId)
 
-	// === Test 1: CAN write to cache/* ===
-	cacheKey := fmt.Sprintf("cache/%s", testFile)
+	// === Test 1: CAN write, read, list, and delete cache/repo/* with raw instance-profile credentials ===
+	cacheKey := fmt.Sprintf("cache/repo/%s", testFile)
 	writeCmd := fmt.Sprintf("echo '%s' | aws s3 cp - s3://%s/%s --region %s 2>&1",
 		testContent, cacheBucket, cacheKey, GetAWSRegion())
 	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{writeCmd})
-	require.NoError(t, err, "Should be able to write to cache/*. stderr: %s", stdout)
-	t.Logf("CAN write to cache/*")
+	require.NoError(t, err, "Should be able to write to cache/repo/* with raw instance-profile credentials. output: %s", stdout)
 
-	// === Test 2: CAN read from cache/* ===
 	readCmd := fmt.Sprintf("aws s3 cp s3://%s/%s - --region %s 2>&1", cacheBucket, cacheKey, GetAWSRegion())
 	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{readCmd})
-	require.NoError(t, err, "Should be able to read from cache/*")
-	assert.Contains(t, stdout, testContent, "Content mismatch reading from cache/*")
-	t.Logf("CAN read from cache/*")
+	require.NoError(t, err, "Should be able to read from cache/repo/* with raw instance-profile credentials. output: %s", stdout)
+	assert.Contains(t, stdout, testContent)
 
-	// Cleanup cache test file
+	listCmd := fmt.Sprintf(
+		"aws s3api list-objects-v2 --bucket %s --prefix %s --region %s --query \"Contents[?Key=='%s'].Key\" --output text 2>&1",
+		cacheBucket, cacheKey, GetAWSRegion(), cacheKey,
+	)
+	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{listCmd})
+	require.NoError(t, err, "Should be able to list cache/repo/* with raw instance-profile credentials. output: %s", stdout)
+	assert.Equal(t, cacheKey, strings.TrimSpace(stdout))
+
+	deleteCmd := fmt.Sprintf("aws s3api delete-object --bucket %s --key %s --region %s 2>&1",
+		cacheBucket, cacheKey, GetAWSRegion())
+	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{deleteCmd})
+	require.NoError(t, err, "Should be able to delete cache/repo/* with raw instance-profile credentials. output: %s", stdout)
+	t.Logf("CAN write, read, list, and delete cache/repo/* with raw instance-profile credentials")
+
+	// Safety cleanup in case a previous assertion failed after the write.
 	_, _ = clients.S3.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(cacheKey)})
 
-	// === Test 3: CAN read from runners/{own-userid}/* ===
+	// === Test 2: CAN read from runners/{own-userid}/* ===
 	ownRunnersKey := fmt.Sprintf("runners/%s/%s", userId, testFile)
 	ownRunnersContent := "runners-test-content"
 	_, err = clients.S3.PutObject(ctx, &s3.PutObjectInput{
@@ -595,6 +612,24 @@ func ValidateS3AccessFromEC2(t *testing.T, clients *AWSClients, instanceID, cach
 
 	// Cleanup
 	_, _ = clients.S3.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(otherRunnersKey)})
+}
+
+// ValidateEBSPermissionsFromEC2 verifies the runner's EBS surface matches the sticky-disk
+// isolation mode: with isolation on, jobs must hold zero volume/snapshot permissions (all
+// EBS operations happen on the control plane); with isolation off, the legacy v1
+// runs-on/snapshot action permissions remain.
+func ValidateEBSPermissionsFromEC2(t *testing.T, clients *AWSClients, instanceID string, stickyDiskIsolation bool) {
+	describeCmd := fmt.Sprintf("aws ec2 describe-snapshots --owner-ids self --max-items 1 --region %s 2>&1", GetAWSRegion())
+	stdout, _, err := RunSSMCommand(t, clients, instanceID, []string{describeCmd})
+	if stickyDiskIsolation {
+		require.Error(t, err, "With sticky-disk isolation, runners should not be able to describe snapshots. output: %s", stdout)
+		assert.True(t, strings.Contains(stdout, "UnauthorizedOperation") || isAccessDenied(stdout),
+			"Expected UnauthorizedOperation for describe-snapshots. output: %s", stdout)
+		t.Logf("CANNOT describe snapshots with raw instance-profile credentials (isolation mode)")
+	} else {
+		require.NoError(t, err, "Legacy mode should allow describing snapshots for the v1 snapshot action. output: %s", stdout)
+		t.Logf("CAN describe snapshots with raw instance-profile credentials (legacy mode)")
+	}
 }
 
 // ValidateEC2CloudWatchLogs verifies that an EC2 instance is sending logs to CloudWatch.

@@ -78,9 +78,10 @@ resource "aws_lambda_function" "job_diagnostics_resolver" {
 
   environment {
     variables = {
-      RUNS_ON_PRODUCT                 = "fleet"
-      RUNS_ON_FLEET_CONFIG_SECRET_ARN = aws_secretsmanager_secret.config.arn
-      RUNS_ON_CLAIMS_TABLE            = aws_dynamodb_table.claims.name
+      RUNS_ON_PRODUCT                     = "fleet"
+      RUNS_ON_FLEET_CONFIG_SECRET_ARN     = aws_secretsmanager_secret.config.arn
+      RUNS_ON_FLEET_CONFIG_SECRET_VERSION = local.config_secret_version
+      RUNS_ON_CLAIMS_TABLE                = aws_dynamodb_table.claims.name
     }
   }
 

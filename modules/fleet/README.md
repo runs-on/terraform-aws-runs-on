@@ -22,7 +22,7 @@ Public module source:
 ```hcl
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.1.3"
+  version = "v3.2.0"
 }
 ```
 
@@ -158,13 +158,14 @@ locals {
       timezone     = "UTC"
       runner_group = github_enterprise_actions_runner_group.runs_on.name
       runner       = "small-x64"
+      max_runners  = 200
     }
   }
 }
 
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.1.3"
+  version = "v3.2.0"
 
   stack_name             = var.stack_name
   github_enterprise_pat  = var.github_enterprise_pat
@@ -213,6 +214,8 @@ Fleet names GitHub scale sets with stack scope, so stack `runs-on-fleet-preview-
 
 Fleet has one routing environment per stack. The module writes `environment` into every generated pool spec; `fleets.<fleet-name>.env` is not a supported override.
 
+Destroying the AWS stack does not necessarily delete GitHub runner scale sets. Recreating the same stack and fleet in the same runner group can reuse an existing GitHub scale set; Fleet updates its labels on startup, so verify the `fleetd` service has rolled if a changed `environment` is not reflected.
+
 ## Architecture
 
 The Fleet root module deploys:
@@ -244,15 +247,21 @@ Replace `<ORG>` or `<ENTERPRISE>` before opening these URLs. For GHES, replace `
 GitHub App organization mode:
 
 ```text
-https://github.com/organizations/<ORG>/settings/apps/new?name=RunsOn%20Fleet%20%5B<ORG>%5D&url=https%3A%2F%2Fruns-on.com&public=false&webhook_active=false&organization_self_hosted_runners=write&actions=read
+https://github.com/organizations/<ORG>/settings/apps/new?name=RunsOn%20Fleet%20%5B<ORG>%5D&url=https%3A%2F%2Fruns-on.com&public=false&webhook_active=false&organization_self_hosted_runners=write&actions=write
 ```
 
-The `actions=read` repository permission lets Fleet diagnostics resolve a GitHub workflow job URL to the runner name and EC2 instance used by `roc logs --include console`. Without that permission, Fleet can still run jobs, but automatic console-log correlation depends on already-persisted local claim data or a local `gh` CLI fallback.
+The `actions=write` repository permission lets Fleet automatically re-run jobs killed by a spot interruption (the rerun-failed-jobs API returns 403 `Resource not accessible by integration` without it) and covers the read access Fleet diagnostics use to resolve a GitHub workflow job URL to the runner name and EC2 instance for `roc logs --include console`. With read-only Actions access, Fleet still runs jobs and resolves diagnostics, but spot recovery reruns fail. Existing installs adopting spot recovery: raise Actions to Read and write in the app's permission settings, then approve the pending permission request on the organization installation.
 
 Enterprise PAT classic mode:
 
 ```text
 https://github.com/settings/tokens/new?description=RunsOn%20Fleet%20%5B<ENTERPRISE>%5D&scopes=manage_runners%3Aenterprise
+```
+
+The minimal `manage_runners:enterprise` token runs jobs but cannot call the re-run-failed-jobs API, so automatic spot recovery reruns are skipped (logged as `permission_denied`) while everything else keeps working. To enable automatic spot retries in PAT mode, add the `repo` scope to the token:
+
+```text
+https://github.com/settings/tokens/new?description=RunsOn%20Fleet%20%5B<ENTERPRISE>%5D&scopes=manage_runners%3Aenterprise,repo
 ```
 
 ## Runtime Config
@@ -267,11 +276,11 @@ The rendered runtime secret still carries the internal `github_private_key` fiel
 
 Fleet references existing ECR pull-through cache rules and prepares Linux runners with ECR Docker credentials. Create, import, or look up the account/region-level rule outside RunsOn, then pass the Terraform resource or data source object into the module. Multiple RunsOn stacks in the same account and region can safely share the same rule reference.
 
-Docker Hub can be transparent for references such as `docker.io/library/node:22` only when the referenced rule uses `ecr_repository_prefix = "ROOT"` and `upstream_registry_url = "registry-1.docker.io"`. Other providers use explicit ECR cache references.
+Every rule must use a named `ecr_repository_prefix` (the special `ROOT` prefix is rejected: it would grant runners account-wide ECR access). On Linux runners, Docker Hub references such as `docker.io/library/node:22` stay transparent for rules targeting `registry-1.docker.io`: the runs-on agent serves a local registry mirror on `127.0.0.1:6871` that maps Docker Hub paths onto the rule's prefix. It also writes the default BuildKit configuration so `docker-container` Buildx builders without an explicit config use the prefixed ECR cache directly. Buildx remote-driver workflows must remove `$HOME/.docker/buildx/buildkitd.default.toml` before creating the builder because remote daemons are configured where they run. Windows runners do not configure ECR Docker credentials or transparent Docker Hub mirroring automatically; workflows must authenticate and use explicit ECR cache paths. Configure at most one Docker Hub rule without an `upstream_repository_prefix`; additional Docker Hub rules must scope an upstream prefix and use explicit ECR image paths. Other providers use explicit ECR cache references.
 
 ```hcl
 data "aws_ecr_pull_through_cache_rule" "docker_hub" {
-  ecr_repository_prefix = "ROOT"
+  ecr_repository_prefix = "docker-hub"
 }
 
 module "runs_on_fleet" {
@@ -339,6 +348,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | Name | Type |
 |------|------|
 | [terraform_data.validate_public_subnets](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
+| [terraform_data.validate_runner_sticky_specs](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 
 ## Inputs
 
@@ -353,7 +363,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alert notifications (optional) | `string` | `""` | no |
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the Fleet worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight assigned jobs are reconciled by the Fleet runtime. | `string` | `"fargate"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the Fleet worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. | `string` | `"v3.1.3"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. | `string` | `"v3.2.0-rc.4"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap release tag used by the shared compute bootstrap template. | `string` | `"v0.1.17"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |
@@ -361,6 +371,8 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key used for cost allocation. | `string` | `"stack"` | no |
 | <a name="input_ecr_pull_through_cache_rules"></a> [ecr\_pull\_through\_cache\_rules](#input\_ecr\_pull\_through\_cache\_rules) | Existing ECR pull-through cache rules to reference for Fleet runner image pulls. Create or import the regional rules outside the RunsOn module. | <pre>map(object({<br/>    ecr_repository_prefix      = string<br/>    upstream_registry_url      = string<br/>    upstream_repository_prefix = optional(string)<br/>  }))</pre> | `{}` | no |
 | <a name="input_enable_bedrock"></a> [enable\_bedrock](#input\_enable\_bedrock) | Enable Amazon Bedrock access for EC2 runner instances. | `bool` | `false` | no |
+| <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in | `bool` | `false` | no |
+| <a name="input_enable_stickydisk_isolation"></a> [enable\_stickydisk\_isolation](#input\_enable\_stickydisk\_isolation) | Remove the legacy EBS volume/snapshot permissions from the runner instance role, so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action. Opt-in | `bool` | `false` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name used by the workflow targeting contract. | `string` | `"production"` | no |
 | <a name="input_extra_env_vars"></a> [extra\_env\_vars](#input\_extra\_env\_vars) | Additional environment variables to set on the Fleet worker service. | `map(string)` | `{}` | no |
 | <a name="input_force_destroy_buckets"></a> [force\_destroy\_buckets](#input\_force\_destroy\_buckets) | Allow the cache bucket to be destroyed while non-empty. | `bool` | `false` | no |
@@ -369,20 +381,26 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_github_base_url"></a> [github\_base\_url](#input\_github\_base\_url) | GitHub host root URL. Leave the default for github.com and set a GHES host root such as https://ghe.example.com when needed. | `string` | `"https://github.com"` | no |
 | <a name="input_github_enterprise_name"></a> [github\_enterprise\_name](#input\_github\_enterprise\_name) | GitHub Enterprise slug used when github\_enterprise\_pat is set. | `string` | `null` | no |
 | <a name="input_github_enterprise_pat"></a> [github\_enterprise\_pat](#input\_github\_enterprise\_pat) | Classic PAT used for enterprise-target Fleet mode. Must start with ghp\_ when set. | `string` | `null` | no |
-| <a name="input_images"></a> [images](#input\_images) | Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 do not need entries here. | `map(any)` | `{}` | no |
+| <a name="input_images"></a> [images](#input\_images) | Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here. | `map(any)` | `{}` | no |
 | <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | API key for StepSecurity integration (optional). | `string` | `""` | no |
 | <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 on EC2 runner launch templates. | `bool` | `false` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | CloudWatch Logs retention in days. | `number` | `7` | no |
 | <a name="input_maintenance_mode"></a> [maintenance\_mode](#input\_maintenance\_mode) | Enable maintenance mode (disables queue processing and leader election) | `bool` | `false` | no |
+| <a name="input_otel_exporter_endpoint"></a> [otel\_exporter\_endpoint](#input\_otel\_exporter\_endpoint) | OpenTelemetry exporter endpoint for observability (optional) | `string` | `""` | no |
+| <a name="input_otel_exporter_headers"></a> [otel\_exporter\_headers](#input\_otel\_exporter\_headers) | OpenTelemetry exporter headers (optional) | `string` | `""` | no |
+| <a name="input_otel_exporter_temporality"></a> [otel\_exporter\_temporality](#input\_otel\_exporter\_temporality) | OTLP metrics temporality: cumulative (default) or delta | `string` | `"cumulative"` | no |
+| <a name="input_otel_logs_enabled"></a> [otel\_logs\_enabled](#input\_otel\_logs\_enabled) | Enable OpenTelemetry log export | `bool` | `true` | no |
+| <a name="input_otel_traces_enabled"></a> [otel\_traces\_enabled](#input\_otel\_traces\_enabled) | Enable OpenTelemetry trace export | `bool` | `true` | no |
 | <a name="input_permission_boundary_arn"></a> [permission\_boundary\_arn](#input\_permission\_boundary\_arn) | Optional IAM permission boundary ARN applied to created roles. | `string` | `""` | no |
 | <a name="input_private_mode"></a> [private\_mode](#input\_private\_mode) | Private networking mode: false, true, always, or only. | `string` | `"false"` | no |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | Private subnet IDs used for Fargate and runners when private\_mode is enabled. | `list(string)` | `[]` | no |
 | <a name="input_public_subnet_ids"></a> [public\_subnet\_ids](#input\_public\_subnet\_ids) | Public subnet IDs used for runners and Fargate. Required unless private\_mode is "only". | `list(string)` | `[]` | no |
-| <a name="input_runner_custom_policy_arn"></a> [runner\_custom\_policy\_arn](#input\_runner\_custom\_policy\_arn) | Optional managed policy attached to the EC2 runner role. | `string` | `""` | no |
+| <a name="input_runner_custom_policy_arns"></a> [runner\_custom\_policy\_arns](#input\_runner\_custom\_policy\_arns) | Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources. | `list(string)` | `[]` | no |
 | <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Additional custom tags propagated to launched runner instances. | `list(string)` | `[]` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes passed to the shared compute bootstrap template. | `number` | `60` | no |
-| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.3@sha256:4e464e38792a8838c2847a0c0393dba4f504065249b257d38f85df4bd7c81ce6"` | no |
+| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.0-rc.4@sha256:0cd36bb8f12d92ea1569b90fab0900b499bd25d763ee5526a9437db8064255b8"` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for runners and the Fleet worker. Leave empty to create a dedicated group. | `list(string)` | `[]` | no |
+| <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker for Fleet launches, formatted as COUNT/WINDOW\_MINUTES/RECOVERY\_MINUTES: after COUNT spot interruptions within WINDOW\_MINUTES, launch on-demand for RECOVERY\_MINUTES. "false" disables it; empty uses the built-in default "2/15/30" (same semantics as the Flex SpotCircuitBreaker stack parameter). | `string` | `""` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH ingress when the module creates its own security group. | `bool` | `false` | no |
 | <a name="input_ssh_cidr_range"></a> [ssh\_cidr\_range](#input\_ssh\_cidr\_range) | CIDR range allowed for SSH access when the module creates its own security group. | `string` | `"0.0.0.0/0"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags applied to all created AWS resources. | `map(string)` | `{}` | no |
@@ -393,6 +411,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 |------|-------------|
 | <a name="output_alerts"></a> [alerts](#output\_alerts) | RunsOn Fleet alerting resources |
 | <a name="output_config"></a> [config](#output\_config) | RunsOn Fleet runtime configuration secret |
+| <a name="output_dashboard"></a> [dashboard](#output\_dashboard) | RunsOn Fleet CloudWatch dashboard |
 | <a name="output_platform"></a> [platform](#output\_platform) | Shared runner platform resources for RunsOn Fleet |
 | <a name="output_runtime"></a> [runtime](#output\_runtime) | RunsOn Fleet runtime ECS resources |
 | <a name="output_stack"></a> [stack](#output\_stack) | RunsOn Fleet stack metadata |

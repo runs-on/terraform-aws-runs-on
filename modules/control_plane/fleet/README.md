@@ -49,18 +49,26 @@ The public Terraform input is `github_app_private_key`, but the rendered runtime
 
 | Name | Type |
 |------|------|
+| [aws_cloudwatch_dashboard.fleet](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_dashboard) | resource |
+| [aws_cloudwatch_log_group.cache_credential_broker_lambda](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_cloudwatch_log_group.config_materializer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_cloudwatch_log_group.job_diagnostics_resolver](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cloudwatch_log_group) | resource |
 | [aws_dynamodb_table.claims](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/dynamodb_table) | resource |
+| [aws_iam_role.cache_credential_broker](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.config_materializer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role.job_diagnostics_resolver](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.cache_credential_broker_assume_runner](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy.cache_credential_broker_logs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_iam_role_policy.cache_credential_broker_read_jwks](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy.config_materializer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_iam_role_policy.job_diagnostics_resolver](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_lambda_function.cache_credential_broker](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function) | resource |
 | [aws_lambda_function.config_materializer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function) | resource |
 | [aws_lambda_function.job_diagnostics_resolver](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function) | resource |
 | [aws_lambda_invocation.config_materializer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_invocation) | resource |
 | [aws_secretsmanager_secret.config](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/secretsmanager_secret) | resource |
 | [aws_ssm_parameter.license_status](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
+| [aws_ssm_parameter.otel_exporter_headers](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/ssm_parameter) | resource |
 
 ## Inputs
 
@@ -70,15 +78,17 @@ The public Terraform input is `github_app_private_key`, but the rendered runtime
 | <a name="input_alerts"></a> [alerts](#input\_alerts) | Fleet alert delivery settings | <pre>object({<br/>    email             = string<br/>    slack_webhook_url = string<br/>  })</pre> | n/a | yes |
 | <a name="input_catalog"></a> [catalog](#input\_catalog) | Runner image, runner, and fleet catalogs | <pre>object({<br/>    images  = map(any)<br/>    runners = map(any)<br/>    fleets  = map(any)<br/>  })</pre> | n/a | yes |
 | <a name="input_compute"></a> [compute](#input\_compute) | Shared runner compute resources | <pre>object({<br/>    runner_iam = object({<br/>      role_arn     = string<br/>      role_name    = string<br/>      role_id      = string<br/>      profile_arn  = string<br/>      profile_name = string<br/>    })<br/>    runner_logs = object({<br/>      group_name          = string<br/>      group_arn           = string<br/>      resource_group_name = string<br/>      resource_group_arn  = string<br/>    })<br/>    launch_templates = object({<br/>      linux_default = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      linux_default_nested = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      windows_default = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      windows_default_nested = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      linux_private = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      linux_private_nested = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      windows_private = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      windows_private_nested = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>    })<br/>  })</pre> | n/a | yes |
-| <a name="input_control_plane"></a> [control\_plane](#input\_control\_plane) | Fleet control plane settings published into the runtime secret | <pre>object({<br/>    environment         = string<br/>    private_mode        = string<br/>    cost_allocation_tag = string<br/>    app_tag             = string<br/>    runner_custom_tags  = list(string)<br/>  })</pre> | n/a | yes |
+| <a name="input_control_plane"></a> [control\_plane](#input\_control\_plane) | Fleet control plane settings published into the runtime secret | <pre>object({<br/>    environment          = string<br/>    private_mode         = string<br/>    cost_allocation_tag  = string<br/>    app_tag              = string<br/>    runner_custom_tags   = list(string)<br/>    spot_circuit_breaker = optional(string, "")<br/>  })</pre> | n/a | yes |
 | <a name="input_extras"></a> [extras](#input\_extras) | Shared runner extras resources | <pre>object({<br/>    cache = object({<br/>      bucket_id   = string<br/>      bucket_name = string<br/>      bucket_arn  = string<br/>    })<br/>    efs = object({<br/>      enabled           = bool<br/>      file_system_id    = string<br/>      file_system_arn   = string<br/>      file_system_dns   = string<br/>      security_group_id = string<br/>    })<br/>    ecr = object({<br/>      enabled         = bool<br/>      repository_arn  = string<br/>      repository_name = string<br/>      repository_url  = string<br/>    })<br/>  })</pre> | n/a | yes |
 | <a name="input_github"></a> [github](#input\_github) | GitHub authentication and host settings for the Fleet runtime | <pre>object({<br/>    app_id          = any<br/>    app_private_key = any<br/>    enterprise_pat  = any<br/>    base_url        = string<br/>    enterprise      = any<br/>    license_key     = string<br/>  })</pre> | n/a | yes |
 | <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | API key for StepSecurity integration forwarded to runner agents | `string` | n/a | yes |
 | <a name="input_network"></a> [network](#input\_network) | Shared runner networking resources | <pre>object({<br/>    vpc_id             = string<br/>    private_mode       = string<br/>    public_subnet_ids  = list(string)<br/>    private_subnet_ids = list(string)<br/>    security_group_ids = list(string)<br/>  })</pre> | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | AWS region | `string` | n/a | yes |
-| <a name="input_runtime"></a> [runtime](#input\_runtime) | Fleet ECS runtime settings | <pre>object({<br/>    image              = string<br/>    size               = string<br/>    capacity_provider  = string<br/>    maintenance_mode   = bool<br/>    log_retention_days = number<br/>    extra_env_vars     = map(string)<br/>  })</pre> | n/a | yes |
+| <a name="input_runtime"></a> [runtime](#input\_runtime) | Fleet ECS runtime settings | <pre>object({<br/>    image                     = string<br/>    size                      = string<br/>    capacity_provider         = string<br/>    maintenance_mode          = bool<br/>    log_retention_days        = number<br/>    otel_exporter_endpoint    = string<br/>    otel_exporter_headers     = string<br/>    otel_exporter_temporality = string<br/>    otel_logs_enabled         = bool<br/>    otel_traces_enabled       = bool<br/>    extra_env_vars            = map(string)<br/>  })</pre> | n/a | yes |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Fleet stack name | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to Fleet resources | `map(string)` | n/a | yes |
+| <a name="input_diagnostic_settings"></a> [diagnostic\_settings](#input\_diagnostic\_settings) | Non-sensitive stack settings exposed by the job diagnostics resolver | `any` | `{}` | no |
+| <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes | `bool` | `false` | no |
 
 ## Outputs
 
@@ -87,6 +97,7 @@ The public Terraform input is `github_app_private_key`, but the rendered runtime
 | <a name="output_alerts"></a> [alerts](#output\_alerts) | Fleet alerting resources |
 | <a name="output_claims"></a> [claims](#output\_claims) | Fleet claim ledger table |
 | <a name="output_config"></a> [config](#output\_config) | Fleet runtime configuration secret |
+| <a name="output_dashboard"></a> [dashboard](#output\_dashboard) | Fleet CloudWatch dashboard |
 | <a name="output_runtime"></a> [runtime](#output\_runtime) | Fleet runtime ECS resources |
 | <a name="output_workflow_contract"></a> [workflow\_contract](#output\_workflow\_contract) | Fleet workflow targeting contract |
 <!-- END_TF_DOCS -->
