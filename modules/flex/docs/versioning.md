@@ -26,7 +26,7 @@ To use this module from a specific git branch, tag, or commit SHA:
 
 ```hcl
 module "runs-on" {
-  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/flex?ref=release/v3.2.1"
+  source = "git::https://github.com/runs-on/terraform-aws-runs-on.git//modules/flex?ref=release/v3.2.2"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

@@ -182,14 +182,31 @@ function createHandler(options = {}) {
     const payload = payloadBuffer(request).toString('utf8');
 
     let parsedBody;
+    let parseError = false;
     try {
       parsedBody = JSON.parse(payload);
     } catch (_) {
       parsedBody = null;
+      parseError = true;
     }
 
     const logFields = webhookLogFields(parsedBody, eventType, deliveryId);
     log('info', 'Received GitHub webhook', logFields);
+    let invalidReason = '';
+    if (!deliveryId) invalidReason = 'missing_delivery_id';
+    else if (!eventType) invalidReason = 'missing_event_type';
+    else if (!provided) invalidReason = 'missing_signature';
+    else if (parseError) invalidReason = 'invalid_json';
+    else if (!parsedBody || typeof parsedBody !== 'object' || Array.isArray(parsedBody)) invalidReason = 'invalid_json_object';
+
+    if (invalidReason) {
+      log('warn', 'Dropping malformed GitHub webhook', {
+        delivery_id: deliveryId,
+        event_type: eventType,
+        reason: invalidReason,
+      });
+      return jsonResponse(202, { status: 'ignored', reason: 'invalid_payload' });
+    }
     if (!shouldEnqueueWebhook(parsedBody, eventType)) {
       log('info', 'Skipping GitHub webhook without RunsOn labels', logFields);
       return jsonResponse(202, { status: 'ignored' });
