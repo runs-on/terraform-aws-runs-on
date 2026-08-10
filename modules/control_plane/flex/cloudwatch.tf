@@ -1,6 +1,5 @@
 # modules/flex_control_plane/cloudwatch.tf
 # CloudWatch dashboard and budget for RunsOn core module
-# Log query values are generated from scripts/cloudwatch-queries.toml.
 
 ###########################
 # Worker Daily Cost Budget
@@ -66,9 +65,9 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 6
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_launched\"\n| stats count() as JobsLaunched"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_event\" and status = \"scheduled\"\n| stats count() as RunnersScheduled"
           region = var.region
-          title  = "Total Jobs Launched (Current Period)"
+          title  = "Total Runners Scheduled (Current Period)"
           view   = "table"
         }
       },
@@ -79,9 +78,9 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 6
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_launched\"\n| stats count() as JobsLaunched by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_event\" and status = \"scheduled\"\n| stats count() as RunnersScheduled by bin(5m) as t\n| sort t asc"
           region = var.region
-          title  = "Jobs Launched over time (5min intervals)"
+          title  = "Runners Scheduled over time (5min intervals)"
           view   = "timeSeries"
         }
       },
@@ -92,9 +91,9 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 6
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_summary\"\n| stats pct(overall_queue_duration_seconds, 50) as queue_P50, pct(overall_queue_duration_seconds, 95) as queue_P95, pct(job_duration_seconds, 50) as job_P50, pct(job_duration_seconds, 95) as job_P95 by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_event\" and ispresent(overall_queue_duration_seconds)\n| stats pct(internal_queue_duration_seconds, 90) as internal_P90, pct(internal_queue_duration_seconds, 50) as internal_P50, pct(overall_queue_duration_seconds, 90) as overall_P90, pct(overall_queue_duration_seconds, 50) as overall_P50 by bin(1m) as t\n| sort t asc"
           region = var.region
-          title  = "Queue/Job Duration Percentiles (P50/P95)"
+          title  = "Internal/Overall Queue Duration Percentiles (P50/P90)"
           view   = "timeSeries"
           yAxis = {
             left = {
@@ -111,7 +110,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 8
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_summary\"\n| stats sum(if(conclusion = \"success\", 1, 0)) as success, sum(if(conclusion = \"failure\", 1, 0)) as failure, sum(if(conclusion = \"cancelled\", 1, 0)) as cancelled, sum(if(conclusion = \"skipped\", 1, 0)) as skipped by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, jobs_conclusion.success as count_success, jobs_conclusion.failure as count_failure, jobs_conclusion.cancelled as count_cancelled, jobs_conclusion.skipped as count_skipped\n| stats max(count_success) as success, max(count_failure) as failure, max(count_cancelled) as cancelled, max(count_skipped) as skipped by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "Completed Jobs by Conclusion"
           view   = "stackedArea"
@@ -124,7 +123,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| fields @timestamp, rate_limiters.ec2_read.tokens as limiter_tokens, rate_limiters.ec2_read.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_read.tokens as limiter_tokens, rate_limiters.ec2_read.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "EC2 Read"
           view   = "timeSeries"
@@ -142,7 +141,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| fields @timestamp, rate_limiters.ec2_run.tokens as limiter_tokens, rate_limiters.ec2_run.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_run.tokens as limiter_tokens, rate_limiters.ec2_run.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "EC2 Run"
           view   = "timeSeries"
@@ -160,7 +159,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| fields @timestamp, rate_limiters.ec2_terminate.tokens as limiter_tokens, rate_limiters.ec2_terminate.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_terminate.tokens as limiter_tokens, rate_limiters.ec2_terminate.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "EC2 Terminate"
           view   = "timeSeries"
@@ -178,7 +177,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| fields @timestamp, rate_limiters.ec2_mutating.tokens as limiter_tokens, rate_limiters.ec2_mutating.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc" # gitleaks:allow
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.ec2_mutating.tokens as limiter_tokens, rate_limiters.ec2_mutating.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc" # gitleaks:allow
           region = var.region
           title  = "EC2 Mutating"
           view   = "timeSeries"
@@ -196,7 +195,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| fields @timestamp, rate_limiters.s3.tokens as limiter_tokens, rate_limiters.s3.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc" # gitleaks:allow
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.s3.tokens as limiter_tokens, rate_limiters.s3.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc" # gitleaks:allow
           region = var.region
           title  = "S3 API"
           view   = "timeSeries"
@@ -214,7 +213,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 4
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| fields @timestamp, rate_limiters.github.tokens as limiter_tokens, rate_limiters.github.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, rate_limiters.github.tokens as limiter_tokens, rate_limiters.github.burst as limiter_burst\n| stats avg(limiter_tokens) as avg_limiter_tokens, avg(limiter_burst) as avg_limiter_burst by bin(5m) as t\n| sort t asc"
           region = var.region
           title  = "GitHub API"
           view   = "timeSeries"
@@ -245,9 +244,9 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 12
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| fields reconciler_backlog, provisioning_backlog.launch as launch_backlog, provisioning_backlog.registration as registration_backlog\n| stats max(reconciler_backlog) as reconciler, max(launch_backlog) as launch, max(registration_backlog) as registration by bin(1m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| stats min(jobs.queued) as queued, min(jobs.scheduled) as scheduled, min(jobs.in_progress) as in_progress, min(jobs.completed) as completed by bin(1m) as t\n| sort t asc"
           region = var.region
-          title  = "Control Plane Backlog"
+          title  = "Job Status Summary"
           view   = "timeSeries"
         }
       },
@@ -258,9 +257,9 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 12
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_summary\" and conclusion in [\"success\", \"failure\"]\n| stats sum(if(conclusion = \"failure\", 1, 0)) / count() as FailureRate by bin(30m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter message like /Posted .* of workflow usage/\n| stats sum(job_conclusion = \"failure\") / count() as FailureRate, sum(job_conclusion = \"cancelled\") / count() as CancelledRate by bin(30m) as t\n| sort t asc"
           region = var.region
-          title  = "Job Failure Rate (30min intervals)"
+          title  = "Unsuccessful Job Conclusion Rate (30min intervals)"
           view   = "timeSeries"
           yAxis = {
             left = {
@@ -277,7 +276,7 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 12
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| fields @timestamp, spot_circuit_breaker.active as active\n| stats max(active) as circuit_breaker_active by bin(1m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"snapshot\"\n| fields @timestamp, spot_circuit_breaker.active as active, spot_circuit_breaker.interruption_count as interruption_count\n| stats min(active) as circuit_breaker_active, min(interruption_count) as interruptions by bin(1m) as t\n| sort t asc"
           region = var.region
           title  = "Spot Circuit Breaker Status"
           view   = "timeSeries"
@@ -290,10 +289,10 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
         width  = 12
         height = 6
         properties = {
-          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"job_summary\" and ispresent(estimated_cost_usd)\n| stats pct(estimated_cost_usd, 50) as CostP50, pct(estimated_cost_usd, 95) as CostP95 by bin(30m) as t\n| sort t asc"
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter message like /Posted .* of workflow usage/\n| stats sum(job_conclusion = \"failure\") as FailureCount, sum(job_conclusion = \"cancelled\") as CancelledCount, sum(job_conclusion = \"success\") as SuccessCount by bin(30m) as t\n| sort t asc"
           region = var.region
-          title  = "Estimated Job Cost (P50/P95)"
-          view   = "timeSeries"
+          title  = "Completed Jobs by Conclusion over time (30min intervals)"
+          view   = "stackedArea"
         }
       },
       {

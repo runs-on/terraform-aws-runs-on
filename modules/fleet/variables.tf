@@ -76,7 +76,7 @@ variable "environment" {
 }
 
 variable "images" {
-  description = "Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here."
+  description = "Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 do not need entries here."
   type        = map(any)
   default     = {}
 }
@@ -89,12 +89,6 @@ variable "runners" {
 variable "fleets" {
   description = "Fleet catalog keyed by fleet name. Entries use the shared runner shape plus Fleet-specific settings."
   type        = map(any)
-}
-
-variable "spot_circuit_breaker" {
-  description = "Spot circuit breaker for Fleet launches, formatted as COUNT/WINDOW_MINUTES/RECOVERY_MINUTES: after COUNT spot interruptions within WINDOW_MINUTES, launch on-demand for RECOVERY_MINUTES. \"false\" disables it; empty uses the built-in default \"2/15/30\" (same semantics as the Flex SpotCircuitBreaker stack parameter)."
-  type        = string
-  default     = ""
 }
 
 variable "vpc_id" {
@@ -168,7 +162,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.2@sha256:e9bb583a491090ca376a0f5426de5f950ed4a7fac41de8be7777e8a8d0d5c8da"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.5-rc.1@sha256:10f9bba7b399c432071c4a16ccc56f9960b0a50bcdb6004b154fe06ad7a1e214"
 }
 
 variable "extra_env_vars" {
@@ -182,42 +176,6 @@ variable "integration_step_security_api_key" {
   type        = string
   default     = ""
   sensitive   = true
-}
-
-variable "otel_exporter_endpoint" {
-  description = "OpenTelemetry exporter endpoint for observability (optional)"
-  type        = string
-  default     = ""
-}
-
-variable "otel_exporter_headers" {
-  description = "OpenTelemetry exporter headers (optional)"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "otel_exporter_temporality" {
-  description = "OTLP metrics temporality: cumulative (default) or delta"
-  type        = string
-  default     = "cumulative"
-
-  validation {
-    condition     = contains(["cumulative", "delta"], var.otel_exporter_temporality)
-    error_message = "OTLP temporality must be one of: cumulative, delta."
-  }
-}
-
-variable "otel_logs_enabled" {
-  description = "Enable OpenTelemetry log export"
-  type        = bool
-  default     = true
-}
-
-variable "otel_traces_enabled" {
-  description = "Enable OpenTelemetry trace export"
-  type        = bool
-  default     = true
 }
 
 variable "app_size" {
@@ -255,10 +213,9 @@ variable "bootstrap_tag" {
 }
 
 variable "app_tag" {
-  description = "Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version."
+  description = "Application/agent tag published into the cache bucket and passed to runners."
   type        = string
-  default     = "v3.2.2"
-  nullable    = false
+  default     = "v3.1.5-rc.1"
 }
 
 variable "runner_max_runtime" {
@@ -301,12 +258,6 @@ variable "force_destroy_buckets" {
   default     = false
 }
 
-variable "enable_ecr" {
-  description = "Enable an ECR repository for ephemeral Docker image and BuildKit cache storage."
-  type        = bool
-  default     = false
-}
-
 variable "ecr_pull_through_cache_rules" {
   description = "Existing ECR pull-through cache rules to reference for Fleet runner image pulls. Create or import the regional rules outside the RunsOn module."
   type = map(object({
@@ -331,22 +282,6 @@ variable "ecr_pull_through_cache_rules" {
     ])) == length(var.ecr_pull_through_cache_rules)
     error_message = "ECR pull-through cache rule ecr_repository_prefix values must be unique."
   }
-
-  validation {
-    condition = alltrue([
-      for _, rule in var.ecr_pull_through_cache_rules :
-      upper(trimspace(rule.ecr_repository_prefix)) != "ROOT"
-    ])
-    error_message = "The ROOT ecr_repository_prefix is not supported: it would grant runners access to every ECR repository in the account. Use a named prefix such as \"docker-hub\"; Docker Hub mirroring stays transparent via the runner-local registry mirror."
-  }
-
-  validation {
-    condition = length([
-      for _, rule in var.ecr_pull_through_cache_rules : rule
-      if lower(trimspace(rule.upstream_registry_url)) == "registry-1.docker.io" && try(trimspace(rule.upstream_repository_prefix), "") == ""
-    ]) <= 1
-    error_message = "At most one Docker Hub pull-through cache rule without an upstream_repository_prefix may configure transparent runner-local mirroring."
-  }
 }
 
 variable "log_retention_days" {
@@ -366,10 +301,10 @@ variable "permission_boundary_arn" {
   default     = ""
 }
 
-variable "runner_custom_policy_arns" {
-  description = "Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources."
-  type        = list(string)
-  default     = []
+variable "runner_custom_policy_arn" {
+  description = "Optional managed policy attached to the EC2 runner role."
+  type        = string
+  default     = ""
 }
 
 variable "enable_bedrock" {
@@ -388,16 +323,4 @@ variable "runner_custom_tags" {
   description = "Additional custom tags propagated to launched runner instances."
   type        = list(string)
   default     = []
-}
-
-variable "enable_cache_isolation" {
-  description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in"
-  type        = bool
-  default     = false
-}
-
-variable "enable_stickydisk_isolation" {
-  description = "Remove the legacy EBS volume/snapshot permissions from the runner instance role, so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action. Opt-in"
-  type        = bool
-  default     = false
 }

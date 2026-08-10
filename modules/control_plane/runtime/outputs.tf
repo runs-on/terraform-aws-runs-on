@@ -4,7 +4,7 @@ output "runtime" {
     cluster_name        = aws_ecs_cluster.this.name
     cluster_arn         = aws_ecs_cluster.this.arn
     service_name        = aws_ecs_service.this.name
-    service_arn         = "arn:${local.partition}:ecs:${var.region}:${var.account_id}:service/${aws_ecs_cluster.this.name}/${aws_ecs_service.this.name}"
+    service_arn         = "arn:aws:ecs:${var.region}:${var.account_id}:service/${aws_ecs_cluster.this.name}/${aws_ecs_service.this.name}"
     task_definition_arn = aws_ecs_task_definition.this.arn
     log_group_name      = aws_cloudwatch_log_group.this.name
     log_group_arn       = aws_cloudwatch_log_group.this.arn

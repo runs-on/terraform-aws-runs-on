@@ -2,11 +2,10 @@
 # EC2 Launch Templates for RunsOn runners
 
 locals {
-  nested_launch_template_instance_type     = "c8i.large"
-  efs_file_system_id                       = try(var.extras.efs.enabled, false) ? trimspace(var.extras.efs.file_system_id) : ""
-  ecr_repository_url                       = try(var.extras.ecr.enabled, false) ? trimspace(var.extras.ecr.repository_url) : ""
-  ecr_pull_through_cache_registry_url      = try(var.extras.pull_through_cache.enabled, false) ? trimspace(var.extras.pull_through_cache.registry_url) : ""
-  ecr_pull_through_cache_docker_hub_prefix = try(var.extras.pull_through_cache.enabled, false) ? trimspace(var.extras.pull_through_cache.docker_hub_prefix) : ""
+  nested_launch_template_instance_type = "c8i.large"
+  efs_file_system_id                   = try(var.extras.efs.enabled, false) ? trimspace(var.extras.efs.file_system_id) : ""
+  ecr_repository_url                   = try(var.extras.ecr.enabled, false) ? trimspace(var.extras.ecr.repository_url) : ""
+  ecr_pull_through_cache_registry_url  = try(var.extras.pull_through_cache.enabled, false) ? trimspace(var.extras.pull_through_cache.registry_url) : ""
 
   linux_user_data_vars = {
     RunnerMaxRuntime    = var.runner_max_runtime
@@ -21,7 +20,7 @@ locals {
     EphemeralRegistryEnvLine = join("\n", compact([
       local.ecr_repository_url != "" ? "RUNS_ON_ECR_CACHE=\"${local.ecr_repository_url}\"" : "",
       local.ecr_pull_through_cache_registry_url != "" ? "RUNS_ON_ECR_PULL_THROUGH_CACHE=\"${local.ecr_pull_through_cache_registry_url}\"" : "",
-      local.ecr_pull_through_cache_registry_url != "" && local.ecr_pull_through_cache_docker_hub_prefix != "" ? "RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_PREFIX=\"${local.ecr_pull_through_cache_docker_hub_prefix}\"" : "",
+      local.ecr_pull_through_cache_registry_url != "" && var.extras.pull_through_cache.docker_hub_transparent ? "RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR=\"true\"" : "",
     ]))
   }
 
@@ -36,6 +35,7 @@ locals {
     EphemeralRegistryEnvLine = join("\n", compact([
       local.ecr_repository_url != "" ? "$env:RUNS_ON_ECR_CACHE = \"${local.ecr_repository_url}\"" : "",
       local.ecr_pull_through_cache_registry_url != "" ? "$env:RUNS_ON_ECR_PULL_THROUGH_CACHE = \"${local.ecr_pull_through_cache_registry_url}\"" : "",
+      local.ecr_pull_through_cache_registry_url != "" && var.extras.pull_through_cache.docker_hub_transparent ? "$env:RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR = \"true\"" : "",
     ]))
   }
 }

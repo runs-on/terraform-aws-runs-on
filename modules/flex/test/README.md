@@ -27,7 +27,7 @@ The Terraform test stack is intentionally split into four layers:
 
 ## Environment
 
-Plan-only tests are expected to be fast and deterministic. The Go harness initializes one lockfile-pinned, temp-copied Terraform tree per test process, shares its read-only provider and module setup across plan cases, and gives every test an isolated plan output file. Tests inspect structured `terraform show -json` output instead of CLI text. The harness supplies dummy credentials, disables EC2 metadata, and serves the fixed test account identity from a local STS adapter, so plan-only tests never require live AWS access.
+Plan-only tests are expected to be fast and deterministic because each test runs against its own temp-copied Terraform tree and inspects structured `terraform show -json` output instead of CLI text. They still need AWS credentials because the root module resolves caller identity and region through AWS data sources during planning.
 
 Apply-based smoke scenarios and the end-to-end GitHub integration test need AWS credentials and the scenario environment variables described in the test harness. Those runs are intentionally serialized because they are long-lived, quota-sensitive, and operate against real cloud resources.
 

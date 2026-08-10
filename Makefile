@@ -8,9 +8,7 @@ TEST_GO = cd modules/flex/test && mise exec -- go
 TEST_WITH_CI_IMAGE = $(TEST_GO) run ./cmd/with-ci-image
 TEST_PLAN_LOCK_FILE ?= modules/flex/.terraform.lock.hcl
 TEST_PLAN_MIN_AWS_LOCK_FILE = testdata/provider-locks/aws-6.45/.terraform.lock.hcl
-TEST_PLAN_PLUGIN_CACHE_DIR ?= $(CURDIR)/.terraform/plugin-cache
 TEST_PLAN_TOFU_MODULES = \
-	modules/ami_sync \
 	modules/flex \
 	modules/fleet \
 	modules/control_plane/alerts \
@@ -20,9 +18,7 @@ TEST_PLAN_TOFU_MODULES = \
 	modules/runner/compute \
 	modules/runner/extras \
 	modules/runner/network
-# Anchored so the whole plan-only suite (TestPlan*, including TestPlanSource*)
-# runs in CI while integration tests in the same package stay excluded.
-TEST_PLAN_GO_PATTERN = ^TestPlan
+TEST_PLAN_GO_PATTERN = TestPlanSource
 
 .PHONY: help init validate fmt fmt-check lint quick docs clean sync-metadata \
 	test test-plan test-plan-tofu test-plan-source test-plan-min-aws-provider \
@@ -77,17 +73,10 @@ test-plan: ## Run plan-only validation tests (free, ~2min)
 	$(MAKE) test-plan-tofu
 	$(MAKE) test-plan-source
 
-# Each module may rewrite lockfile constraint metadata, so initialize once and
-# verify that every selected provider version still comes from the canonical
-# lockfile. A second read-only init would only repeat the same installation.
 test-plan-tofu:
 	@echo "Running OpenTofu plan tests..."
 	@tmp=$$(mktemp -d); \
-		cache_dir="$${TF_PLUGIN_CACHE_DIR:-$(TEST_PLAN_PLUGIN_CACHE_DIR)}"; \
 		set -e; \
-		mkdir -p "$$cache_dir"; \
-		export TF_PLUGIN_CACHE_DIR="$$cache_dir"; \
-		export TOFU_PLUGIN_CACHE_DIR="$${TOFU_PLUGIN_CACHE_DIR:-$$cache_dir}"; \
 		trap 'rm -rf "$$tmp"' EXIT; \
 		lock_versions="$$tmp/provider-versions"; \
 		awk '/^provider "/ { provider=$$2; gsub(/"/, "", provider) } /version[[:space:]]*=/ { version=$$3; gsub(/"/, "", version); print provider " " version }' "$(TEST_PLAN_LOCK_FILE)" > "$$lock_versions"; \
@@ -102,17 +91,13 @@ test-plan-tofu:
 				while read provider version; do \
 					grep -qx "$$provider $$version" "$$lock_versions" || { echo "$$dir selected $$provider $$version, which is not pinned by $(TEST_PLAN_LOCK_FILE)"; exit 1; }; \
 				done < .terraform/provider-versions && \
+				tofu init -backend=false -input=false -lockfile=readonly >/dev/null && \
 				tofu test -no-color); \
 		done
 
 test-plan-source:
-	@echo "Running Go source and structured plan checks..."
-	@set -e; \
-		cache_dir="$${TF_PLUGIN_CACHE_DIR:-$(TEST_PLAN_PLUGIN_CACHE_DIR)}"; \
-		mkdir -p "$$cache_dir"; \
-		export TF_PLUGIN_CACHE_DIR="$$cache_dir"; \
-		export TOFU_PLUGIN_CACHE_DIR="$${TOFU_PLUGIN_CACHE_DIR:-$$cache_dir}"; \
-		$(TEST_GO) test -v -timeout 15m -run $(TEST_PLAN_GO_PATTERN) ./...
+	@echo "Running source-level plan checks..."
+	$(TEST_GO) test -v -timeout 15m -run $(TEST_PLAN_GO_PATTERN) ./...
 
 test-plan-min-aws-provider: ## Run native plan tests against the minimum supported AWS provider
 	$(MAKE) test-plan-tofu TEST_PLAN_LOCK_FILE=$(TEST_PLAN_MIN_AWS_LOCK_FILE)

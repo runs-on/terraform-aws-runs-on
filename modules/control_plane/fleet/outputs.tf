@@ -34,11 +34,3 @@ output "workflow_contract" {
     label = local.workflow_target_contract
   }
 }
-
-output "dashboard" {
-  description = "Fleet CloudWatch dashboard"
-  value = {
-    name = aws_cloudwatch_dashboard.fleet.dashboard_name
-    url  = "https://${var.region}.console.aws.amazon.com/cloudwatch/home?region=${var.region}#dashboards/dashboard/${aws_cloudwatch_dashboard.fleet.dashboard_name}"
-  }
-}

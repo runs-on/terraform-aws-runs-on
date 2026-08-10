@@ -7,7 +7,7 @@ locals {
       Action = [
         "ssm:GetParameters",
       ]
-      Resource = "arn:${local.partition}:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/secrets/otel-exporter-headers"
+      Resource = "arn:aws:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/secrets/otel-exporter-headers"
     },
   ] : []
 
@@ -22,6 +22,22 @@ locals {
         "cloudtrail:LookupEvents",
       ]
       Resource = "*"
+    },
+    {
+      Effect = "Allow"
+      Action = [
+        "cloudwatch:PutMetricData",
+      ]
+      Resource = "*"
+      Condition = {
+        StringEquals = {
+          "cloudwatch:namespace" = [
+            "RunsOn",
+            "RunsOn/Flex",
+            "RunsOn/Runners",
+          ]
+        }
+      }
     },
     {
       Effect = "Allow"
@@ -105,7 +121,7 @@ locals {
         "logs:PutLogEvents",
         "logs:DescribeLogStreams",
       ]
-      Resource = "arn:${local.partition}:logs:${var.region}:${var.account_id}:log-group:${local.worker_log_group_name}:*"
+      Resource = "arn:aws:logs:${var.region}:${var.account_id}:log-group:${local.worker_log_group_name}:*"
     },
   ]
 }
@@ -128,7 +144,7 @@ module "runtime" {
   ebs_encryption_key_id           = local.runner.ebs_encryption_key_id
   extra_execution_role_statements = local.flex_control_plane_extra_execution_role_statements
   extra_task_role_statements      = local.flex_control_plane_extra_policy_statements
-  task_role_managed_policy_arns   = compact(local.runtime.custom_policy_arns)
+  task_role_managed_policy_arns   = compact([local.runtime.custom_policy_arn])
   log_group_name                  = local.worker_log_group_name
   log_retention_days              = 14
   cpu                             = local.app_size_config.cpu

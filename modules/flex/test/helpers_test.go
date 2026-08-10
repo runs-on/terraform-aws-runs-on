@@ -61,26 +61,6 @@ func TestDefaultScenarioConfigSetsStableCleanupTags(t *testing.T) {
 	}
 }
 
-func TestModuleVarsIncludeReferencedECRPullThroughCacheRules(t *testing.T) {
-	cfg := DefaultScenarioConfig()
-	cfg.ECRPullThroughCacheRules = map[string]map[string]string{
-		"docker_hub": {
-			"ecr_repository_prefix":      "docker-hub",
-			"upstream_registry_url":      "registry-1.docker.io",
-			"upstream_repository_prefix": "",
-		},
-	}
-
-	vars := cfg.ToModuleVars("vpc-123", []string{"subnet-public"}, nil)
-	rules, ok := vars["ecr_pull_through_cache_rules"].(map[string]map[string]string)
-	if !ok {
-		t.Fatalf("ecr_pull_through_cache_rules = %#v, want rule map", vars["ecr_pull_through_cache_rules"])
-	}
-	if got := rules["docker_hub"]["ecr_repository_prefix"]; got != "docker-hub" {
-		t.Fatalf("docker_hub prefix = %q, want docker-hub", got)
-	}
-}
-
 func TestGetGithubOrgPrefersExplicitOrg(t *testing.T) {
 	t.Setenv("GITHUB_ORG", "explicit-org")
 	t.Setenv("RUNS_ON_TEST_REPO", "runs-on/monorepo")

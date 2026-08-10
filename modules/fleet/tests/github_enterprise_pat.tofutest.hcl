@@ -1,11 +1,4 @@
 mock_provider "aws" {
-  mock_data "aws_partition" {
-    defaults = {
-      dns_suffix = "amazonaws.com"
-      partition  = "aws"
-    }
-  }
-
   mock_resource "aws_iam_instance_profile" {
     defaults = {
       arn = "arn:aws:iam::123456789012:instance-profile/test-plan-ec2-instance-profile"

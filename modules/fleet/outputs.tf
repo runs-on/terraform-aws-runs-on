@@ -31,8 +31,3 @@ output "workflow_contract" {
   description = "RunsOn Fleet workflow targeting contract"
   value       = module.control_plane.workflow_contract
 }
-
-output "dashboard" {
-  description = "RunsOn Fleet CloudWatch dashboard"
-  value       = module.control_plane.dashboard
-}

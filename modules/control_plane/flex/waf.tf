@@ -356,7 +356,7 @@ resource "aws_wafv2_web_acl" "this" {
 
 resource "aws_wafv2_web_acl_association" "public_ingress" {
   count        = local.public_ingress_web_acl_association_enabled ? 1 : 0
-  resource_arn = "arn:${local.partition}:apigateway:${var.region}::/restapis/${aws_api_gateway_rest_api.public_ingress.id}/stages/${aws_api_gateway_stage.public_ingress.stage_name}"
+  resource_arn = "arn:aws:apigateway:${var.region}::/restapis/${aws_api_gateway_rest_api.public_ingress.id}/stages/${aws_api_gateway_stage.public_ingress.stage_name}"
   web_acl_arn  = local.effective_public_ingress_web_acl_arn
 
   depends_on = [

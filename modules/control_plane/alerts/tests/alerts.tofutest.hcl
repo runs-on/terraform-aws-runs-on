@@ -69,11 +69,6 @@ run "slack_and_budget_alerts" {
   }
 
   assert {
-    condition     = output.slack_webhook_lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:mock"
-    error_message = "Slack webhook Lambda ARN output should expose non-secret resource metadata."
-  }
-
-  assert {
     condition = (
       aws_cloudwatch_log_group.slack_webhook[0].name == "/runs-on/test-plan/lambda/slack-webhook" &&
       aws_cloudwatch_log_group.slack_webhook[0].retention_in_days == 14 &&

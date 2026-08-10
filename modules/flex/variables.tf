@@ -210,14 +210,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.2@sha256:e9bb583a491090ca376a0f5426de5f950ed4a7fac41de8be7777e8a8d0d5c8da"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.5-rc.1@sha256:10f9bba7b399c432071c4a16ccc56f9960b0a50bcdb6004b154fe06ad7a1e214"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.2.2"
+  default     = "v3.1.5-rc.1"
   nullable    = false
 }
 
@@ -267,10 +267,10 @@ variable "app_ecr_repository_url" {
   default     = ""
 }
 
-variable "app_custom_policy_arns" {
-  description = "Optional managed IAM policy ARNs to attach to the RunsOn service role."
-  type        = list(string)
-  default     = []
+variable "app_custom_policy_arn" {
+  description = "Optional managed IAM policy ARN to attach to the RunsOn service role."
+  type        = string
+  default     = ""
 }
 
 variable "github_app_id" {
@@ -346,10 +346,10 @@ variable "runner_max_runtime" {
   }
 }
 
-variable "runner_custom_policy_arns" {
-  description = "Optional managed IAM policy ARNs to attach to the EC2 runner instance role. Use this when policy ARNs are computed by other resources."
-  type        = list(string)
-  default     = []
+variable "runner_custom_policy_arn" {
+  description = "Optional managed IAM policy ARN to attach to the EC2 runner instance role."
+  type        = string
+  default     = ""
 }
 
 variable "runner_config_auto_extends_from" {
@@ -370,14 +370,9 @@ variable "runner_custom_tags" {
 ###########################
 
 variable "enable_cost_reports" {
-  description = "Cost report email cadence: no, daily, weekly, or monthly. Legacy true/false values must be replaced with daily/no when upgrading."
-  type        = string
-  default     = "daily"
-
-  validation {
-    condition     = contains(["no", "daily", "weekly", "monthly"], var.enable_cost_reports)
-    error_message = "enable_cost_reports must be one of: no, daily, weekly, monthly."
-  }
+  description = "Enable automated cost reports sent to alert email"
+  type        = bool
+  default     = true
 }
 
 variable "spot_circuit_breaker" {
@@ -500,12 +495,6 @@ variable "alert_slack_webhook_url" {
 # Used by: optional module
 ###########################
 
-variable "mandatory_extras" {
-  description = "Runner extras (e.g. s3-cache, otel) that are always enabled for every runner, regardless of label or repo config overrides."
-  type        = list(string)
-  default     = []
-}
-
 variable "enable_efs" {
   description = "Enable EFS file system for shared storage across runners"
   type        = bool
@@ -542,22 +531,6 @@ variable "ecr_pull_through_cache_rules" {
     ])) == length(var.ecr_pull_through_cache_rules)
     error_message = "ECR pull-through cache rule ecr_repository_prefix values must be unique."
   }
-
-  validation {
-    condition = alltrue([
-      for _, rule in var.ecr_pull_through_cache_rules :
-      upper(trimspace(rule.ecr_repository_prefix)) != "ROOT"
-    ])
-    error_message = "The ROOT ecr_repository_prefix is not supported: it would grant runners access to every ECR repository in the account. Use a named prefix such as \"docker-hub\"; Docker Hub mirroring stays transparent via the runner-local registry mirror."
-  }
-
-  validation {
-    condition = length([
-      for _, rule in var.ecr_pull_through_cache_rules : rule
-      if lower(trimspace(rule.upstream_registry_url)) == "registry-1.docker.io" && try(trimspace(rule.upstream_repository_prefix), "") == ""
-    ]) <= 1
-    error_message = "At most one Docker Hub pull-through cache rule without an upstream_repository_prefix may configure transparent runner-local mirroring."
-  }
 }
 
 variable "enable_bedrock" {
@@ -593,16 +566,4 @@ variable "public_ingress_web_acl_arn" {
   description = "Optional user-managed AWS WAFv2 Web ACL ARN to associate with the public ingress. When set, RunsOn will not manage webhook IP synchronization."
   type        = string
   default     = ""
-}
-
-variable "enable_cache_isolation" {
-  description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in"
-  type        = bool
-  default     = false
-}
-
-variable "enable_stickydisk_isolation" {
-  description = "Remove the legacy EBS volume/snapshot permissions from the runner instance role, so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action. Opt-in"
-  type        = bool
-  default     = false
 }

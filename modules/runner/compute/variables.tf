@@ -51,9 +51,9 @@ variable "extras" {
       repository_url  = string
     })
     pull_through_cache = object({
-      enabled           = bool
-      registry_url      = string
-      docker_hub_prefix = string
+      enabled                = bool
+      registry_url           = string
+      docker_hub_transparent = bool
       rules = map(object({
         ecr_repository_prefix      = string
         upstream_registry_url      = string
@@ -73,26 +73,14 @@ variable "permission_boundary_arn" {
   type        = string
 }
 
-variable "runner_custom_policy_arns" {
-  description = "Optional managed IAM policy ARNs to attach to the EC2 runner instance role. Use this when policy ARNs are computed by other resources."
-  type        = list(string)
-  default     = []
+variable "runner_custom_policy_arn" {
+  description = "Optional managed IAM policy ARN to attach to the EC2 runner instance role"
+  type        = string
+  default     = ""
 }
 
 variable "enable_bedrock" {
   description = "Enable Amazon Bedrock access for EC2 runner instances"
-  type        = bool
-  default     = false
-}
-
-variable "enable_cache_isolation" {
-  description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations always keep instance-profile access to the stack-shared cache/* namespace"
-  type        = bool
-  default     = false
-}
-
-variable "enable_stickydisk_isolation" {
-  description = "Remove the legacy EBS volume/snapshot permissions from the runner instance role so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action"
   type        = bool
   default     = false
 }

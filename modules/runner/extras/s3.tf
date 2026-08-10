@@ -80,26 +80,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "cache" {
   }
 
   rule {
-    # The broker-scoped Magic Cache namespace lives outside cache/ so the
-    # legacy instance-role cache/* grants never reach it; it needs its own
-    # expiry rule with the same retention.
-    id     = "ExpireScopedCache"
-    status = "Enabled"
-
-    filter {
-      prefix = "scoped-cache/"
-    }
-
-    expiration {
-      days = var.cache_expiration_days
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = 1
-    }
-  }
-
-  rule {
     id     = "CleanupIncompleteMultipartUploads"
     status = "Enabled"
 

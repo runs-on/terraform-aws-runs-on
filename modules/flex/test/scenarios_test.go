@@ -35,8 +35,6 @@ func TestScenarioMatrix(t *testing.T) {
 			configure: func(cfg *ScenarioConfig) {
 				cfg.EnableNAT = true
 				cfg.PrivateMode = "true"
-				cfg.EnableCacheIsolation = true
-				cfg.EnableStickyDiskIsolation = true
 			},
 			successMessages: []string{
 				"Private networking deployment successful!",
@@ -53,8 +51,6 @@ func TestScenarioMatrix(t *testing.T) {
 				cfg.EnableNAT = true
 				cfg.EnableEFS = true
 				cfg.EnableECR = true
-				cfg.EnableCacheIsolation = true
-				cfg.EnableStickyDiskIsolation = true
 			},
 			successMessages: []string{
 				"Full-featured deployment successful!",
