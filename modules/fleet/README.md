@@ -22,7 +22,7 @@ Public module source:
 ```hcl
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.2.2"
+  version = "v3.1.4"
 }
 ```
 
@@ -158,14 +158,13 @@ locals {
       timezone     = "UTC"
       runner_group = github_enterprise_actions_runner_group.runs_on.name
       runner       = "small-x64"
-      max_runners  = 200
     }
   }
 }
 
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   stack_name             = var.stack_name
   github_enterprise_pat  = var.github_enterprise_pat
@@ -272,35 +271,11 @@ Each fleet key maps to one fleet name and one GitHub runner scale set. The runti
 
 The rendered runtime secret still carries the internal `github_private_key` field name because that schema is owned by `pkg/fleet`.
 
-## Ephemeral ECR Registry
-
-Set `enable_ecr = true` to create a stack-scoped ECR repository for Docker images and BuildKit caches shared between Fleet jobs. Add `ecr-cache` to a runner's `extras` so the agent exports `RUNS_ON_ECR_CACHE` and configures Docker credentials on Linux runners.
-
-The runner role can read and write only this generated repository. Images expire after 10 days, and the repository is force-deleted with the stack because its contents are ephemeral.
-
-```hcl
-module "runs_on_fleet" {
-  source = "runs-on/runs-on/aws//modules/fleet"
-
-  enable_ecr = true
-
-  runners = {
-    linux = {
-      family = ["m7i.large"]
-      image  = "ubuntu24-full-x64"
-      extras = ["ecr-cache"]
-    }
-  }
-
-  # Other required inputs omitted.
-}
-```
-
 ## ECR Pull-Through Cache
 
 Fleet references existing ECR pull-through cache rules and prepares Linux runners with ECR Docker credentials. Create, import, or look up the account/region-level rule outside RunsOn, then pass the Terraform resource or data source object into the module. Multiple RunsOn stacks in the same account and region can safely share the same rule reference.
 
-Every rule must use a named `ecr_repository_prefix` (the special `ROOT` prefix is rejected: it would grant runners account-wide ECR access). On Linux runners, Docker Hub references such as `docker.io/library/node:22` stay transparent for rules targeting `registry-1.docker.io`: the runs-on agent serves a local registry mirror on `127.0.0.1:6871` that maps Docker Hub paths onto the rule's prefix. It also writes the default BuildKit configuration so `docker-container` Buildx builders without an explicit config use the prefixed ECR cache directly. Buildx remote-driver workflows must remove `$HOME/.docker/buildx/buildkitd.default.toml` before creating the builder because remote daemons are configured where they run. Windows runners do not configure ECR Docker credentials or transparent Docker Hub mirroring automatically; workflows must authenticate and use explicit ECR cache paths. Configure at most one Docker Hub rule without an `upstream_repository_prefix`; additional Docker Hub rules must scope an upstream prefix and use explicit ECR image paths. Other providers use explicit ECR cache references.
+Every rule must use a named `ecr_repository_prefix` (the special `ROOT` prefix is rejected: it would grant runners account-wide ECR access). On Linux runners, Docker Hub references such as `docker.io/library/node:22` stay transparent for rules targeting `registry-1.docker.io`: the runs-on agent serves a local registry mirror on `127.0.0.1:6871` that maps Docker Hub paths onto the rule's prefix. Windows runners do not configure ECR Docker credentials or transparent Docker Hub mirroring automatically; workflows must authenticate and use explicit ECR cache paths. Configure at most one Docker Hub rule without an `upstream_repository_prefix`; additional Docker Hub rules must scope an upstream prefix and use explicit ECR image paths. Other providers use explicit ECR cache references.
 
 ```hcl
 data "aws_ecr_pull_through_cache_rule" "docker_hub" {
@@ -387,7 +362,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alert notifications (optional) | `string` | `""` | no |
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the Fleet worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight assigned jobs are reconciled by the Fleet runtime. | `string` | `"fargate"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the Fleet worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version. | `string` | `"v3.2.2"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. | `string` | `"v3.1.4-rc.6"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap release tag used by the shared compute bootstrap template. | `string` | `"v0.1.17"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |
@@ -395,8 +370,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key used for cost allocation. | `string` | `"stack"` | no |
 | <a name="input_ecr_pull_through_cache_rules"></a> [ecr\_pull\_through\_cache\_rules](#input\_ecr\_pull\_through\_cache\_rules) | Existing ECR pull-through cache rules to reference for Fleet runner image pulls. Create or import the regional rules outside the RunsOn module. | <pre>map(object({<br/>    ecr_repository_prefix      = string<br/>    upstream_registry_url      = string<br/>    upstream_repository_prefix = optional(string)<br/>  }))</pre> | `{}` | no |
 | <a name="input_enable_bedrock"></a> [enable\_bedrock](#input\_enable\_bedrock) | Enable Amazon Bedrock access for EC2 runner instances. | `bool` | `false` | no |
-| <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in | `bool` | `false` | no |
-| <a name="input_enable_ecr"></a> [enable\_ecr](#input\_enable\_ecr) | Enable an ECR repository for ephemeral Docker image and BuildKit cache storage. | `bool` | `false` | no |
+| <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Enable brokered, per-repository/per-branch cache credentials for the magic cache. Runners lose direct cache/* S3 access; a credential broker Lambda vends scoped credentials per job. Opt-in | `bool` | `false` | no |
 | <a name="input_enable_stickydisk_isolation"></a> [enable\_stickydisk\_isolation](#input\_enable\_stickydisk\_isolation) | Remove the legacy EBS volume/snapshot permissions from the runner instance role, so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action. Opt-in | `bool` | `false` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Environment name used by the workflow targeting contract. | `string` | `"production"` | no |
 | <a name="input_extra_env_vars"></a> [extra\_env\_vars](#input\_extra\_env\_vars) | Additional environment variables to set on the Fleet worker service. | `map(string)` | `{}` | no |
@@ -406,7 +380,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_github_base_url"></a> [github\_base\_url](#input\_github\_base\_url) | GitHub host root URL. Leave the default for github.com and set a GHES host root such as https://ghe.example.com when needed. | `string` | `"https://github.com"` | no |
 | <a name="input_github_enterprise_name"></a> [github\_enterprise\_name](#input\_github\_enterprise\_name) | GitHub Enterprise slug used when github\_enterprise\_pat is set. | `string` | `null` | no |
 | <a name="input_github_enterprise_pat"></a> [github\_enterprise\_pat](#input\_github\_enterprise\_pat) | Classic PAT used for enterprise-target Fleet mode. Must start with ghp\_ when set. | `string` | `null` | no |
-| <a name="input_images"></a> [images](#input\_images) | Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here. | `map(any)` | `{}` | no |
+| <a name="input_images"></a> [images](#input\_images) | Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 do not need entries here. | `map(any)` | `{}` | no |
 | <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | API key for StepSecurity integration (optional). | `string` | `""` | no |
 | <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 on EC2 runner launch templates. | `bool` | `false` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | CloudWatch Logs retention in days. | `number` | `7` | no |
@@ -423,7 +397,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_runner_custom_policy_arns"></a> [runner\_custom\_policy\_arns](#input\_runner\_custom\_policy\_arns) | Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources. | `list(string)` | `[]` | no |
 | <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Additional custom tags propagated to launched runner instances. | `list(string)` | `[]` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes passed to the shared compute bootstrap template. | `number` | `60` | no |
-| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.2@sha256:e9bb583a491090ca376a0f5426de5f950ed4a7fac41de8be7777e8a8d0d5c8da"` | no |
+| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.4-rc.6@sha256:970d4772c4822b756de043c76bf6f3257577495023442bbb06e8fbb9b4194eac"` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for runners and the Fleet worker. Leave empty to create a dedicated group. | `list(string)` | `[]` | no |
 | <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker for Fleet launches, formatted as COUNT/WINDOW\_MINUTES/RECOVERY\_MINUTES: after COUNT spot interruptions within WINDOW\_MINUTES, launch on-demand for RECOVERY\_MINUTES. "false" disables it; empty uses the built-in default "2/15/30" (same semantics as the Flex SpotCircuitBreaker stack parameter). | `string` | `""` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH ingress when the module creates its own security group. | `bool` | `false` | no |

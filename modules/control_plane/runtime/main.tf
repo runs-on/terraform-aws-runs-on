@@ -469,9 +469,6 @@ resource "aws_ecs_service" "this" {
 
   deployment_minimum_healthy_percent = var.deployment_minimum_healthy_percent
   deployment_maximum_percent         = var.deployment_maximum_percent
-  # ECS rejects maximumPercent <= 100 while Availability Zone Rebalancing is
-  # enabled. Stop-before-start services therefore disable rebalancing.
-  availability_zone_rebalancing = var.deployment_maximum_percent <= 100 ? "DISABLED" : null
 
   capacity_provider_strategy {
     capacity_provider = var.capacity_provider

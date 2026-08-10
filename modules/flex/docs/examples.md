@@ -111,7 +111,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   stack_name = var.stack_name
 
@@ -149,7 +149,7 @@ See [Private Networking](private-networking.md) for details on mode options.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -170,7 +170,7 @@ Enable shared persistent storage across all runners:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -190,7 +190,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -216,19 +216,23 @@ What is covered transparently, with zero workflow changes:
 - `docker pull nginx`, `docker pull docker.io/library/node:22`, and any image reference in scripts
 - GitHub Actions `services:` containers and `container:` jobs
 - `docker build` with the default builder (BuildKit embedded in dockerd honors the daemon's registry mirrors)
-- `docker buildx` with the `docker-container` driver and no explicit BuildKit configuration
 
-Two cases need attention:
+Two cases need explicit configuration:
 
-- `docker buildx` with the `docker-container` driver runs its own BuildKit daemon, which does not read dockerd's `daemon.json`. The agent writes `$HOME/.docker/buildx/buildkitd.default.toml`, which `docker buildx create` discovers automatically, pointing `docker.io` directly at the named ECR pull-through cache prefix. No special builder networking is required.
-
-  The agent never overwrites an existing default config supplied by a custom runner image. An explicit `buildkitd-config` or `buildkitd-config-inline` also overrides the default file. In either case, add the ECR mirror to that customer-managed config if the builder should use the cache.
-
-  Buildx rejects any config file for the `remote` driver ([docker/buildx#2985](https://github.com/docker/buildx/issues/2985)), including this auto-discovered default, because a remote BuildKit daemon must be configured where it runs. Delete the RunsOn-generated file before creating a remote builder; the agent will not rewrite it during the job:
+- `docker buildx` with the `docker-container` driver runs its own BuildKit daemon, which reads neither `daemon.json` nor host loopback by default. Point it at the mirror when creating the builder:
 
   ```yaml
-  - run: rm -f "$HOME/.docker/buildx/buildkitd.default.toml"
+  - uses: docker/setup-buildx-action@v3
+    with:
+      driver-opts: network=host
+      buildkitd-config-inline: |
+        [registry."docker.io"]
+          mirrors = ["127.0.0.1:6871"]
+        [registry."127.0.0.1:6871"]
+          http = true
   ```
+
+  Without this, buildx pulls base images from Docker Hub directly (nothing breaks; the pulls just bypass the cache).
 
 - Other upstream registries (ghcr.io, quay.io, ...) have no Docker-native mirror mechanism, so reference their cache namespaces explicitly. The runner exports `RUNS_ON_ECR_PULL_THROUGH_CACHE` with the registry host, and the agent pre-authenticates Docker against it:
 
@@ -245,7 +249,7 @@ data "aws_ecr_pull_through_cache_rule" "docker_hub" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -295,7 +299,7 @@ resource "aws_ecr_pull_through_cache_rule" "docker_hub" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -329,7 +333,7 @@ See [WAF](waf.md) for managed webhook IP sync, user-managed ACL overrides, and G
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -350,7 +354,7 @@ See [GitHub App Config](github-app-config.md) for details.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -450,7 +454,7 @@ module "vpc_endpoints" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.2"
+  version = "v3.1.4"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

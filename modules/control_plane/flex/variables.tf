@@ -177,7 +177,7 @@ variable "operations" {
   type = object({
     app_budget_daily_usd              = number
     enable_default_dashboard          = optional(bool, true)
-    enable_cost_reports               = optional(string, "daily")
+    enable_cost_reports               = bool
     spot_circuit_breaker              = string
     integration_step_security_api_key = string
     enable_admin_routes               = bool
@@ -187,11 +187,6 @@ variable "operations" {
     # every runner, regardless of label or repo config overrides.
     mandatory_extras = optional(list(string), [])
   })
-
-  validation {
-    condition     = contains(["no", "daily", "weekly", "monthly"], var.operations.enable_cost_reports)
-    error_message = "operations.enable_cost_reports must be one of: no, daily, weekly, monthly."
-  }
 }
 
 variable "alerts" {
@@ -213,13 +208,7 @@ variable "tags" {
 }
 
 variable "enable_cache_isolation" {
-  description = "Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes"
+  description = "Vend brokered, per-repository cache credentials to runners. When false, the always-created broker stays idle and runners use direct cache access"
   type        = bool
   default     = false
-}
-
-variable "diagnostic_settings" {
-  description = "Non-sensitive stack settings exposed by the job diagnostics resolver"
-  type        = any
-  default     = {}
 }

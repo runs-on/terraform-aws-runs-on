@@ -38,7 +38,7 @@ module "ami_sync" {
 |------|------|---------|-------------|
 | `stack_name` | string | _(required)_ | Name/tag prefix for the syncer's own resources. |
 | `name_suffix` | string | `ami-sync` | Suffix appended to `stack_name`. |
-| `images` | list(object) | `ubuntu24-full` + `ubuntu26-full` x64 + arm64 | Source AMI name globs + architecture to sync/prune. |
+| `images` | list(object) | `ubuntu24-full` x64 + arm64 | Source AMI name globs + architecture to sync/prune. |
 | `source_region` | string | `us-east-1` | Region RunsOn publishes to (copy source). |
 | `source_owner` | string | `135269210855` | Account owning the public RunsOn AMIs. |
 | `schedule_expression` | string | `cron(30 0 * * ? *)` | Sync cadence. |
@@ -58,14 +58,13 @@ module "ami_sync" {
 
 ## Choosing which images to sync (`images`)
 
-`images` defaults to the `ubuntu24-full` and `ubuntu26-full` families (x64 +
-arm64). The Lambda copies the most-recent source AMI matching each
-`name`/`architecture` and prunes older synced copies of that same pattern down to
-`retention`.
+`images` defaults to the current `ubuntu24-full` family (x64 + arm64). The Lambda
+copies the most-recent source AMI matching each `name`/`architecture` and prunes
+older synced copies of that same pattern down to `retention`.
 
-**Default image families.** Both Ubuntu 24 and Ubuntu 26 remain in the default so
-operators can migrate workloads independently. To keep an existing sync list
-aligned with the module default, use:
+**Updating the default for a new release.** When a newer family ships (e.g.
+`ubuntu26-full`), maintainers should **add** it to the default rather than
+replace the old one:
 
 ```hcl
 default = [
@@ -169,7 +168,7 @@ No modules.
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Name/tag prefix for the syncer's own resources (role, function, log group, schedule). | `string` | n/a | yes |
 | <a name="input_common_tags"></a> [common\_tags](#input\_common\_tags) | Tags applied to the module's own resources AND merged into the copied image/snapshot tags at create time (pass your stack's tags map to satisfy a tag-enforcing SCP). | `map(string)` | `{}` | no |
 | <a name="input_enabled"></a> [enabled](#input\_enabled) | Whether to deploy the syncer. Deploying it is a conscious operator choice (one shared syncer per account+region). | `bool` | `false` | no |
-| <a name="input_images"></a> [images](#input\_images) | Images to sync. Each entry is a source AMI name glob plus architecture. The<br/>Lambda copies the most-recent matching source AMI and prunes older synced<br/>copies of the same name+architecture down to `retention`. Defaults to the<br/>ubuntu24-full and ubuntu26-full families (x64 + arm64). Names assume the default<br/>RUNS\_ON\_AMI\_PREFIX (runs-on-v2.2); override this list if your stack overrides<br/>the prefix. See README for the supported default image families. | <pre>list(object({<br/>    name         = string<br/>    architecture = optional(string, "x86_64")<br/>  }))</pre> | <pre>[<br/>  {<br/>    "architecture": "x86_64",<br/>    "name": "runs-on-v2.2-ubuntu24-full-x64-*"<br/>  },<br/>  {<br/>    "architecture": "arm64",<br/>    "name": "runs-on-v2.2-ubuntu24-full-arm64-*"<br/>  },<br/>  {<br/>    "architecture": "x86_64",<br/>    "name": "runs-on-v2.2-ubuntu26-full-x64-*"<br/>  },<br/>  {<br/>    "architecture": "arm64",<br/>    "name": "runs-on-v2.2-ubuntu26-full-arm64-*"<br/>  }<br/>]</pre> | no |
+| <a name="input_images"></a> [images](#input\_images) | Images to sync. Each entry is a source AMI name glob plus architecture. The<br/>Lambda copies the most-recent matching source AMI and prunes older synced<br/>copies of the same name+architecture down to `retention`. Defaults to the<br/>current ubuntu24-full family (x64 + arm64). Names assume the default<br/>RUNS\_ON\_AMI\_PREFIX (runs-on-v2.2); override this list if your stack overrides<br/>the prefix. See README for how the default evolves across releases. | <pre>list(object({<br/>    name         = string<br/>    architecture = optional(string, "x86_64")<br/>  }))</pre> | <pre>[<br/>  {<br/>    "architecture": "x86_64",<br/>    "name": "runs-on-v2.2-ubuntu24-full-x64-*"<br/>  },<br/>  {<br/>    "architecture": "arm64",<br/>    "name": "runs-on-v2.2-ubuntu24-full-arm64-*"<br/>  }<br/>]</pre> | no |
 | <a name="input_kms_key_id"></a> [kms\_key\_id](#input\_kms\_key\_id) | How copied snapshots are encrypted at rest. Accepts:<br/>- "" (default): no explicit encryption. Copies inherit the region's behavior<br/>  (unencrypted, or the account default if EBS encryption-by-default is on).<br/>  Runner root volumes are still encrypted at launch via the product's<br/>  block-device override, so this does not weaken runtime encryption.<br/>- "default": discover the region's EBS default key and encrypt with it. Works<br/>  whether that default is the AWS-managed key or a customer-managed CMK; the<br/>  module resolves it and grants the role the needed KMS permissions.<br/>- "aws/ebs" (or "alias/aws/ebs"): encrypt with the AWS-managed EBS key. Use<br/>  this when an SCP requires encryption but it is not the region default.<br/>- An explicit key ARN (arn:aws:kms:...:key/<id>): encrypt with that key.<br/><br/>Decrypt-at-launch needs no extra setup for the AWS-managed key or the account<br/>default CMK (the EC2/Spot/Fleet service-linked roles already have access); a<br/>different third-party CMK requires the usual key-policy/grant changes. | `string` | `""` | no |
 | <a name="input_log_retention_in_days"></a> [log\_retention\_in\_days](#input\_log\_retention\_in\_days) | CloudWatch Logs retention for the Lambda's log group. | `number` | `14` | no |
 | <a name="input_name_suffix"></a> [name\_suffix](#input\_name\_suffix) | Suffix appended to stack\_name for this component's resource names. | `string` | `"ami-sync"` | no |

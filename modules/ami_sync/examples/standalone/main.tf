@@ -27,8 +27,6 @@ module "ami_sync" {
   images = [
     { name = "runs-on-v2.2-ubuntu24-full-x64-*", architecture = "x86_64" },
     { name = "runs-on-v2.2-ubuntu24-full-arm64-*", architecture = "arm64" },
-    { name = "runs-on-v2.2-ubuntu26-full-x64-*", architecture = "x86_64" },
-    { name = "runs-on-v2.2-ubuntu26-full-arm64-*", architecture = "arm64" },
   ]
 
   # Encryption of the copied snapshot (pick one):

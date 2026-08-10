@@ -87,8 +87,7 @@ The public Terraform input is `github_app_private_key`, but the rendered runtime
 | <a name="input_runtime"></a> [runtime](#input\_runtime) | Fleet ECS runtime settings | <pre>object({<br/>    image                     = string<br/>    size                      = string<br/>    capacity_provider         = string<br/>    maintenance_mode          = bool<br/>    log_retention_days        = number<br/>    otel_exporter_endpoint    = string<br/>    otel_exporter_headers     = string<br/>    otel_exporter_temporality = string<br/>    otel_logs_enabled         = bool<br/>    otel_traces_enabled       = bool<br/>    extra_env_vars            = map(string)<br/>  })</pre> | n/a | yes |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Fleet stack name | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to Fleet resources | `map(string)` | n/a | yes |
-| <a name="input_diagnostic_settings"></a> [diagnostic\_settings](#input\_diagnostic\_settings) | Non-sensitive stack settings exposed by the job diagnostics resolver | `any` | `{}` | no |
-| <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes | `bool` | `false` | no |
+| <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Vend brokered, per-repository cache credentials to runners. When false, the always-created broker stays idle and runners use direct cache access | `bool` | `false` | no |
 
 ## Outputs
 

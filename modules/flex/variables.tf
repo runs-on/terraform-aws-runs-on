@@ -210,14 +210,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.2@sha256:e9bb583a491090ca376a0f5426de5f950ed4a7fac41de8be7777e8a8d0d5c8da"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.4-rc.6@sha256:970d4772c4822b756de043c76bf6f3257577495023442bbb06e8fbb9b4194eac"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.2.2"
+  default     = "v3.1.4-rc.6"
   nullable    = false
 }
 
@@ -370,14 +370,9 @@ variable "runner_custom_tags" {
 ###########################
 
 variable "enable_cost_reports" {
-  description = "Cost report email cadence: no, daily, weekly, or monthly. Legacy true/false values must be replaced with daily/no when upgrading."
-  type        = string
-  default     = "daily"
-
-  validation {
-    condition     = contains(["no", "daily", "weekly", "monthly"], var.enable_cost_reports)
-    error_message = "enable_cost_reports must be one of: no, daily, weekly, monthly."
-  }
+  description = "Enable automated cost reports sent to alert email"
+  type        = bool
+  default     = true
 }
 
 variable "spot_circuit_breaker" {
@@ -596,7 +591,7 @@ variable "public_ingress_web_acl_arn" {
 }
 
 variable "enable_cache_isolation" {
-  description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in"
+  description = "Enable brokered, per-repository/per-branch cache credentials for the magic cache. Runners lose direct cache/* S3 access; a credential broker Lambda vends scoped credentials per job. Opt-in"
   type        = bool
   default     = false
 }

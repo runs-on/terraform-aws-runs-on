@@ -303,10 +303,7 @@ resource "aws_iam_role_policy" "ec2_get_metrics" {
 }
 
 locals {
-  # Direct cache clients use the instance profile and intentionally share this
-  # namespace across every repository attached to the stack. Repository
-  # prefixes prevent collisions; they are not an IAM isolation boundary.
-  ec2_s3_direct_cache_statements = [
+  ec2_s3_legacy_cache_statements = [
     {
       Effect = "Allow"
       Action = [
@@ -419,7 +416,7 @@ resource "aws_iam_role_policy" "ec2_s3_access" {
           ]
         }
       ],
-      local.ec2_s3_direct_cache_statements
+      [for statement in local.ec2_s3_legacy_cache_statements : statement if !var.enable_cache_isolation]
     )
   })
 }
@@ -427,12 +424,10 @@ resource "aws_iam_role_policy" "ec2_s3_access" {
 # Scoped Magic Cache namespace: only broker-minted sessions (tagged by the
 # trust policy and carrying the broker-only STS session-name prefix) may touch
 # scoped-cache/*.
-# The namespace deliberately lives OUTSIDE cache/, so the direct cache/*
+# The namespace deliberately lives OUTSIDE cache/, so the legacy cache/*
 # grants above never reach it and plain instance-profile credentials get an
-# implicit deny. Direct clients such as runs-on/cache, sccache, and
-# gocacheprog continue using the stack-shared cache/* namespace. The broker's
-# per-token session policy then narrows scoped-cache/* access to the job's
-# exact repository and scopes.
+# implicit deny. The broker's per-token session policy then narrows these
+# allows to the job's exact repository and scopes.
 # Admin-attached runner_custom_policy_arns are still unioned onto this role;
 # broad custom S3 policies can intentionally bypass the broker. Use them only
 # when direct runner access to stack-owned cache data is acceptable.

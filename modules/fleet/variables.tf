@@ -76,7 +76,7 @@ variable "environment" {
 }
 
 variable "images" {
-  description = "Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here."
+  description = "Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 do not need entries here."
   type        = map(any)
   default     = {}
 }
@@ -168,7 +168,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.2@sha256:e9bb583a491090ca376a0f5426de5f950ed4a7fac41de8be7777e8a8d0d5c8da"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.1.4-rc.6@sha256:970d4772c4822b756de043c76bf6f3257577495023442bbb06e8fbb9b4194eac"
 }
 
 variable "extra_env_vars" {
@@ -255,10 +255,9 @@ variable "bootstrap_tag" {
 }
 
 variable "app_tag" {
-  description = "Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version."
+  description = "Application/agent tag published into the cache bucket and passed to runners."
   type        = string
-  default     = "v3.2.2"
-  nullable    = false
+  default     = "v3.1.4-rc.6"
 }
 
 variable "runner_max_runtime" {
@@ -297,12 +296,6 @@ variable "cache_bucket_versioning_enabled" {
 
 variable "force_destroy_buckets" {
   description = "Allow the cache bucket to be destroyed while non-empty."
-  type        = bool
-  default     = false
-}
-
-variable "enable_ecr" {
-  description = "Enable an ECR repository for ephemeral Docker image and BuildKit cache storage."
   type        = bool
   default     = false
 }
@@ -391,7 +384,7 @@ variable "runner_custom_tags" {
 }
 
 variable "enable_cache_isolation" {
-  description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in"
+  description = "Enable brokered, per-repository/per-branch cache credentials for the magic cache. Runners lose direct cache/* S3 access; a credential broker Lambda vends scoped credentials per job. Opt-in"
   type        = bool
   default     = false
 }

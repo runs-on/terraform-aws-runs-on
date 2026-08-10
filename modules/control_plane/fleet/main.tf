@@ -78,7 +78,6 @@ locals {
     app_size              = local.runtime.size
     environment           = local.control_plane.environment
     spot_circuit_breaker  = local.control_plane.spot_circuit_breaker
-    diagnostic_settings   = var.diagnostic_settings
     integrations = {
       stepSecurityApiKey = var.integration_step_security_api_key
     }
@@ -92,7 +91,7 @@ locals {
       bucket_cache                           = var.extras.cache.bucket_name
       cache_credential_broker_function_name  = var.enable_cache_isolation ? aws_lambda_function.cache_credential_broker.function_name : ""
       claim_table_name                       = aws_dynamodb_table.claims.name
-      job_diagnostics_resolver_function_name = "${var.stack_name}-job-diagnostics-resolver"
+      job_diagnostics_resolver_function_name = aws_lambda_function.job_diagnostics_resolver.function_name
       app_tag                                = local.control_plane.app_tag
       deployment_method                      = "terraform"
       networking_stack                       = var.stack_name
@@ -317,14 +316,11 @@ module "runtime" {
   cpu                             = local.runtime_size_config.cpu
   memory                          = local.runtime_size_config.memory
   desired_count                   = local.runtime.maintenance_mode ? 0 : 1
-  # Fleet owns one scale-set session and process-local pool publication fence.
-  # Stop the old controller before ECS starts its replacement.
-  deployment_maximum_percent = 100
-  capacity_provider          = local.runtime.capacity_provider
-  assign_public_ip           = local.control_plane.private_mode == "false"
-  security_group_ids         = var.network.security_group_ids
-  subnet_ids                 = local.control_plane.private_mode == "false" ? var.network.public_subnet_ids : var.network.private_subnet_ids
-  tags                       = var.tags
+  capacity_provider               = local.runtime.capacity_provider
+  assign_public_ip                = local.control_plane.private_mode == "false"
+  security_group_ids              = var.network.security_group_ids
+  subnet_ids                      = local.control_plane.private_mode == "false" ? var.network.public_subnet_ids : var.network.private_subnet_ids
+  tags                            = var.tags
   container_definitions = [
     {
       name       = "fleetd"

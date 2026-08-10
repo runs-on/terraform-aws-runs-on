@@ -93,11 +93,6 @@ type ScenarioConfig struct {
 	PrivateMode string // "false", "true", "always", "only" — implies EnableNAT when not "false"
 	AWSRegion   string
 
-	// ECRPullThroughCacheRules references regional rules created outside the
-	// module. Integration CI uses the shared Docker Hub rule to exercise the
-	// runner-local mirror through the real Flex Terraform path.
-	ECRPullThroughCacheRules map[string]map[string]string
-
 	// Isolation flags (default false = legacy behavior). The private and full
 	// scenarios enable both so e2e covers legacy and isolated modes without a
 	// dedicated lane.
@@ -261,9 +256,6 @@ func (c ScenarioConfig) ToModuleVars(vpcID string, publicSubnets, privateSubnets
 	if c.AppECRRepository != "" {
 		vars["app_ecr_repository_url"] = c.AppECRRepository
 	}
-	if len(c.ECRPullThroughCacheRules) > 0 {
-		vars["ecr_pull_through_cache_rules"] = c.ECRPullThroughCacheRules
-	}
 
 	if c.PrivateMode != "" && c.PrivateMode != "false" {
 		vars["private_mode"] = c.PrivateMode
@@ -422,15 +414,6 @@ func integrationScenarioConfigFromEnv(t *testing.T) ScenarioConfig {
 	cfg.GithubAppClientSecret = os.Getenv("GITHUB_APP_CLIENT_SECRET")
 	cfg.EnableEFS = os.Getenv("ENABLE_EFS") == "true"
 	cfg.EnableECR = os.Getenv("ENABLE_ECR") == "true"
-	if os.Getenv("ENABLE_ECR_PULL_THROUGH_CACHE") == "true" {
-		cfg.ECRPullThroughCacheRules = map[string]map[string]string{
-			"docker_hub": {
-				"ecr_repository_prefix":      "docker-hub",
-				"upstream_registry_url":      "registry-1.docker.io",
-				"upstream_repository_prefix": "",
-			},
-		}
-	}
 
 	if pm := os.Getenv("PRIVATE_MODE"); pm != "" && pm != "false" {
 		cfg.PrivateMode = pm

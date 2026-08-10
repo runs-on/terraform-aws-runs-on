@@ -9,8 +9,8 @@ import (
 // TestPlanSourceCacheCredentialBrokerWiring pins the reduced broker design:
 // broker-minted sessions carry only the per-token scoped-cache statements (no
 // base session policy, no packed-policy pressure), the scoped namespace lives
-// outside cache/ so direct instance-role grants never reach it, and direct
-// cache/* access stays stack-shared in both isolation modes.
+// outside cache/ so legacy instance-role grants never reach it, and legacy
+// cache statements stay untouched.
 func TestPlanSourceCacheCredentialBrokerWiring(t *testing.T) {
 	t.Parallel()
 
@@ -40,10 +40,9 @@ func TestPlanSourceCacheCredentialBrokerWiring(t *testing.T) {
 		assert.Contains(t, tf, `aws:RequestTag/runs-on-cache-brokered`, name)
 	}
 
-	// Runner role: direct cache statements remain unconditional; the scoped
-	// namespace is additive and tag-gated.
+	// Runner role: legacy cache statements stay byte-identical to the
+	// pre-broker layout; the scoped namespace is additive and tag-gated.
 	assert.Contains(t, computeIAM, `"cache/*",`)
-	assert.NotContains(t, computeIAM, `if !var.enable_cache_isolation`)
 	assert.Contains(t, computeIAM, `scoped-cache/*`)
 	assert.Contains(t, computeIAM, `aws:PrincipalTag/runs-on-cache-brokered`)
 	assert.Contains(t, computeIAM, `"aws:userid" = "*:runs-on-cache-i-*"`)
@@ -68,14 +67,6 @@ func TestPlanSourceCacheCredentialBrokerWiring(t *testing.T) {
 	// CloudFormation mirrors the Terraform design.
 	assert.Contains(t, cloudFormation, `function:${AWS::StackName}-cache-broker`)
 	assert.Contains(t, cloudFormation, `scoped-cache/*`)
-	assert.Contains(t, cloudFormation, "# Direct cache clients intentionally share cache/*")
-	assert.Contains(t, cloudFormation, "- s3:ListBucketMultipartUploads")
-	assert.Contains(t, cloudFormation, "- cache\n                      - cache/*")
-	assert.Contains(t, cloudFormation, "- s3:DeleteObject")
-	assert.Contains(t, cloudFormation, "- s3:AbortMultipartUpload")
-	assert.Contains(t, cloudFormation, `- !Sub "arn:${AWS::Partition}:s3:::${S3BucketCache}/cache/*"`)
-	assert.NotContains(t, cloudFormation, `CacheIsolationDisabled:`)
-	assert.NotContains(t, cloudFormation, "- !If\n                - CacheIsolationDisabled")
 	assert.Contains(t, cloudFormation, `aws:userid: "*:runs-on-cache-i-*"`)
 	assert.NotContains(t, cloudFormation, `BASE_SESSION_POLICY`)
 	assert.Contains(t, cloudFormation, `Id: ExpireScopedCache`)

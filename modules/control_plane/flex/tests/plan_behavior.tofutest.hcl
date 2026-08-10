@@ -203,7 +203,7 @@ variables {
 
   operations = {
     app_budget_daily_usd              = 0
-    enable_cost_reports               = "no"
+    enable_cost_reports               = false
     spot_circuit_breaker              = ""
     integration_step_security_api_key = ""
     enable_admin_routes               = true
@@ -229,22 +229,22 @@ run "disabled_cost_reports_skip_cost_schedules" {
 
   assert {
     condition     = length(aws_scheduler_schedule.cost_report) == 0
-    error_message = "Cost report schedule should be absent when enable_cost_reports is no."
+    error_message = "Cost report schedule should be absent when enable_cost_reports is false."
   }
 
   assert {
     condition     = length(aws_scheduler_schedule.cost_allocation_tag) == 0
-    error_message = "Cost allocation tag schedule should be absent when enable_cost_reports is no."
+    error_message = "Cost allocation tag schedule should be absent when enable_cost_reports is false."
   }
 }
 
-run "daily_cost_reports_create_daily_schedule" {
+run "enabled_cost_reports_create_cost_schedules" {
   command = plan
 
   variables {
     operations = {
       app_budget_daily_usd              = 0
-      enable_cost_reports               = "daily"
+      enable_cost_reports               = true
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -255,69 +255,12 @@ run "daily_cost_reports_create_daily_schedule" {
 
   assert {
     condition     = length(aws_scheduler_schedule.cost_report) == 1
-    error_message = "Cost report schedule should be created when enable_cost_reports is daily."
-  }
-
-  assert {
-    condition     = aws_scheduler_schedule.cost_report[0].schedule_expression == "cron(5 0 * * ? *)"
-    error_message = "Daily cost reports should run every day at 00:05 UTC."
+    error_message = "Cost report schedule should be created when enable_cost_reports is true."
   }
 
   assert {
     condition     = length(aws_scheduler_schedule.cost_allocation_tag) == 1
-    error_message = "Cost allocation tag schedule should be created when cost reports are enabled."
-  }
-}
-
-run "weekly_cost_reports_create_weekly_schedule" {
-  command = plan
-
-  variables {
-    operations = {
-      app_budget_daily_usd              = 0
-      enable_cost_reports               = "weekly"
-      spot_circuit_breaker              = ""
-      integration_step_security_api_key = ""
-      enable_admin_routes               = true
-      enable_waf                        = false
-      public_ingress_web_acl_arn        = ""
-    }
-  }
-
-  assert {
-    condition     = aws_scheduler_schedule.cost_report[0].schedule_expression == "cron(5 0 ? * MON *)"
-    error_message = "Weekly cost reports should run each Monday at 00:05 UTC."
-  }
-
-  assert {
-    condition     = aws_scheduler_schedule.cost_allocation_tag[0].schedule_expression == "cron(10 0 * * ? *)"
-    error_message = "Cost allocation tag activation should remain daily."
-  }
-}
-
-run "monthly_cost_reports_create_monthly_schedule" {
-  command = plan
-
-  variables {
-    operations = {
-      app_budget_daily_usd              = 0
-      enable_cost_reports               = "monthly"
-      spot_circuit_breaker              = ""
-      integration_step_security_api_key = ""
-      enable_admin_routes               = true
-      enable_waf                        = false
-      public_ingress_web_acl_arn        = ""
-    }
-  }
-
-  assert {
-    condition     = aws_scheduler_schedule.cost_report[0].schedule_expression == "cron(5 0 1 * ? *)"
-    error_message = "Monthly cost reports should run on the first day of each month at 00:05 UTC."
-  }
-
-  assert {
-    condition     = aws_scheduler_schedule.cost_allocation_tag[0].schedule_expression == "cron(10 0 * * ? *)"
-    error_message = "Cost allocation tag activation should remain daily."
+    error_message = "Cost allocation tag schedule should be created when enable_cost_reports is true."
   }
 }
 
@@ -327,7 +270,7 @@ run "positive_budget_creates_budget_resources" {
   variables {
     operations = {
       app_budget_daily_usd              = 10
-      enable_cost_reports               = "no"
+      enable_cost_reports               = false
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -348,7 +291,7 @@ run "managed_waf_creates_sync_resources" {
   variables {
     operations = {
       app_budget_daily_usd              = 0
-      enable_cost_reports               = "no"
+      enable_cost_reports               = false
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -395,7 +338,7 @@ run "default_dashboard_can_be_disabled" {
     operations = {
       app_budget_daily_usd              = 0
       enable_default_dashboard          = false
-      enable_cost_reports               = "no"
+      enable_cost_reports               = false
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -416,7 +359,7 @@ run "user_managed_waf_skips_sync_resources" {
   variables {
     operations = {
       app_budget_daily_usd              = 0
-      enable_cost_reports               = "no"
+      enable_cost_reports               = false
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = true
@@ -447,7 +390,7 @@ run "admin_routes_disabled_skips_setup_resources" {
   variables {
     operations = {
       app_budget_daily_usd              = 0
-      enable_cost_reports               = "no"
+      enable_cost_reports               = false
       spot_circuit_breaker              = ""
       integration_step_security_api_key = ""
       enable_admin_routes               = false

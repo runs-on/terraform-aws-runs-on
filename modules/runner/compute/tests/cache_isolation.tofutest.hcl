@@ -71,35 +71,12 @@ variables {
   }
 }
 
-run "cache_isolation_disabled_grants_direct_cache_access" {
+run "cache_isolation_disabled_grants_legacy_cache_access" {
   command = plan
 
   assert {
     condition     = strcontains(aws_iam_role_policy.ec2_s3_access.policy, "arn:aws:s3:::test-stack-cache/cache/*")
     error_message = "Without cache isolation, runners keep direct access to the cache/* prefix."
-  }
-
-  assert {
-    condition = anytrue([
-      for statement in jsondecode(aws_iam_role_policy.ec2_s3_access.policy).Statement :
-      contains(try(statement.Action, []), "s3:ListBucket") &&
-      contains(try(statement.Action, []), "s3:ListBucketMultipartUploads") &&
-      contains(try(statement.Condition.StringLike["s3:prefix"], []), "cache") &&
-      contains(try(statement.Condition.StringLike["s3:prefix"], []), "cache/*")
-    ])
-    error_message = "Without cache isolation, direct bucket listing must stay restricted to cache and cache/*."
-  }
-
-  assert {
-    condition = anytrue([
-      for statement in jsondecode(aws_iam_role_policy.ec2_s3_access.policy).Statement :
-      contains(try(statement.Resource, []), "arn:aws:s3:::test-stack-cache/cache/*") &&
-      alltrue([
-        for action in ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListMultipartUploadParts", "s3:AbortMultipartUpload"] :
-        contains(try(statement.Action, []), action)
-      ])
-    ])
-    error_message = "Without cache isolation, direct object and multipart operations must stay restricted to cache/*."
   }
 
   assert {
@@ -113,7 +90,7 @@ run "cache_isolation_disabled_grants_direct_cache_access" {
   }
 }
 
-run "cache_isolation_enabled_preserves_direct_cache_access" {
+run "cache_isolation_enabled_requires_brokered_credentials" {
   command = plan
 
   variables {
@@ -121,31 +98,8 @@ run "cache_isolation_enabled_preserves_direct_cache_access" {
   }
 
   assert {
-    condition     = strcontains(aws_iam_role_policy.ec2_s3_access.policy, "arn:aws:s3:::test-stack-cache/cache/*")
-    error_message = "With Magic Cache isolation, runners must retain direct access to the cache/* prefix."
-  }
-
-  assert {
-    condition = anytrue([
-      for statement in jsondecode(aws_iam_role_policy.ec2_s3_access.policy).Statement :
-      contains(try(statement.Action, []), "s3:ListBucket") &&
-      contains(try(statement.Action, []), "s3:ListBucketMultipartUploads") &&
-      contains(try(statement.Condition.StringLike["s3:prefix"], []), "cache") &&
-      contains(try(statement.Condition.StringLike["s3:prefix"], []), "cache/*")
-    ])
-    error_message = "With Magic Cache isolation, direct bucket listing must stay restricted to cache and cache/*."
-  }
-
-  assert {
-    condition = anytrue([
-      for statement in jsondecode(aws_iam_role_policy.ec2_s3_access.policy).Statement :
-      contains(try(statement.Resource, []), "arn:aws:s3:::test-stack-cache/cache/*") &&
-      alltrue([
-        for action in ["s3:GetObject", "s3:PutObject", "s3:DeleteObject", "s3:ListMultipartUploadParts", "s3:AbortMultipartUpload"] :
-        contains(try(statement.Action, []), action)
-      ])
-    ])
-    error_message = "With Magic Cache isolation, direct object and multipart operations must stay restricted to cache/*."
+    condition     = !strcontains(aws_iam_role_policy.ec2_s3_access.policy, "arn:aws:s3:::test-stack-cache/cache/*")
+    error_message = "With cache isolation, the broad cache/* object grant must be gone."
   }
 
   assert {

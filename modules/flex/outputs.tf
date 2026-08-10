@@ -18,7 +18,7 @@ output "stack" {
       Environment: ${var.environment}
 ${var.environment != "production" ? <<-WARNING
 
-      WARNING: Custom environment name detected!
+      WARNING: Non-production environment detected!
       Your GitHub workflows must include 'env=${var.environment}' in the runs-on label.
       Example: runs-on: runs-on=$family/env=${var.environment}
       See: https://runs-on.com/configuration/job-labels/#env

@@ -86,7 +86,7 @@ variable "enable_bedrock" {
 }
 
 variable "enable_cache_isolation" {
-  description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations always keep instance-profile access to the stack-shared cache/* namespace"
+  description = "Enable brokered, per-repository/per-branch cache credentials. When true, runner cache access requires broker-issued credentials (tag-gated IAM); when false, runners keep the legacy direct cache/* access"
   type        = bool
   default     = false
 }

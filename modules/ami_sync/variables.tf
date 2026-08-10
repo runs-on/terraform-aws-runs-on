@@ -18,15 +18,13 @@ variable "images" {
     Images to sync. Each entry is a source AMI name glob plus architecture. The
     Lambda copies the most-recent matching source AMI and prunes older synced
     copies of the same name+architecture down to `retention`. Defaults to the
-    ubuntu24-full and ubuntu26-full families (x64 + arm64). Names assume the default
+    current ubuntu24-full family (x64 + arm64). Names assume the default
     RUNS_ON_AMI_PREFIX (runs-on-v2.2); override this list if your stack overrides
-    the prefix. See README for the supported default image families.
+    the prefix. See README for how the default evolves across releases.
   EOT
   default = [
     { name = "runs-on-v2.2-ubuntu24-full-x64-*", architecture = "x86_64" },
     { name = "runs-on-v2.2-ubuntu24-full-arm64-*", architecture = "arm64" },
-    { name = "runs-on-v2.2-ubuntu26-full-x64-*", architecture = "x86_64" },
-    { name = "runs-on-v2.2-ubuntu26-full-arm64-*", architecture = "arm64" },
   ]
 }
 

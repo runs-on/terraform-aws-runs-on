@@ -93,120 +93,6 @@ run "defaults_to_fargate_capacity_provider" {
     condition     = local.fleet_runtime.capacity_provider == "FARGATE"
     error_message = "Fleet should default to the FARGATE capacity provider."
   }
-
-  assert {
-    condition     = !contains(keys(local.common_tags), "Environment")
-    error_message = "Fleet must not synthesize the conventional Environment tag."
-  }
-
-  assert {
-    condition     = local.fleet_diagnostic_settings.storage.ebs_encryption_mode == "unspecified"
-    error_message = "Fleet should report omitted explicit EBS encryption as unspecified."
-  }
-
-  assert {
-    condition     = !module.extras.extras.ecr.enabled && !local.fleet_diagnostic_settings.buildkit.ephemeral_registry_enabled
-    error_message = "Fleet should leave the ephemeral ECR registry disabled by default."
-  }
-}
-
-run "can_enable_ephemeral_ecr_registry" {
-  command = plan
-
-  variables {
-    enable_ecr = true
-  }
-
-  assert {
-    condition     = module.extras.extras.ecr.enabled && local.fleet_diagnostic_settings.buildkit.ephemeral_registry_enabled
-    error_message = "Fleet should create and report the ephemeral ECR registry when enabled."
-  }
-}
-
-run "telemetry_diagnostics_follow_extra_env_overrides" {
-  command = plan
-
-  variables {
-    otel_exporter_endpoint    = "https://configured.example"
-    otel_exporter_temporality = "cumulative"
-    otel_logs_enabled         = true
-    otel_traces_enabled       = true
-    extra_env_vars = {
-      OTEL_EXPORTER_OTLP_ENDPOINT    = ""
-      OTEL_EXPORTER_OTLP_HEADERS     = "Authorization=private"
-      OTEL_EXPORTER_OTLP_TEMPORALITY = "delta"
-      OTEL_LOGS_ENABLED              = "off"
-      OTEL_TRACES_ENABLED            = "0"
-    }
-  }
-
-  assert {
-    condition = (
-      !local.fleet_diagnostic_settings.telemetry.exporter_configured &&
-      local.fleet_diagnostic_settings.telemetry.headers_configured &&
-      local.fleet_diagnostic_settings.telemetry.temporality == "delta" &&
-      !local.fleet_diagnostic_settings.telemetry.logs_enabled &&
-      !local.fleet_diagnostic_settings.telemetry.traces_enabled
-    )
-    error_message = "Fleet telemetry diagnostics should reflect the effective ECS environment after overrides."
-  }
-}
-
-run "invalid_telemetry_headers_report_unconfigured" {
-  command = plan
-
-  variables {
-    otel_exporter_headers = "Authorization"
-    extra_env_vars = {
-      OTEL_EXPORTER_OTLP_HEADERS = "=token, Empty= "
-    }
-  }
-
-  assert {
-    condition     = !local.fleet_diagnostic_settings.telemetry.headers_configured
-    error_message = "Fleet header diagnostics should ignore entries the runtime OTLP parser discards."
-  }
-}
-
-run "runner_tag_diagnostics_follow_runtime_filtering" {
-  command = plan
-
-  variables {
-    runner_custom_tags = [" ", "runs-on-reserved=value"]
-  }
-
-  assert {
-    condition     = !local.fleet_diagnostic_settings.runner.custom_tags_configured
-    error_message = "Fleet runner tag diagnostics should ignore blank and reserved custom tags."
-  }
-}
-
-run "runner_bare_key_tag_reports_configured" {
-  command = plan
-
-  variables {
-    runner_custom_tags = ["missing-equals"]
-  }
-
-  assert {
-    condition     = local.fleet_diagnostic_settings.runner.custom_tags_configured
-    error_message = "Bare custom tag keys are valid and should be reported as configured."
-  }
-}
-
-run "preserves_caller_supplied_environment_tag" {
-  command = plan
-
-  variables {
-    tags = {
-      Environment = "customer-value"
-    }
-  }
-
-  assert {
-    condition     = local.common_tags["Environment"] == "customer-value"
-    error_message = "Fleet must preserve a caller-supplied Environment tag."
-  }
 }
 
 run "multiple_transparent_docker_hub_rules_are_rejected" {
@@ -277,44 +163,10 @@ run "accepts_valid_runner_sticky_spec" {
         ram    = 4
         family = ["c7"]
         image  = "ubuntu24-full-x64"
-        sticky = "go-cache:gp3:750mibps:20gb:6000iops:200mibps-init"
+        sticky = "go-cache:gp3:750mbs:20gb:6000iops"
       }
     }
   }
-}
-
-run "accepts_lazy_sticky_initialization" {
-  command = plan
-
-  variables {
-    runners = {
-      small-x64 = {
-        cpu    = 2
-        ram    = 4
-        family = ["c7"]
-        image  = "ubuntu24-full-x64"
-        sticky = "go-cache:20gb:lazy-init"
-      }
-    }
-  }
-}
-
-run "rejects_multiple_sticky_initialization_settings" {
-  command = plan
-
-  variables {
-    runners = {
-      small-x64 = {
-        cpu    = 2
-        ram    = 4
-        family = ["c7"]
-        image  = "ubuntu24-full-x64"
-        sticky = "go-cache:20gb:200mibps-init:lazy-init"
-      }
-    }
-  }
-
-  expect_failures = [terraform_data.validate_runner_sticky_specs]
 }
 
 run "rejects_invalid_runner_sticky_spec" {
@@ -328,24 +180,6 @@ run "rejects_invalid_runner_sticky_spec" {
         family = ["c7"]
         image  = "ubuntu24-full-x64"
         sticky = "not-a-size"
-      }
-    }
-  }
-
-  expect_failures = [terraform_data.validate_runner_sticky_specs]
-}
-
-run "rejects_out_of_range_sticky_initialization_rate" {
-  command = plan
-
-  variables {
-    runners = {
-      small-x64 = {
-        cpu    = 2
-        ram    = 4
-        family = ["c7"]
-        image  = "ubuntu24-full-x64"
-        sticky = "go-cache:20gb:400mibps-init"
       }
     }
   }

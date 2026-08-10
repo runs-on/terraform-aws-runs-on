@@ -386,7 +386,6 @@ func TestPlanSourceStackConfigMaterializerWiring(t *testing.T) {
 	secretsTF := readTerraformSource(t, "modules", "control_plane", "flex", "secrets.tf")
 	mainTF := readTerraformSource(t, "modules", "control_plane", "flex", "main.tf")
 	ingressTF := readTerraformSource(t, "modules", "control_plane", "flex", "ingress.tf")
-	resolverTF := readTerraformSource(t, "modules", "control_plane", "flex", "job_diagnostics_resolver.tf")
 	serviceTF := readTerraformSource(t, "modules", "control_plane", "flex", "service.tf")
 
 	assert.NotContains(t, secretsTF, `resource "aws_secretsmanager_secret_version" "runs_on_stack_config"`)
@@ -401,8 +400,6 @@ func TestPlanSourceStackConfigMaterializerWiring(t *testing.T) {
 
 	assert.Contains(t, ingressTF, "RUNS_ON_STACK_CONFIG_SECRET_VERSION")
 	assert.Contains(t, ingressTF, "local.stack_config_secret_version")
-	assert.Contains(t, resolverTF, "RUNS_ON_STACK_CONFIG_SECRET_VERSION")
-	assert.Contains(t, resolverTF, "local.stack_config_secret_version")
 	assert.Contains(t, serviceTF, "aws_lambda_invocation.stack_config_materializer")
 }
 
@@ -435,7 +432,6 @@ func TestPlanSourceFleetConfigMaterializerWiring(t *testing.T) {
 	t.Parallel()
 
 	mainTF := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
-	resolverTF := readTerraformSource(t, "modules", "control_plane", "fleet", "job_diagnostics_resolver.tf")
 	secretsTF := readTerraformSource(t, "modules", "control_plane", "fleet", "secrets.tf")
 
 	assert.NotContains(t, mainTF, `resource "aws_secretsmanager_secret_version" "config"`)
@@ -448,20 +444,8 @@ func TestPlanSourceFleetConfigMaterializerWiring(t *testing.T) {
 	assert.Contains(t, mainTF, "aws_secretsmanager_secret.config.arn")
 	assert.Contains(t, mainTF, "RUNS_ON_FLEET_CONFIG_SECRET_VERSION")
 	assert.Contains(t, mainTF, "local.config_secret_version")
-	assert.Contains(t, resolverTF, "RUNS_ON_FLEET_CONFIG_SECRET_VERSION")
-	assert.Contains(t, resolverTF, "local.config_secret_version")
 	assert.Contains(t, mainTF, "aws_lambda_invocation.config_materializer")
 	assert.Contains(t, mainTF, `deployment_method                      = "terraform"`)
-}
-
-func TestPlanSourceFleetRunsOneControllerDuringDeployments(t *testing.T) {
-	t.Parallel()
-
-	fleetTF := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
-	runtimeTF := readTerraformSource(t, "modules", "control_plane", "runtime", "main.tf")
-
-	assert.Contains(t, fleetTF, "deployment_maximum_percent = 100")
-	assert.Contains(t, runtimeTF, `availability_zone_rebalancing = var.deployment_maximum_percent <= 100 ? "DISABLED" : null`)
 }
 
 func TestPlanSourceFleetCIStackKeepsPrivateSubnetsStable(t *testing.T) {
@@ -479,21 +463,13 @@ func TestPlanSourceFleetCIDefaultFleetEnablesRequiredExtras(t *testing.T) {
 
 	mainTF := readRepoSource(t, "stacks", "tf", "modules", "fleet-stack", "main.tf")
 
-	_, afterSnapshotRunner, ok := strings.Cut(mainTF, "snap-x64 = {")
-	require.True(t, ok, "snap-x64 runner should be configured")
-
-	snapshotRunner, _, ok := strings.Cut(afterSnapshotRunner, "\n  }\n\n  fleets = {")
-	require.True(t, ok, "snap-x64 runner block should end before fleets")
-
-	assert.Contains(t, snapshotRunner, `extras = ["s3-cache", "ecr-pull-through"]`)
-
 	_, afterRunner, ok := strings.Cut(mainTF, "small-x64 = {")
 	require.True(t, ok, "small-x64 runner should be configured")
 
 	smallRunner, _, ok := strings.Cut(afterRunner, "fast-x64 = {")
 	require.True(t, ok, "small-x64 runner block should end before fast-x64")
 
-	assert.Contains(t, smallRunner, `extras = ["s3-cache", "ecr-cache", "ecr-pull-through", "otel"]`)
+	assert.Contains(t, smallRunner, `extras = ["s3-cache", "ecr-pull-through", "otel"]`)
 }
 
 func TestPlanSourceFleetPrivateDeployUsesPrivateOnlyMode(t *testing.T) {
@@ -612,8 +588,7 @@ func TestCacheCredentialBrokerWiring(t *testing.T) {
 	assert.Contains(t, fleetBrokerTF, `sts:TagSession`)
 	assert.Contains(t, fleetMainTF, `cache_credential_broker_function_name  = var.enable_cache_isolation ? aws_lambda_function.cache_credential_broker.function_name : ""`)
 	// Broker resources are always created; enable_cache_isolation only decides
-	// whether runners receive the broker function name. Direct cache/* access
-	// remains available independently of Magic Cache isolation.
+	// whether runners receive the broker function name and tag-gated cache IAM.
 	assert.NotContains(t, brokerTF, `count = var.enable_cache_isolation ? 1 : 0`)
 	assert.NotContains(t, fleetBrokerTF, `count = var.enable_cache_isolation ? 1 : 0`)
 	assert.Contains(t, brokerTF, `role          = aws_iam_role.cache_credential_broker.arn`)
@@ -626,7 +601,7 @@ func TestCacheCredentialBrokerWiring(t *testing.T) {
 	assert.Contains(t, computeIAM, `aws:PrincipalArn`)
 	assert.Contains(t, computeIAM, `arn:${local.partition}:iam::${var.account_id}:root`)
 	assert.Contains(t, computeIAM, `sts:TagSession`)
-	assert.NotContains(t, computeIAM, `if !var.enable_cache_isolation`)
+	assert.Contains(t, computeIAM, `if !var.enable_cache_isolation`)
 	assert.Contains(t, computeIAM, `"${var.extras.cache.bucket_arn}/cache/*"`)
 	// Legacy EBS snapshot policies are removed under sticky-disk isolation.
 	assert.Contains(t, computeIAM, `count = var.enable_stickydisk_isolation ? 0 : 1`)
@@ -647,13 +622,11 @@ func TestCacheCredentialBrokerWiring(t *testing.T) {
 	assert.NotContains(t, cloudFormation, `/runners/*/runner-identity.json`)
 	assert.Contains(t, cloudFormation, `runs-on-cache-brokered`)
 	assert.Contains(t, cloudFormation, `runs-on-cache-repository`)
-	assert.NotContains(t, cloudFormation, `arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`)
+	assert.Contains(t, cloudFormation, `arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole`)
 	assert.NotContains(t, cloudFormation, "/"+oldScopedPrefix+"/*")
-	// Magic Cache isolation is opt-in, but direct cache/* access is unconditional
-	// and therefore survives both EnableCacheIsolation parameter values.
+	// Both isolation flags are opt-in parameters, defaulting to legacy behavior.
 	assert.Contains(t, cloudFormation, `EnableCacheIsolation:`)
 	assert.Contains(t, cloudFormation, `CacheIsolationEnabled: !Equals [!Ref EnableCacheIsolation, "true"]`)
-	assert.NotContains(t, cloudFormation, `CacheIsolationDisabled:`)
 	assert.NotContains(t, cloudFormation, "RunsOnCacheCredentialBrokerRole:\n    Type: AWS::IAM::Role\n    Condition: CacheIsolationEnabled")
 	assert.NotContains(t, cloudFormation, "RunsOnCacheCredentialBrokerAssumeRunnerPolicy:\n    Type: AWS::IAM::Policy\n    Condition: CacheIsolationEnabled")
 	assert.NotContains(t, cloudFormation, "RunsOnCacheCredentialBrokerReadJwksPolicy:\n    Type: AWS::IAM::Policy\n    Condition: CacheIsolationEnabled")
@@ -689,48 +662,10 @@ func TestPlanSourceCloudFormationStackConfigUsesDeploymentMethod(t *testing.T) {
 	assert.NotContains(t, template, "InfrastructureSource")
 }
 
-func TestPlanSourceCloudFormationAutoExtendsDiagnosticsMatchRuntimeSentinel(t *testing.T) {
+func TestPlanSourceCloudFormationCostAllocationTagScheduleFollowsCostReports(t *testing.T) {
 	t.Parallel()
 
 	template := readRepoSource(t, "cloudformation", "template.yaml")
-
-	assert.Contains(t, template, `RunnerConfigAutoExtendsEnabled: !And [!Not [!Equals [!Ref RunnerConfigAutoExtendsFrom, ""]], !Not [!Equals [!Ref RunnerConfigAutoExtendsFrom, "."]]]`)
-	assert.Contains(t, template, `config_auto_extends_enabled: !If [RunnerConfigAutoExtendsEnabled, true, false]`)
-}
-
-func TestPlanSourceCloudFormationDiagnosticsAvoidEncryptionAssumptions(t *testing.T) {
-	t.Parallel()
-
-	template := readRepoSource(t, "cloudformation", "template.yaml")
-
-	assert.Contains(t, template, `ebs_encryption_mode: !If [HasEncryptEbs, "aws-managed", "unspecified"]`)
-}
-
-func TestPlanSourceCloudFormationValidatesDiagnosticHeaderInput(t *testing.T) {
-	t.Parallel()
-
-	template := readRepoSource(t, "cloudformation", "template.yaml")
-
-	assert.Contains(t, template, `must be empty or contain comma-separated key=value pairs with non-empty keys and values`)
-}
-
-func TestPlanSourceCloudFormationCostReportSchedules(t *testing.T) {
-	t.Parallel()
-
-	template := readRepoSource(t, "cloudformation", "template.yaml")
-	assert.Contains(t, template, `Default: "daily"`)
-	assert.Contains(t, template, `- "no"`)
-	assert.Contains(t, template, `- "daily"`)
-	assert.Contains(t, template, `- "weekly"`)
-	assert.Contains(t, template, `- "monthly"`)
-	assert.Contains(t, template, `CostReportsEnabled: !Not [!Equals [!Ref CostReportsEnabled, "no"]]`)
-	assert.Contains(t, template, `ScheduleExpression: !FindInMap [CostReportSchedule, !Ref CostReportsEnabled, Expression]`)
-	assert.Contains(t, template, `weekly:`)
-	assert.Contains(t, template, `Expression: "cron(5 0 ? * MON *)"`)
-	assert.Contains(t, template, `monthly:`)
-	assert.Contains(t, template, `Expression: "cron(5 0 1 * ? *)"`)
-	assert.Contains(t, template, `CostReportsEnabled: !If [CostReportsEnabled, "true", "false"]`)
-
 	_, afterResource, ok := strings.Cut(template, "  SchedulerCostAllocationTag:")
 	require.True(t, ok, "SchedulerCostAllocationTag resource should exist")
 	resourceBody, _, ok := strings.Cut(afterResource, "  RunsOnGitHubRunnerCacheRefreshSchedule:")
@@ -1221,7 +1156,7 @@ func TestPlanSourceBootstrapServiceRejectsManualStops(t *testing.T) {
 	assert.NotContains(t, linuxUserData, "RefuseManualStart=yes")
 }
 
-func TestPlanSourceFleetECRReleaseWiring(t *testing.T) {
+func TestPlanSourceFleetECRPullThroughCacheReleaseWiring(t *testing.T) {
 	t.Parallel()
 
 	fleetMainTF := readTerraformSource(t, "modules", "fleet", "main.tf")
@@ -1236,21 +1171,12 @@ func TestPlanSourceFleetECRReleaseWiring(t *testing.T) {
 	e2eWorkflow := readRepoSource(t, ".github", "workflows", "e2e-fleet-ecr-pull-through.yml")
 
 	assert.Contains(t, fleetVariablesTF, `variable "ecr_pull_through_cache_rules"`)
-	assert.Contains(t, fleetVariablesTF, `variable "enable_ecr"`)
 	assert.Contains(t, fleetVariablesTF, `upper(trimspace(rule.ecr_repository_prefix)) != "ROOT"`)
-	assert.Contains(t, fleetMainTF, "enable_ecr                         = var.enable_ecr")
-	assert.Contains(t, fleetMainTF, "ephemeral_registry_enabled = var.enable_ecr")
 	assert.Contains(t, fleetMainTF, "ecr_pull_through_cache_rules       = var.ecr_pull_through_cache_rules")
 	assert.Contains(t, stackVariablesTF, `variable "ecr_pull_through_cache_rules"`)
-	_, enableECRVariable, ok := strings.Cut(stackVariablesTF, `variable "enable_ecr" {`)
-	require.True(t, ok, "internal Fleet stack should expose enable_ecr")
-	enableECRVariable, _, ok = strings.Cut(enableECRVariable, "\n}")
-	require.True(t, ok, "internal Fleet enable_ecr variable should have a complete block")
-	assert.Contains(t, enableECRVariable, "default     = true")
 	assert.Contains(t, stackVariablesTF, `variable "email"`)
-	assert.Contains(t, stackMainTF, `extras = ["s3-cache", "ecr-cache", "ecr-pull-through", "otel"]`)
+	assert.Contains(t, stackMainTF, `extras = ["s3-cache", "ecr-pull-through", "otel"]`)
 	assert.Contains(t, stackMainTF, "email                        = var.email")
-	assert.Contains(t, stackMainTF, "enable_ecr                   = var.enable_ecr")
 	assert.Contains(t, stackMainTF, "ecr_pull_through_cache_rules = var.ecr_pull_through_cache_rules")
 	assert.Contains(t, stackMainTF, "otel_exporter_endpoint       = var.otel_exporter_endpoint")
 	assert.Contains(t, stackMainTF, "otel_exporter_headers        = var.otel_exporter_headers")
@@ -1277,20 +1203,12 @@ func TestPlanSourceFleetECRReleaseWiring(t *testing.T) {
 	assert.Contains(t, deployWorkflow, `-var "license_key=${RUNS_ON_LICENSE_KEY}"`)
 	assert.NotContains(t, previewWorkflow, "FLEET_DOCKER_HUB_PULL_THROUGH_CACHE_SECRET_ARN")
 	assert.NotContains(t, stageWorkflow, "FLEET_DOCKER_HUB_PULL_THROUGH_CACHE_SECRET_ARN")
-	assert.Contains(t, previewWorkflow, `if: ${{ contains(github.event.pull_request.labels.*.name, 'e2e-private') && !contains(github.event.pull_request.labels.*.name, 'flex-only') && always() && needs.build.result == 'success' && needs.deploy-fleet-private-true.result == 'success' }}`)
+	assert.Contains(t, previewWorkflow, `if: ${{ (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'e2e-private')) && !contains(github.event.pull_request.labels.*.name, 'flex-only') && always() && needs.build.result == 'success' && needs.deploy-fleet-private-true.result == 'success' }}`)
 	assert.Contains(t, stageWorkflow, `if: ${{ always() && needs.build.result == 'success' && needs.deploy-fleet-private-true.result == 'success' }}`)
 
-	// The E2E run first proves the stack-created registry supports cross-runner
-	// image and BuildKit cache reuse. It also proves transparent Docker Hub
-	// pulls route through the runner-local mirror (upstream hosts blackholed),
-	// explicit prefixed references work, and reads outside the cache prefixes
-	// stay denied.
-	assert.Contains(t, e2eWorkflow, "ephemeral-registry-publish")
-	assert.Contains(t, e2eWorkflow, "ephemeral-registry-restore")
-	assert.Contains(t, e2eWorkflow, `test -n "${RUNS_ON_ECR_CACHE:-}"`)
-	assert.Contains(t, e2eWorkflow, `--cache-to "type=registry,ref=${CACHE_REF},mode=max"`)
-	assert.Contains(t, e2eWorkflow, `--cache-from "type=registry,ref=${CACHE_REF}"`)
-	assert.Contains(t, e2eWorkflow, `test "$(docker run --rm "${IMAGE_REF}")" = "fleet-ecr-cache-ok"`)
+	// The e2e run proves transparent Docker Hub pulls route through the
+	// runner-local mirror (upstream hosts blackholed), explicit prefixed
+	// references work, and reads outside the cache prefixes stay denied.
 	assert.Contains(t, e2eWorkflow, "registry-1.docker.io")
 	assert.Contains(t, e2eWorkflow, `index("http://127.0.0.1:6871")`)
 	assert.Contains(t, e2eWorkflow, "docker pull docker.io/library/node:22")
@@ -1300,30 +1218,6 @@ func TestPlanSourceFleetECRReleaseWiring(t *testing.T) {
 	assert.Contains(t, e2eWorkflow, "AccessDeniedException")
 	assert.NotContains(t, e2eWorkflow, "RUNS_ON_ECR_PULL_THROUGH_CACHE_DOCKER_HUB_MIRROR")
 	assert.NotContains(t, e2eWorkflow, "id-token: write")
-}
-
-func TestPlanSourceFlexECRPullThroughCacheIntegrationWiring(t *testing.T) {
-	t.Parallel()
-
-	integrationWorkflow := readRepoSource(t, ".github", "workflows", "terraform-integration-runner.yml")
-	terraformTestWorkflow := readRepoSource(t, ".github", "workflows", "terraform-test.yml")
-	testHelpers := readTerraformSource(t, "modules", "flex", "test", "helpers.go")
-
-	// The ephemeral Terraform integration stack references the shared
-	// regional rule and requests the ecr-pull-through extra on a real Flex
-	// runner. Blackholing Docker Hub makes a direct or fallback pull fail.
-	assert.Contains(t, terraformTestWorkflow, `ENABLE_ECR_PULL_THROUGH_CACHE: "true"`)
-	assert.Contains(t, terraformTestWorkflow, `RUNS_ON_TEST_WORKFLOW_INPUTS: '{"test_ecr_mirror":true}'`)
-	assert.Contains(t, testHelpers, `"ecr_pull_through_cache_rules"`)
-	assert.Contains(t, testHelpers, `"ecr_repository_prefix":      "docker-hub"`)
-	assert.Contains(t, integrationWorkflow, "extras=ecr-pull-through")
-	assert.Contains(t, integrationWorkflow, "registry-1.docker.io")
-	assert.Contains(t, integrationWorkflow, `index("http://127.0.0.1:6871")`)
-	assert.Contains(t, integrationWorkflow, "docker pull docker.io/library/node:22")
-	assert.Contains(t, integrationWorkflow, "runs-on-e2e/isolation-canary")
-	assert.Contains(t, integrationWorkflow, "AccessDeniedException")
-	assert.Contains(t, integrationWorkflow, `"runs-on-environment"`)
-	assert.Contains(t, integrationWorkflow, `"Environment"`)
 }
 
 func TestPlanSourceFlexCloudFormationUsesRepositoryLicenseSecret(t *testing.T) {

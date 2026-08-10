@@ -16,7 +16,6 @@ locals {
   runtime                               = var.runtime
   runner                                = var.runner
   operations                            = var.operations
-  cost_reports_enabled                  = local.operations.enable_cost_reports != "no"
   alerts                                = var.alerts
   common_tags                           = var.tags
   github_enterprise_url                 = trimsuffix(trimspace(local.github.enterprise_url), "/")
@@ -101,8 +100,8 @@ locals {
     QueueEvents                        = aws_sqs_queue.events.name
     LocksTable                         = aws_dynamodb_table.locks.name
     WorkflowJobsTable                  = aws_dynamodb_table.workflow_jobs.name
-    JobDiagnosticsResolverFunctionName = "${var.stack_name}-job-diagnostics-resolver"
-    CostReportsEnabled                 = local.cost_reports_enabled ? "true" : "false"
+    JobDiagnosticsResolverFunctionName = aws_lambda_function.job_diagnostics_resolver.function_name
+    CostReportsEnabled                 = local.operations.enable_cost_reports ? "true" : "false"
     MandatoryExtras                    = local.operations.mandatory_extras
     CostAllocationTag                  = var.cost_allocation_tag
     SpotCircuitBreaker                 = local.operations.spot_circuit_breaker
@@ -113,7 +112,6 @@ locals {
     IngressURL                         = local.public_ingress_base_url
     ServiceLogGroupName                = local.worker_log_group_name
     Ec2InstanceLogGroupArn             = var.compute.runner_logs.group_arn
-    DiagnosticSettings                 = var.diagnostic_settings
   }
 
   stack_config_json                 = jsonencode(local.stack_config_base)

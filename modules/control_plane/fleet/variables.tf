@@ -177,13 +177,7 @@ variable "control_plane" {
 }
 
 variable "enable_cache_isolation" {
-  description = "Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes"
+  description = "Vend brokered, per-repository cache credentials to runners. When false, the always-created broker stays idle and runners use direct cache access"
   type        = bool
   default     = false
-}
-
-variable "diagnostic_settings" {
-  description = "Non-sensitive stack settings exposed by the job diagnostics resolver"
-  type        = any
-  default     = {}
 }

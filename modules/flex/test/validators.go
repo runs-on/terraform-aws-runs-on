@@ -241,7 +241,7 @@ func runFunctionalValidations(t *testing.T, clients *AWSClients, r ScenarioResul
 	}
 
 	t.Run("S3Access", func(t *testing.T) {
-		ValidateS3AccessFromEC2(t, clients, instanceID, r.CacheBucket())
+		ValidateS3AccessFromEC2(t, clients, instanceID, r.CacheBucket(), r.Config.EnableCacheIsolation)
 	})
 
 	t.Run("EBSPermissions", func(t *testing.T) {
@@ -503,9 +503,9 @@ func isAccessDenied(output string) bool {
 }
 
 // ValidateS3AccessFromEC2 verifies that an EC2 instance has the correct S3 access per IAM policy.
-// Direct cache clients intentionally retain stack-shared cache/* access in both modes. Magic Cache
-// isolation applies only to scoped-cache/*, whose denial is validated by the cache E2E workflow.
-func ValidateS3AccessFromEC2(t *testing.T, clients *AWSClients, instanceID, cacheBucket string) {
+// With cache isolation enabled, raw instance-profile credentials must be denied on cache prefixes
+// (only broker-issued credentials may touch them); without it, legacy direct cache access applies.
+func ValidateS3AccessFromEC2(t *testing.T, clients *AWSClients, instanceID, cacheBucket string, cacheIsolation bool) {
 	ctx := context.Background()
 
 	testFile := fmt.Sprintf("functional-test-%d", time.Now().UnixNano())
@@ -519,33 +519,21 @@ func ValidateS3AccessFromEC2(t *testing.T, clients *AWSClients, instanceID, cach
 	require.NotEmpty(t, userId, "UserId should not be empty")
 	t.Logf("EC2 instance aws:userid = %s", userId)
 
-	// === Test 1: CAN write, read, list, and delete cache/repo/* with raw instance-profile credentials ===
+	// === Test 1: cache prefix access with raw instance-profile credentials ===
 	cacheKey := fmt.Sprintf("cache/repo/%s", testFile)
 	writeCmd := fmt.Sprintf("echo '%s' | aws s3 cp - s3://%s/%s --region %s 2>&1",
 		testContent, cacheBucket, cacheKey, GetAWSRegion())
 	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{writeCmd})
-	require.NoError(t, err, "Should be able to write to cache/repo/* with raw instance-profile credentials. output: %s", stdout)
+	if cacheIsolation {
+		require.Error(t, err, "Should not be able to write to cache/repo/* with raw instance-profile credentials")
+		assert.True(t, isAccessDenied(stdout), "Expected AccessDenied for cache/repo/*. output: %s", stdout)
+		t.Logf("CANNOT write to cache/repo/* with raw instance-profile credentials")
+	} else {
+		require.NoError(t, err, "Legacy mode should allow direct writes to the cache prefix. output: %s", stdout)
+		t.Logf("CAN write to cache/* with raw instance-profile credentials (legacy mode)")
+	}
 
-	readCmd := fmt.Sprintf("aws s3 cp s3://%s/%s - --region %s 2>&1", cacheBucket, cacheKey, GetAWSRegion())
-	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{readCmd})
-	require.NoError(t, err, "Should be able to read from cache/repo/* with raw instance-profile credentials. output: %s", stdout)
-	assert.Contains(t, stdout, testContent)
-
-	listCmd := fmt.Sprintf(
-		"aws s3api list-objects-v2 --bucket %s --prefix %s --region %s --query \"Contents[?Key=='%s'].Key\" --output text 2>&1",
-		cacheBucket, cacheKey, GetAWSRegion(), cacheKey,
-	)
-	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{listCmd})
-	require.NoError(t, err, "Should be able to list cache/repo/* with raw instance-profile credentials. output: %s", stdout)
-	assert.Equal(t, cacheKey, strings.TrimSpace(stdout))
-
-	deleteCmd := fmt.Sprintf("aws s3api delete-object --bucket %s --key %s --region %s 2>&1",
-		cacheBucket, cacheKey, GetAWSRegion())
-	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{deleteCmd})
-	require.NoError(t, err, "Should be able to delete cache/repo/* with raw instance-profile credentials. output: %s", stdout)
-	t.Logf("CAN write, read, list, and delete cache/repo/* with raw instance-profile credentials")
-
-	// Safety cleanup in case a previous assertion failed after the write.
+	// Cleanup cache test file
 	_, _ = clients.S3.DeleteObject(ctx, &s3.DeleteObjectInput{Bucket: aws.String(cacheBucket), Key: aws.String(cacheKey)})
 
 	// === Test 2: CAN read from runners/{own-userid}/* ===
@@ -558,7 +546,7 @@ func ValidateS3AccessFromEC2(t *testing.T, clients *AWSClients, instanceID, cach
 	})
 	require.NoError(t, err, "Admin failed to upload to runners path")
 
-	readCmd = fmt.Sprintf("aws s3 cp s3://%s/%s - --region %s 2>&1", cacheBucket, ownRunnersKey, GetAWSRegion())
+	readCmd := fmt.Sprintf("aws s3 cp s3://%s/%s - --region %s 2>&1", cacheBucket, ownRunnersKey, GetAWSRegion())
 	stdout, _, err = RunSSMCommand(t, clients, instanceID, []string{readCmd})
 	require.NoError(t, err, "Should be able to read from own runners path")
 	assert.Contains(t, stdout, ownRunnersContent)

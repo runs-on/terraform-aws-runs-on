@@ -14,10 +14,6 @@ const configuredIssuer = String(process.env.GITHUB_TOKEN_ISSUER || '').trim();
 const issuer = normalizeOptionalURL(configuredIssuer || (enterpriseURL ? `${enterpriseURL}/_services/token` : 'https://token.actions.githubusercontent.com'));
 const bucketArn = process.env.CACHE_BUCKET_ARN;
 const bucketName = bucketNameFromArn(bucketArn);
-// This broker isolates only Magic Cache data under scoped-cache/*. Direct S3
-// clients use the runner instance profile and the stack-shared cache/*
-// namespace; repository prefixes there prevent collisions but are not an IAM
-// isolation boundary. Keep cache/* out of every broker session policy.
 // The control planes (fleet and flex) publish GitHub's OIDC JWKS to this key
 // every 5 minutes (pkg/jwkscache); the broker validates runtime tokens
 // exclusively against that S3 copy and never fetches from GitHub itself. The
