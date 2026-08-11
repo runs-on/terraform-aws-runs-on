@@ -87,7 +87,7 @@ run "runner_policies_use_current_partition" {
   command = plan
 
   assert {
-    condition     = aws_iam_role_policy_attachment.ec2_ssm.policy_arn == "arn:aws-eusc:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    condition     = aws_iam_role_policy_attachment.ec2_ssm[0].policy_arn == "arn:aws-eusc:iam::aws:policy/AmazonSSMManagedInstanceCore"
     error_message = "SSM managed policy ARN should use the current AWS partition."
   }
 
