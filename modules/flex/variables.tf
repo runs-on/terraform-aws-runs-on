@@ -162,6 +162,12 @@ variable "cache_bucket_versioning_enabled" {
   default     = false
 }
 
+variable "locks_table_point_in_time_recovery_enabled" {
+  description = "Enable DynamoDB point-in-time recovery for the transient locks table. This can help satisfy backup and compliance requirements, but incurs additional storage costs."
+  type        = bool
+  default     = false
+}
+
 variable "force_destroy_buckets" {
   description = "Allow S3 buckets to be destroyed even when not empty. Set to false for production environments to prevent accidental data loss."
   type        = bool

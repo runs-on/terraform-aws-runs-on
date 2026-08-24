@@ -214,6 +214,28 @@ variables {
   tags = {}
 }
 
+run "locks_table_pitr_is_disabled_by_default" {
+  command = plan
+
+  assert {
+    condition     = aws_dynamodb_table.locks.point_in_time_recovery[0].enabled == false
+    error_message = "The transient locks table should preserve its existing PITR-disabled default."
+  }
+}
+
+run "locks_table_pitr_can_be_enabled" {
+  command = plan
+
+  variables {
+    locks_table_point_in_time_recovery_enabled = true
+  }
+
+  assert {
+    condition     = aws_dynamodb_table.locks.point_in_time_recovery[0].enabled == true
+    error_message = "The transient locks table should enable PITR when explicitly requested."
+  }
+}
+
 run "zero_budget_skips_budget_resources" {
   command = plan
 

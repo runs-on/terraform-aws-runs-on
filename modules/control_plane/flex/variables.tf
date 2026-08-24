@@ -212,6 +212,12 @@ variable "tags" {
   type        = map(string)
 }
 
+variable "locks_table_point_in_time_recovery_enabled" {
+  description = "Enable DynamoDB point-in-time recovery for the transient locks table"
+  type        = bool
+  default     = false
+}
+
 variable "enable_cache_isolation" {
   description = "Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes"
   type        = bool

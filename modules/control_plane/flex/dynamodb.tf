@@ -20,6 +20,10 @@ resource "aws_dynamodb_table" "locks" {
     attribute_name = "expiresAt"
   }
 
+  point_in_time_recovery {
+    enabled = var.locks_table_point_in_time_recovery_enabled
+  }
+
   tags = merge(
     local.common_tags,
     {
