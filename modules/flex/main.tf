@@ -343,21 +343,22 @@ module "control_plane" {
   region     = local.region
   account_id = local.account_id
 
-  stack_name             = var.stack_name
-  environment            = var.environment
-  cost_allocation_tag    = var.cost_allocation_tag
-  license_key            = var.license_key
-  network                = module.network.network
-  extras                 = module.extras.extras
-  compute                = module.compute.compute
-  github                 = local.flex_github
-  runtime                = local.flex_runtime
-  runner                 = local.flex_runner
-  operations             = local.flex_operations
-  diagnostic_settings    = local.flex_diagnostic_settings
-  alerts                 = local.flex_alerts
-  enable_cache_isolation = var.enable_cache_isolation
-  tags                   = local.common_tags
+  stack_name                                 = var.stack_name
+  environment                                = var.environment
+  cost_allocation_tag                        = var.cost_allocation_tag
+  license_key                                = var.license_key
+  network                                    = module.network.network
+  extras                                     = module.extras.extras
+  compute                                    = module.compute.compute
+  github                                     = local.flex_github
+  runtime                                    = local.flex_runtime
+  runner                                     = local.flex_runner
+  operations                                 = local.flex_operations
+  diagnostic_settings                        = local.flex_diagnostic_settings
+  alerts                                     = local.flex_alerts
+  enable_cache_isolation                     = var.enable_cache_isolation
+  locks_table_point_in_time_recovery_enabled = var.locks_table_point_in_time_recovery_enabled
+  tags                                       = local.common_tags
 
   # Ensure NAT gateway is ready before the worker service starts
   depends_on = [
