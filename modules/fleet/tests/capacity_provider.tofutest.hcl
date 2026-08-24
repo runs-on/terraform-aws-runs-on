@@ -110,6 +110,19 @@ run "defaults_to_fargate_capacity_provider" {
   }
 }
 
+run "treats_null_images_as_the_default" {
+  command = plan
+
+  variables {
+    images = null
+  }
+
+  assert {
+    condition     = length(local.fleet_catalog.images) == 0
+    error_message = "Fleet should treat null images as the empty default catalog."
+  }
+}
+
 run "can_enable_ephemeral_ecr_registry" {
   command = plan
 
@@ -265,6 +278,276 @@ run "accepts_step_security_integration_key" {
     condition     = nonsensitive(var.integration_step_security_api_key) == "step-security-secret"
     error_message = "Fleet should accept the StepSecurity integration key."
   }
+}
+
+run "accepts_nested_virtualization_runner_field" {
+  command = plan
+
+  variables {
+    runners = {
+      small-x64 = {
+        cpu           = 2
+        ram           = 4
+        family        = ["c7"]
+        image         = "ubuntu24-full-x64"
+        "nested-virt" = true
+      }
+    }
+  }
+
+  assert {
+    condition     = local.fleet_catalog.runners.small-x64["nested-virt"] == true
+    error_message = "Fleet should preserve the nested-virt runner field."
+  }
+}
+
+run "rejects_unknown_runner_field" {
+  command = plan
+
+  variables {
+    runners = {
+      small-x64 = {
+        cpu           = 2
+        ram           = 4
+        family        = ["c7"]
+        image         = "ubuntu24-full-x64"
+        "nested-vrit" = true
+      }
+    }
+  }
+
+  expect_failures = [var.runners]
+}
+
+run "rejects_unknown_image_field" {
+  command = plan
+
+  variables {
+    images = {
+      custom = {
+        ami      = "ami-0123456789abcdef0"
+        platform = "linux"
+        arhc     = "x64"
+      }
+    }
+  }
+
+  expect_failures = [var.images]
+}
+
+run "rejects_non_object_image_entry" {
+  command = plan
+
+  variables {
+    images = {
+      custom = "ami-0123456789abcdef0"
+    }
+  }
+
+  expect_failures = [var.images]
+}
+
+run "rejects_non_object_runner_entry" {
+  command = plan
+
+  variables {
+    runners = {
+      small-x64 = "c7a.large"
+    }
+  }
+
+  expect_failures = [var.runners]
+}
+
+run "rejects_non_object_fleet_entry" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = "small-x64"
+    }
+  }
+
+  expect_failures = [var.fleets]
+}
+
+run "rejects_unknown_fleet_field" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = {
+        runner      = "small-x64"
+        max_runnerz = 10
+      }
+    }
+  }
+
+  expect_failures = [var.fleets]
+}
+
+run "treats_null_fleet_schedule_as_omitted" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = {
+        runner   = "small-x64"
+        schedule = null
+      }
+    }
+  }
+}
+
+run "rejects_string_fleet_schedule" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = {
+        runner   = "small-x64"
+        schedule = "always"
+      }
+    }
+  }
+
+  expect_failures = [var.fleets]
+}
+
+run "rejects_object_fleet_schedule" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = {
+        runner = "small-x64"
+        schedule = {
+          default = {
+            hot     = 1
+            stopped = 0
+          }
+        }
+      }
+    }
+  }
+
+  expect_failures = [var.fleets]
+}
+
+run "set_schedule_fixture" {
+  module {
+    source = "./tests/fixtures/set-schedule"
+  }
+}
+
+run "rejects_set_fleet_schedule" {
+  command = plan
+
+  variables {
+    fleets = run.set_schedule_fixture.fleets
+  }
+
+  expect_failures = [var.fleets]
+}
+
+run "accepts_mixed_shape_fleet_schedule" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = {
+        runner = "small-x64"
+        schedule = [
+          {
+            name    = "default"
+            hot     = 1
+            stopped = 0
+          },
+          {
+            name    = "weekend"
+            hot     = 0
+            stopped = 1
+            match = {
+              day = ["saturday", "sunday"]
+            }
+          },
+        ]
+      }
+    }
+  }
+}
+
+run "rejects_unknown_field_in_mixed_shape_schedule" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = {
+        runner = "small-x64"
+        schedule = [
+          {
+            name     = "default"
+            hot      = 1
+            stopped  = 0
+            stoppped = 2
+          },
+          {
+            name    = "weekend"
+            hot     = 0
+            stopped = 1
+            match = {
+              day = ["saturday", "sunday"]
+            }
+          },
+        ]
+      }
+    }
+  }
+
+  expect_failures = [var.fleets]
+}
+
+run "rejects_unknown_fleet_schedule_field" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = {
+        runner = "small-x64"
+        schedule = [{
+          name     = "default"
+          hot      = 1
+          stopped  = 0
+          stoppped = 2
+        }]
+      }
+    }
+  }
+
+  expect_failures = [var.fleets]
+}
+
+run "rejects_unknown_fleet_schedule_match_field" {
+  command = plan
+
+  variables {
+    fleets = {
+      default = {
+        runner = "small-x64"
+        schedule = [{
+          name    = "nights"
+          hot     = 1
+          stopped = 0
+          match = {
+            day   = ["monday"]
+            tiime = ["22:00", "06:00"]
+          }
+        }]
+      }
+    }
+  }
+
+  expect_failures = [var.fleets]
 }
 
 run "accepts_valid_runner_sticky_spec" {
