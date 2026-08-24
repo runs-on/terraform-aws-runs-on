@@ -79,16 +79,87 @@ variable "images" {
   description = "Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here."
   type        = map(any)
   default     = {}
+  nullable    = false
+
+  validation {
+    condition = alltrue([
+      for image in values(var.images) : can(keys(image)) ? length(setsubtract(
+        toset(keys(image)),
+        # fleet-catalog-contract: ImageConfig
+        toset(["ami", "arch", "id", "name", "owner", "platform", "preinstall", "prerun", "tags"]),
+      )) == 0 : false
+    ])
+    error_message = "Each image must be an object and may only use supported ImageConfig fields."
+  }
 }
 
 variable "runners" {
-  description = "Runner catalog keyed by runner name. Entries must follow the shared config module contract."
+  description = "Runner catalog keyed by runner name. Entries must use fields supported by Fleet's RunnerSpec."
   type        = map(any)
+  nullable    = false
+
+  validation {
+    condition = alltrue([
+      for runner in values(var.runners) : can(keys(runner)) ? length(setsubtract(
+        toset(keys(runner)),
+        # fleet-catalog-contract: RunnerSpec
+        toset(["cpu", "disk", "extras", "family", "id", "image", "nested-virt", "preinstall", "prerun", "private", "ram", "retry", "spot", "ssh", "sticky", "tags", "volume"]),
+      )) == 0 : false
+    ])
+    error_message = "Each runner must be an object and may only use supported RunnerSpec fields. Fleet does not support runner debug."
+  }
 }
 
 variable "fleets" {
-  description = "Fleet catalog keyed by fleet name. Entries use the shared runner shape plus Fleet-specific settings."
+  description = "Fleet catalog keyed by fleet name. Entries configure a runner reference and Fleet-specific settings."
   type        = map(any)
+  nullable    = false
+
+  validation {
+    condition = alltrue([
+      for fleet in values(var.fleets) : can(keys(fleet)) ? length(setsubtract(
+        toset(keys(fleet)),
+        # fleet-catalog-contract: FleetEntry
+        toset(["max_launch_batch_size", "max_runners", "runner", "runner_group", "schedule", "timezone", "version"]),
+      )) == 0 : false
+    ])
+    error_message = "Each fleet must be an object and may only use supported Fleet fields. Use the module environment variable instead of fleet env or environment."
+  }
+
+  validation {
+    condition = alltrue([
+      for fleet in values(var.fleets) : try(fleet.schedule == null, true) ? true : (
+        can(slice(fleet.schedule, 0, length(fleet.schedule)))
+      )
+    ])
+    error_message = "Each fleet schedule must be a list or null."
+  }
+
+  validation {
+    condition = try(alltrue(flatten([
+      for fleet in values(var.fleets) : [
+        for schedule in try([for value in fleet.schedule : value], []) : can(keys(schedule)) ? length(setsubtract(
+          toset(keys(schedule)),
+          # fleet-catalog-contract: PoolSchedule
+          toset(["hot", "match", "name", "stopped"]),
+        )) == 0 : false
+      ]
+    ])), false)
+    error_message = "Each fleet schedule entry must be an object and may only use supported PoolSchedule fields."
+  }
+
+  validation {
+    condition = try(alltrue(flatten([
+      for fleet in values(var.fleets) : [
+        for schedule in try([for value in fleet.schedule : value], []) : try(schedule.match, null) == null ? true : can(keys(schedule.match)) ? length(setsubtract(
+          toset(keys(schedule.match)),
+          # fleet-catalog-contract: ScheduleMatch
+          toset(["day", "time"]),
+        )) == 0 : false
+      ]
+    ])), false)
+    error_message = "Each fleet schedule match must be an object and may only use supported ScheduleMatch fields."
+  }
 }
 
 variable "spot_circuit_breaker" {
@@ -166,9 +237,10 @@ variable "tags" {
 }
 
 variable "runtime_image" {
-  description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation."
+  description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.2@sha256:e9bb583a491090ca376a0f5426de5f950ed4a7fac41de8be7777e8a8d0d5c8da"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.3@sha256:6c2d5ede8996d875578e2fd6a5f472f89a75c7773525f1c747ec333065425e73"
+  nullable    = false
 }
 
 variable "extra_env_vars" {
@@ -257,7 +329,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version."
   type        = string
-  default     = "v3.2.2"
+  default     = "v3.2.3"
   nullable    = false
 }
 

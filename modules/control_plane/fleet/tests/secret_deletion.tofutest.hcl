@@ -302,6 +302,15 @@ run "cache_isolation_disabled_keeps_broker_idle" {
   }
 }
 
+run "runtime_secret_preserves_the_validated_catalog" {
+  command = plan
+
+  assert {
+    condition     = jsonencode(local.secret_payload.images) == jsonencode(var.catalog.images) && jsonencode(local.secret_payload.runners) == jsonencode(var.catalog.runners) && jsonencode(local.secret_payload.fleets) == jsonencode(var.catalog.fleets)
+    error_message = "Fleet runtime config must preserve the catalog after root-module validation."
+  }
+}
+
 run "cache_isolation_enabled_deploys_broker" {
   command = plan
 
