@@ -15,18 +15,7 @@ locals {
   runtime             = var.runtime
   control_plane       = var.control_plane
   lambda_artifact_dir = "${path.module}/../../../lambdas/dist"
-  # Fleet has one routing environment per stack. Normalize any fleet-level env
-  # value before persisting the runtime config so lanes cannot drift by entry.
-  catalog = {
-    images  = var.catalog.images
-    runners = var.catalog.runners
-    fleets = {
-      for fleet_name, fleet in var.catalog.fleets : fleet_name => merge(fleet, {
-        env = var.control_plane.environment
-      })
-    }
-  }
-  config_secret_name = "/runs-on/${var.stack_name}/fleet-config"
+  config_secret_name  = "/runs-on/${var.stack_name}/fleet-config"
   app_size_presets = {
     small = {
       cpu    = 256
@@ -82,9 +71,9 @@ locals {
     integrations = {
       stepSecurityApiKey = var.integration_step_security_api_key
     }
-    images  = local.catalog.images
-    runners = local.catalog.runners
-    fleets  = local.catalog.fleets
+    images  = var.catalog.images
+    runners = var.catalog.runners
+    fleets  = var.catalog.fleets
     infra = {
       aws_account_id                         = var.account_id
       aws_region                             = var.region
@@ -171,7 +160,7 @@ data "aws_partition" "current" {}
 
 check "fleet_runners_exist" {
   assert {
-    condition     = alltrue([for fleet_name, fleet in local.catalog.fleets : contains(keys(local.catalog.runners), try(fleet.runner, ""))])
+    condition     = alltrue([for fleet_name, fleet in var.catalog.fleets : contains(keys(var.catalog.runners), try(fleet.runner, ""))])
     error_message = "Each fleet.runner must reference a runner name defined in runners."
   }
 }

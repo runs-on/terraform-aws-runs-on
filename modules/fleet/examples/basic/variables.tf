@@ -110,13 +110,13 @@ variable "private_subnet_ids" {
 }
 
 variable "images" {
-  description = "Optional custom image catalog using the config module ImageSpec shape. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here."
+  description = "Optional custom image catalog using fields supported by Fleet's ImageSpec. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here."
   type        = map(any)
   default     = {}
 }
 
 variable "runners" {
-  description = "Example runner catalog using the config module RunnerSpec shape."
+  description = "Example runner catalog using fields supported by Fleet's RunnerSpec."
   type        = map(any)
   default = {
     small-x64 = {

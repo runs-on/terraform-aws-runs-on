@@ -22,7 +22,7 @@ Public module source:
 ```hcl
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.2.2"
+  version = "v3.2.3"
 }
 ```
 
@@ -165,7 +165,7 @@ locals {
 
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.2.2"
+  version = "v3.2.3"
 
   stack_name             = var.stack_name
   github_enterprise_pat  = var.github_enterprise_pat
@@ -212,7 +212,7 @@ jobs:
 
 Fleet names GitHub scale sets with stack scope, so stack `runs-on-fleet-preview-v3` and fleet `linux-small` create scale set `runs-on-fleet-preview-v3-linux-small`. Fleet v1 creates runtime capacity from GitHub assigned-job demand.
 
-Fleet has one routing environment per stack. The module writes `environment` into every generated pool spec; `fleets.<fleet-name>.env` is not a supported override.
+Fleet validates catalog keys during planning instead of silently ignoring unsupported fields. Remove `runners.<runner-name>.debug` from Fleet catalogs. Fleet has one routing environment per stack, so remove fleet-level `env` or `environment` fields and use the module's `environment` variable instead.
 
 Destroying the AWS stack does not necessarily delete GitHub runner scale sets. Recreating the same stack and fleet in the same runner group can reuse an existing GitHub scale set; Fleet updates its labels on startup, so verify the `fleetd` service has rolled if a changed `environment` is not reflected.
 
@@ -379,15 +379,15 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_email"></a> [email](#input\_email) | Email address for alerts and notifications (requires confirmation) | `string` | n/a | yes |
-| <a name="input_fleets"></a> [fleets](#input\_fleets) | Fleet catalog keyed by fleet name. Entries use the shared runner shape plus Fleet-specific settings. | `map(any)` | n/a | yes |
+| <a name="input_fleets"></a> [fleets](#input\_fleets) | Fleet catalog keyed by fleet name. Entries configure a runner reference and Fleet-specific settings. | `map(any)` | n/a | yes |
 | <a name="input_license_key"></a> [license\_key](#input\_license\_key) | RunsOn license key obtained from runs-on.com | `string` | n/a | yes |
-| <a name="input_runners"></a> [runners](#input\_runners) | Runner catalog keyed by runner name. Entries must follow the shared config module contract. | `map(any)` | n/a | yes |
+| <a name="input_runners"></a> [runners](#input\_runners) | Runner catalog keyed by runner name. Entries must use fields supported by Fleet's RunnerSpec. | `map(any)` | n/a | yes |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Name of the RunsOn Fleet stack. | `string` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | VPC ID where the Fleet stack will run. | `string` | n/a | yes |
 | <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alert notifications (optional) | `string` | `""` | no |
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the Fleet worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight assigned jobs are reconciled by the Fleet runtime. | `string` | `"fargate"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the Fleet worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version. | `string` | `"v3.2.2"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version. | `string` | `"v3.2.3-rc.3"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap release tag used by the shared compute bootstrap template. | `string` | `"v0.1.17"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |
@@ -423,7 +423,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_runner_custom_policy_arns"></a> [runner\_custom\_policy\_arns](#input\_runner\_custom\_policy\_arns) | Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources. | `list(string)` | `[]` | no |
 | <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Additional custom tags propagated to launched runner instances. | `list(string)` | `[]` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes passed to the shared compute bootstrap template. | `number` | `60` | no |
-| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.2@sha256:e9bb583a491090ca376a0f5426de5f950ed4a7fac41de8be7777e8a8d0d5c8da"` | no |
+| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.3-rc.3@sha256:6c2d5ede8996d875578e2fd6a5f472f89a75c7773525f1c747ec333065425e73"` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for runners and the Fleet worker. Leave empty to create a dedicated group. | `list(string)` | `[]` | no |
 | <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker for Fleet launches, formatted as COUNT/WINDOW\_MINUTES/RECOVERY\_MINUTES: after COUNT spot interruptions within WINDOW\_MINUTES, launch on-demand for RECOVERY\_MINUTES. "false" disables it; empty uses the built-in default "2/15/30" (same semantics as the Flex SpotCircuitBreaker stack parameter). | `string` | `""` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH ingress when the module creates its own security group. | `bool` | `false` | no |
