@@ -200,7 +200,7 @@ run "default_runner_policies_are_scoped" {
   }
 
   assert {
-    condition     = aws_iam_role_policy_attachment.ec2_ssm.policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    condition     = aws_iam_role_policy_attachment.ec2_ssm[0].policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
     error_message = "the only default managed runner policy attachment should remain SSM core."
   }
 }

@@ -74,9 +74,27 @@ resource "aws_iam_role" "ec2_instance" {
 }
 
 # Attach AWS managed policies
+#
+# By default the runner role uses the AWS-managed AmazonSSMManagedInstanceCore
+# policy. Operators who need least-privilege SSM permissions can set
+# var.runner_ssm_policy_override_json to a full policy document, which replaces
+# the managed policy with an inline one (see aws_iam_role_policy.ec2_ssm_override).
 resource "aws_iam_role_policy_attachment" "ec2_ssm" {
+  count = var.runner_ssm_policy_override_json == null ? 1 : 0
+
   role       = aws_iam_role.ec2_instance.name
   policy_arn = "arn:${local.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# Least-privilege alternative to AmazonSSMManagedInstanceCore. Attached only when
+# an override document is supplied; the module makes no assumption about its
+# contents so it never has to track changes to the AWS-managed policy.
+resource "aws_iam_role_policy" "ec2_ssm_override" {
+  count = var.runner_ssm_policy_override_json == null ? 0 : 1
+
+  name   = "SSMManagedInstanceCoreOverride"
+  role   = aws_iam_role.ec2_instance.id
+  policy = var.runner_ssm_policy_override_json
 }
 
 resource "aws_iam_role_policy_attachment" "ec2_custom_additional" {

@@ -352,6 +352,23 @@ variable "runner_custom_policy_arns" {
   default     = []
 }
 
+variable "runner_ssm_policy_override_json" {
+  description = <<-EOT
+    Optional IAM policy document (JSON) that replaces the AWS-managed
+    AmazonSSMManagedInstanceCore policy on the runner EC2 instance role.
+
+    When null (the default), AmazonSSMManagedInstanceCore is attached unchanged;
+    see that AWS-managed policy for the baseline set of SSM permissions the
+    runner gets out of the box. When set, that managed policy is NOT attached and
+    this document is attached as an inline policy instead, so operators can run
+    least-privilege SSM permissions (for example, scoping ssm:GetParameter to
+    specific parameter ARNs). Only the SSM managed policy is affected; all other
+    runner-role permissions are unchanged.
+  EOT
+  type        = string
+  default     = null
+}
+
 variable "runner_config_auto_extends_from" {
   description = "Auto-extend runner configuration from this base config"
   type        = string

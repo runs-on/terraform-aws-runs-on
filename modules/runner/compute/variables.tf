@@ -79,6 +79,28 @@ variable "runner_custom_policy_arns" {
   default     = []
 }
 
+variable "runner_ssm_policy_override_json" {
+  description = <<-EOT
+    Optional IAM policy document (JSON) that replaces the AWS-managed
+    AmazonSSMManagedInstanceCore policy on the runner EC2 instance role.
+
+    When null (the default), AmazonSSMManagedInstanceCore is attached unchanged;
+    see that AWS-managed policy for the baseline set of SSM permissions the
+    runner gets out of the box. When set, that managed policy is NOT attached and
+    this document is attached as an inline policy instead, so operators can run
+    least-privilege SSM permissions (for example, scoping ssm:GetParameter to
+    specific parameter ARNs).
+
+    This only replaces the SSM managed policy; every other permission on the
+    runner role (CloudWatch logs/metrics, S3 cache, EBS snapshots, ECR, EFS,
+    etc.) is unaffected. A good starting point for a custom document is a copy of
+    AmazonSSMManagedInstanceCore with the ssm:GetParameter/GetParameters resource
+    narrowed.
+  EOT
+  type        = string
+  default     = null
+}
+
 variable "enable_bedrock" {
   description = "Enable Amazon Bedrock access for EC2 runner instances"
   type        = bool
