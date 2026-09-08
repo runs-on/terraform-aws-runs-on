@@ -9,6 +9,13 @@ terraform {
   }
 }
 
+# Shared GitHub platform classification, aligned with the Go resolver in
+# pkg/githubplatform/platform.go and the fleet control-plane module.
+module "github_platform" {
+  source   = "../github_platform"
+  base_url = var.github.enterprise_url
+}
+
 # Local variables
 locals {
   partition                             = data.aws_partition.current.partition
@@ -19,8 +26,9 @@ locals {
   cost_reports_enabled                  = local.operations.enable_cost_reports != "no"
   alerts                                = var.alerts
   common_tags                           = var.tags
-  github_enterprise_url                 = trimsuffix(trimspace(local.github.enterprise_url), "/")
-  github_token_issuer                   = local.github_enterprise_url != "" ? "${local.github_enterprise_url}/_services/token" : "https://token.actions.githubusercontent.com"
+  github_enterprise_url                 = module.github_platform.enterprise_url
+  github_platform                       = module.github_platform.platform
+  github_token_issuer                   = module.github_platform.token_issuer
   admin_routes_enabled                  = local.operations.enable_admin_routes
   lambda_artifact_dir                   = "${path.module}/../../../lambdas/dist"
   public_ingress_web_acl_arn_trimmed    = trimspace(local.operations.public_ingress_web_acl_arn)

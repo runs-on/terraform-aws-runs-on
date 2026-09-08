@@ -123,6 +123,7 @@ module "runtime" {
   execution_role_name             = "${var.stack_name}-flex-execution-role"
   task_role_name                  = "${var.stack_name}-flex-role"
   task_policy_name                = "RunsOnFlexPermissions"
+  permission_boundary_arn         = var.permission_boundary_arn
   runner_instance_role_arn        = var.compute.runner_iam.role_arn
   cache_bucket_arn                = var.extras.cache.bucket_arn
   ebs_encryption_key_id           = local.runner.ebs_encryption_key_id

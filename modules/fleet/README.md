@@ -22,7 +22,7 @@ Public module source:
 ```hcl
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.2.3"
+  version = "v3.3.0"
 }
 ```
 
@@ -165,7 +165,7 @@ locals {
 
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.2.3"
+  version = "v3.3.0"
 
   stack_name             = var.stack_name
   github_enterprise_pat  = var.github_enterprise_pat
@@ -214,6 +214,43 @@ Fleet names GitHub scale sets with stack scope, so stack `runs-on-fleet-preview-
 
 Fleet validates catalog keys during planning instead of silently ignoring unsupported fields. Remove `runners.<runner-name>.debug` from Fleet catalogs. Fleet has one routing environment per stack, so remove fleet-level `env` or `environment` fields and use the module's `environment` variable instead.
 
+## Catalog Reference
+
+Catalog entries may omit optional fields independently. You do not need to add empty lists, empty objects, or zero values to make sibling entries have the same shape.
+
+### Images
+
+<!-- fleet-catalog-contract: ImageConfig -->
+Accepted fields: `ami`, `arch`, `id`, `name`, `owner`, `platform`, `preinstall`, `prerun`, `tags`.
+
+All fields are optional. `tags` is a map of strings; every other field is a string. Built-in image names do not require an `images` entry.
+
+### Runners
+
+<!-- fleet-catalog-contract: RunnerSpec -->
+Accepted fields: `cpu`, `disk`, `extras`, `family`, `id`, `image`, `nested-virt`, `preinstall`, `prerun`, `private`, `ram`, `retry`, `spot`, `ssh`, `sticky`, `tags`, `volume`.
+
+`cpu` and `ram` accept one integer, a numeric string, or a list of integers or numeric strings. `extras`, `family`, and `tags` accept one string or a list of strings. `retry` also accepts a boolean. `nested-virt`, `private`, and `ssh` accept a boolean or the string `"true"` or `"false"`. `spot` accepts a boolean or a supported allocation strategy string. The remaining fields are strings.
+
+### Fleets
+
+<!-- fleet-catalog-contract: FleetEntry -->
+Accepted fields: `max_launch_batch_size`, `max_runners`, `runner`, `runner_group`, `schedule`, `timezone`, `version`.
+
+`runner` is required and must name an entry in `runners`. `timezone` defaults to `UTC`, `max_runners` defaults to `1000`, and `max_launch_batch_size` defaults to `50`. An omitted or empty schedule keeps no warm instances.
+
+### Schedules
+
+<!-- fleet-catalog-contract: PoolSchedule -->
+Accepted fields: `hot`, `match`, `name`, `stopped`.
+
+`name` is required. `hot` and `stopped` are non-negative integers and default to `0` when omitted. An entry without `match` always matches.
+
+<!-- fleet-catalog-contract: ScheduleMatch -->
+Accepted fields: `day`, `time`.
+
+`day` and `time` are lists of strings. Either field may be omitted.
+
 Destroying the AWS stack does not necessarily delete GitHub runner scale sets. Recreating the same stack and fleet in the same runner group can reuse an existing GitHub scale set; Fleet updates its labels on startup, so verify the `fleetd` service has rolled if a changed `environment` is not reflected.
 
 ## Architecture
@@ -234,7 +271,7 @@ The stack supports one active GitHub boundary per runtime instance:
 - enterprise mode with `github_enterprise_pat` + `github_enterprise_name`
 - organization mode with `github_app_id` + `github_app_private_key`
 
-Use `github_base_url` to point the runtime at GHES when needed. In App mode, Fleet requires a GitHub App installed on exactly one organization; the runtime discovers that sole active organization installation and refreshes the binding in the background. In enterprise mode, Fleet uses a classic PAT because enterprise-level runner scale set registration does not use GitHub App auth.
+Use `github_base_url` to point the runtime at a GHE.com data-residency or GHES web host when needed. In App mode, Fleet requires a GitHub App installed on exactly one organization; the runtime discovers that sole active organization installation and refreshes the binding in the background. In enterprise mode, Fleet uses a classic PAT because enterprise-level runner scale set registration does not use GitHub App auth.
 
 `fleets.<fleet-name>.runner_group` remains optional. Multiple fleets can share the same runner group; the runner group is the GitHub access boundary, while the fleet is the capacity and runner-shape boundary.
 
@@ -242,7 +279,7 @@ Fleet schedule fields maintain warm EC2 standby inventory. `hot` instances stay 
 
 ## Credential Setup URLs
 
-Replace `<ORG>` or `<ENTERPRISE>` before opening these URLs. For GHES, replace `https://github.com` with the same host root you pass as `github_base_url`.
+Replace `<ORG>` or `<ENTERPRISE>` before opening these URLs. For GHE.com data residency or GHES, replace `https://github.com` with the same web host root you pass as `github_base_url`.
 
 GitHub App organization mode:
 
@@ -379,15 +416,15 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
 | <a name="input_email"></a> [email](#input\_email) | Email address for alerts and notifications (requires confirmation) | `string` | n/a | yes |
-| <a name="input_fleets"></a> [fleets](#input\_fleets) | Fleet catalog keyed by fleet name. Entries configure a runner reference and Fleet-specific settings. | `map(any)` | n/a | yes |
+| <a name="input_fleets"></a> [fleets](#input\_fleets) | Fleet catalog keyed by fleet name. Entries configure a runner reference and Fleet-specific settings. | `any` | n/a | yes |
 | <a name="input_license_key"></a> [license\_key](#input\_license\_key) | RunsOn license key obtained from runs-on.com | `string` | n/a | yes |
-| <a name="input_runners"></a> [runners](#input\_runners) | Runner catalog keyed by runner name. Entries must use fields supported by Fleet's RunnerSpec. | `map(any)` | n/a | yes |
+| <a name="input_runners"></a> [runners](#input\_runners) | Runner catalog keyed by runner name. Entries must use fields supported by Fleet's RunnerSpec. | `any` | n/a | yes |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Name of the RunsOn Fleet stack. | `string` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | VPC ID where the Fleet stack will run. | `string` | n/a | yes |
 | <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alert notifications (optional) | `string` | `""` | no |
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the Fleet worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight assigned jobs are reconciled by the Fleet runtime. | `string` | `"fargate"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the Fleet worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version. | `string` | `"v3.2.3"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version. | `string` | `"v3.3.0-rc.1"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap release tag used by the shared compute bootstrap template. | `string` | `"v0.1.17"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |
@@ -403,10 +440,10 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_force_destroy_buckets"></a> [force\_destroy\_buckets](#input\_force\_destroy\_buckets) | Allow the cache bucket to be destroyed while non-empty. | `bool` | `false` | no |
 | <a name="input_github_app_id"></a> [github\_app\_id](#input\_github\_app\_id) | GitHub App ID used by the Fleet runtime. | `number` | `null` | no |
 | <a name="input_github_app_private_key"></a> [github\_app\_private\_key](#input\_github\_app\_private\_key) | GitHub App private key in PEM format. | `string` | `null` | no |
-| <a name="input_github_base_url"></a> [github\_base\_url](#input\_github\_base\_url) | GitHub host root URL. Leave the default for github.com and set a GHES host root such as https://ghe.example.com when needed. | `string` | `"https://github.com"` | no |
+| <a name="input_github_base_url"></a> [github\_base\_url](#input\_github\_base\_url) | GitHub web host root URL. Leave the default for github.com, or set a GHE.com data-residency or GHES host. | `string` | `"https://github.com"` | no |
 | <a name="input_github_enterprise_name"></a> [github\_enterprise\_name](#input\_github\_enterprise\_name) | GitHub Enterprise slug used when github\_enterprise\_pat is set. | `string` | `null` | no |
 | <a name="input_github_enterprise_pat"></a> [github\_enterprise\_pat](#input\_github\_enterprise\_pat) | Classic PAT used for enterprise-target Fleet mode. Must start with ghp\_ when set. | `string` | `null` | no |
-| <a name="input_images"></a> [images](#input\_images) | Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here. | `map(any)` | `{}` | no |
+| <a name="input_images"></a> [images](#input\_images) | Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here. | `any` | `{}` | no |
 | <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | API key for StepSecurity integration (optional). | `string` | `""` | no |
 | <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 on EC2 runner launch templates. | `bool` | `false` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | CloudWatch Logs retention in days. | `number` | `7` | no |
@@ -423,11 +460,12 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_runner_custom_policy_arns"></a> [runner\_custom\_policy\_arns](#input\_runner\_custom\_policy\_arns) | Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources. | `list(string)` | `[]` | no |
 | <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Additional custom tags propagated to launched runner instances. | `list(string)` | `[]` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes passed to the shared compute bootstrap template. | `number` | `60` | no |
-| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.3@sha256:6c2d5ede8996d875578e2fd6a5f472f89a75c7773525f1c747ec333065425e73"` | no |
+| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.3.0-rc.1@sha256:6af7add5f83f85130f6dc3e13fbaa2349e1db484e7f9ea10ea573e3b32fdbf27"` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for runners and the Fleet worker. Leave empty to create a dedicated group. | `list(string)` | `[]` | no |
 | <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker for Fleet launches, formatted as COUNT/WINDOW\_MINUTES/RECOVERY\_MINUTES: after COUNT spot interruptions within WINDOW\_MINUTES, launch on-demand for RECOVERY\_MINUTES. "false" disables it; empty uses the built-in default "2/15/30" (same semantics as the Flex SpotCircuitBreaker stack parameter). | `string` | `""` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH ingress when the module creates its own security group. | `bool` | `false` | no |
 | <a name="input_ssh_cidr_range"></a> [ssh\_cidr\_range](#input\_ssh\_cidr\_range) | CIDR range allowed for SSH access when the module creates its own security group. | `string` | `"0.0.0.0/0"` | no |
+| <a name="input_ssm_allowed"></a> [ssm\_allowed](#input\_ssm\_allowed) | Enable SSM access for runner instances. When true, this attaches AmazonSSMManagedEC2InstanceDefaultPolicy to the runner instance role. | `bool` | `true` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags applied to all created AWS resources. | `map(string)` | `{}` | no |
 
 ## Outputs

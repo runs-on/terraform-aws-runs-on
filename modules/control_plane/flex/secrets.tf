@@ -29,6 +29,8 @@ resource "aws_cloudwatch_log_group" "stack_config_materializer" {
 resource "aws_iam_role" "stack_config_materializer" {
   name = "${var.stack_name}-stack-config-materializer-role"
 
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

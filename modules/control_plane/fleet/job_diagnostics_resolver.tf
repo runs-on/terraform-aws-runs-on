@@ -7,6 +7,8 @@ resource "aws_cloudwatch_log_group" "job_diagnostics_resolver" {
 resource "aws_iam_role" "job_diagnostics_resolver" {
   name = "${var.stack_name}-job-diagnostics-resolver-role"
 
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

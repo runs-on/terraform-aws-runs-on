@@ -58,6 +58,8 @@ resource "aws_iam_role" "github_waf_sync" {
   count = local.using_managed_public_ingress_waf ? 1 : 0
   name  = "${var.stack_name}-github-waf-sync-role"
 
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

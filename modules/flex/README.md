@@ -20,7 +20,7 @@ Public module source:
 ```hcl
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.3"
+  version = "v3.3.0"
 }
 ```
 
@@ -133,7 +133,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.3"
+  version = "v3.3.0"
 
   stack_name = var.stack_name
 
@@ -338,9 +338,9 @@ Minimal key-policy statement:
 | <a name="input_app_custom_policy_arns"></a> [app\_custom\_policy\_arns](#input\_app\_custom\_policy\_arns) | Optional managed IAM policy ARNs to attach to the RunsOn service role. | `list(string)` | `[]` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, the worker service will pull from this private ECR instead of public ECR. | `string` | `""` | no |
 | <a name="input_app_force_new_deployment"></a> [app\_force\_new\_deployment](#input\_app\_force\_new\_deployment) | Force a new ECS deployment of the RunsOn control-plane service. Set to true for one apply when migrating existing installs across the v3.0.6 ECS capacity provider change or when changing app\_capacity\_provider. | `bool` | `false` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.3@sha256:6c2d5ede8996d875578e2fd6a5f472f89a75c7773525f1c747ec333065425e73"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.3.0-rc.1@sha256:6af7add5f83f85130f6dc3e13fbaa2349e1db484e7f9ea10ea573e3b32fdbf27"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.2.3"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.3.0-rc.1"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |
@@ -367,7 +367,7 @@ Minimal key-policy statement:
 | <a name="input_github_app_id"></a> [github\_app\_id](#input\_github\_app\_id) | GitHub App ID. If provided along with other github\_app\_* variables, creates a Secrets Manager secret and skips the web-based GitHub App setup flow. | `number` | `null` | no |
 | <a name="input_github_app_private_key"></a> [github\_app\_private\_key](#input\_github\_app\_private\_key) | GitHub App private key (PEM format) | `string` | `""` | no |
 | <a name="input_github_app_webhook_secret"></a> [github\_app\_webhook\_secret](#input\_github\_app\_webhook\_secret) | GitHub App webhook secret | `string` | `""` | no |
-| <a name="input_github_enterprise_url"></a> [github\_enterprise\_url](#input\_github\_enterprise\_url) | GitHub Enterprise Server URL (optional, leave empty for github.com) | `string` | `""` | no |
+| <a name="input_github_enterprise_url"></a> [github\_enterprise\_url](#input\_github\_enterprise\_url) | GitHub Enterprise web URL for GHE.com data residency or GitHub Enterprise Server (optional, leave empty for github.com) | `string` | `""` | no |
 | <a name="input_integration_step_security_api_key"></a> [integration\_step\_security\_api\_key](#input\_integration\_step\_security\_api\_key) | API key for StepSecurity integration (optional) | `string` | `""` | no |
 | <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 support for runner instances | `bool` | `false` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | Number of days to retain CloudWatch logs for EC2 instances | `number` | `7` | no |
@@ -393,6 +393,7 @@ Minimal key-policy statement:
 | <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot instance circuit breaker configuration (e.g., '2/15/30' = 2 failures in 15min, block for 30min) | `string` | `"2/15/30"` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH access to runner instances | `bool` | `false` | no |
 | <a name="input_ssh_cidr_range"></a> [ssh\_cidr\_range](#input\_ssh\_cidr\_range) | CIDR range allowed for SSH access to runner instances (only applies if ssh\_allowed is true) | `string` | `"0.0.0.0/0"` | no |
+| <a name="input_ssm_allowed"></a> [ssm\_allowed](#input\_ssm\_allowed) | Enable SSM access for runner instances. When true, this attaches AmazonSSMManagedEC2InstanceDefaultPolicy to the runner instance role. | `bool` | `true` | no |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Name for the RunsOn stack (used for resource naming) | `string` | `"runs-on"` | no |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources. Note: 'runs-on-stack-name' is added automatically for resource discovery. | `map(string)` | `{}` | no |
 

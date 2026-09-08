@@ -212,6 +212,25 @@ variables {
   }
 
   tags = {}
+
+  permission_boundary_arn = "arn:aws:iam::123456789012:policy/RequiredBoundary"
+}
+
+run "control_plane_roles_use_permission_boundary" {
+  command = plan
+
+  assert {
+    condition = alltrue([for boundary in [
+      aws_iam_role.public_ingress.permissions_boundary,
+      aws_iam_role.github_apps_setup[0].permissions_boundary,
+      aws_iam_role.github_runner_cache_refresh.permissions_boundary,
+      aws_iam_role.scheduler.permissions_boundary,
+      aws_iam_role.stack_config_materializer.permissions_boundary,
+      aws_iam_role.cache_credential_broker.permissions_boundary,
+      aws_iam_role.job_diagnostics_resolver.permissions_boundary,
+    ] : boundary == var.permission_boundary_arn])
+    error_message = "Every Flex control plane role should use the configured permissions boundary."
+  }
 }
 
 run "zero_budget_skips_budget_resources" {
@@ -365,6 +384,11 @@ run "managed_waf_creates_sync_resources" {
   assert {
     condition     = length(aws_lambda_function.github_waf_sync) == 1 && length(aws_lambda_invocation.github_waf_sync_seed) == 1
     error_message = "Managed WAF should create the GitHub WAF sync Lambda and seed invocation."
+  }
+
+  assert {
+    condition     = aws_iam_role.github_waf_sync[0].permissions_boundary == var.permission_boundary_arn
+    error_message = "The managed WAF sync role should use the configured permissions boundary."
   }
 
   assert {
@@ -697,5 +721,56 @@ run "cache_isolation_enabled_deploys_broker" {
   assert {
     condition     = local.stack_config_base.CacheCredentialBrokerFunctionName == "test-plan-cache-broker"
     error_message = "Stack config should carry the broker function name so runners request brokered credentials."
+  }
+}
+
+run "ghe_com_uses_data_residency_oidc_issuer" {
+  command = plan
+
+  variables {
+    github = {
+      organization   = "runs-on"
+      enterprise_url = "https://api.sttnwrks.ghe.com"
+      api_strategy   = "github_app"
+      apps           = null
+    }
+  }
+
+  assert {
+    condition     = local.github_platform == "ghe.com"
+    error_message = "Flex should classify the dedicated data-residency host as GHE.com."
+  }
+
+  assert {
+    condition     = local.github_enterprise_url == "https://sttnwrks.ghe.com"
+    error_message = "Flex should normalize the GHE.com API host to its web host root."
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_TOKEN_ISSUER == "https://token.actions.sttnwrks.ghe.com"
+    error_message = "Flex should use the dedicated GHE.com Actions OIDC issuer."
+  }
+}
+
+run "ghes_api_root_enterprise_url_derives_host_root_issuer" {
+  command = plan
+
+  variables {
+    github = {
+      organization   = "runs-on"
+      enterprise_url = "https://ghe.example.com/api/v3"
+      api_strategy   = "github_app"
+      apps           = null
+    }
+  }
+
+  assert {
+    condition     = local.github_enterprise_url == "https://ghe.example.com"
+    error_message = "Flex should strip a terminal /api/v3 path from the enterprise URL."
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_TOKEN_ISSUER == "https://ghe.example.com/_services/token"
+    error_message = "Flex broker issuer should match the JWKS refresher issuer for GHES API-root inputs."
   }
 }

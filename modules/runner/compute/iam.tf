@@ -73,10 +73,12 @@ resource "aws_iam_role" "ec2_instance" {
   )
 }
 
-# Attach AWS managed policies
+# Attach the AWS-managed policy for EC2 instance management through SSM.
 resource "aws_iam_role_policy_attachment" "ec2_ssm" {
+  count = var.ssm_allowed ? 1 : 0
+
   role       = aws_iam_role.ec2_instance.name
-  policy_arn = "arn:${local.partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  policy_arn = "arn:${local.partition}:iam::aws:policy/AmazonSSMManagedEC2InstanceDefaultPolicy"
 }
 
 resource "aws_iam_role_policy_attachment" "ec2_custom_additional" {

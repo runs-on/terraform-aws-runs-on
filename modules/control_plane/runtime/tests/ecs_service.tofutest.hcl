@@ -72,6 +72,22 @@ run "defaults_to_fargate_capacity_provider" {
   }
 }
 
+run "runtime_roles_use_permission_boundary" {
+  command = plan
+
+  variables {
+    permission_boundary_arn = "arn:aws:iam::123456789012:policy/RequiredBoundary"
+  }
+
+  assert {
+    condition = alltrue([for boundary in [
+      aws_iam_role.execution.permissions_boundary,
+      aws_iam_role.task.permissions_boundary,
+    ] : boundary == var.permission_boundary_arn])
+    error_message = "Both ECS runtime roles should use the configured permissions boundary."
+  }
+}
+
 run "defaults_force_new_deployment_false" {
   command = plan
 

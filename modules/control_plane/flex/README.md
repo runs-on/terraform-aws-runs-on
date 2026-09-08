@@ -66,6 +66,7 @@ When `ebs_encryption_key_id` points at a customer-managed KMS key, prefer a full
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_alerts"></a> [alerts](#module\_alerts) | ../alerts | n/a |
+| <a name="module_github_platform"></a> [github\_platform](#module\_github\_platform) | ../github_platform | n/a |
 | <a name="module_runtime"></a> [runtime](#module\_runtime) | ../runtime | n/a |
 
 ## Resources
@@ -182,6 +183,7 @@ When `ebs_encryption_key_id` points at a customer-managed KMS key, prefer a full
 | <a name="input_tags"></a> [tags](#input\_tags) | Additional tags for all resources | `map(string)` | n/a | yes |
 | <a name="input_diagnostic_settings"></a> [diagnostic\_settings](#input\_diagnostic\_settings) | Non-sensitive stack settings exposed by the job diagnostics resolver | `any` | `{}` | no |
 | <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes | `bool` | `false` | no |
+| <a name="input_permission_boundary_arn"></a> [permission\_boundary\_arn](#input\_permission\_boundary\_arn) | Optional IAM permissions boundary ARN applied to control plane roles | `string` | `""` | no |
 
 ## Outputs
 

@@ -346,6 +346,8 @@ resource "aws_ecs_cluster_capacity_providers" "this" {
 resource "aws_iam_role" "execution" {
   name = var.execution_role_name
 
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -386,6 +388,8 @@ resource "aws_iam_role_policy" "execution_extra" {
 
 resource "aws_iam_role" "task" {
   name = var.task_role_name
+
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

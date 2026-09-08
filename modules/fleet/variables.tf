@@ -35,7 +35,7 @@ variable "github_enterprise_pat" {
 }
 
 variable "github_base_url" {
-  description = "GitHub host root URL. Leave the default for github.com and set a GHES host root such as https://ghe.example.com when needed."
+  description = "GitHub web host root URL. Leave the default for github.com, or set a GHE.com data-residency or GHES host."
   type        = string
   default     = "https://github.com"
 }
@@ -77,67 +77,67 @@ variable "environment" {
 
 variable "images" {
   description = "Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here."
-  type        = map(any)
+  type        = any
   default     = {}
   nullable    = false
 
   validation {
-    condition = alltrue([
-      for image in values(var.images) : can(keys(image)) ? length(setsubtract(
+    condition = can(keys(var.images)) ? alltrue([
+      for _, image in var.images : can(keys(image)) ? length(setsubtract(
         toset(keys(image)),
         # fleet-catalog-contract: ImageConfig
         toset(["ami", "arch", "id", "name", "owner", "platform", "preinstall", "prerun", "tags"]),
       )) == 0 : false
-    ])
+    ]) : false
     error_message = "Each image must be an object and may only use supported ImageConfig fields."
   }
 }
 
 variable "runners" {
   description = "Runner catalog keyed by runner name. Entries must use fields supported by Fleet's RunnerSpec."
-  type        = map(any)
+  type        = any
   nullable    = false
 
   validation {
-    condition = alltrue([
-      for runner in values(var.runners) : can(keys(runner)) ? length(setsubtract(
+    condition = can(keys(var.runners)) ? alltrue([
+      for _, runner in var.runners : can(keys(runner)) ? length(setsubtract(
         toset(keys(runner)),
         # fleet-catalog-contract: RunnerSpec
         toset(["cpu", "disk", "extras", "family", "id", "image", "nested-virt", "preinstall", "prerun", "private", "ram", "retry", "spot", "ssh", "sticky", "tags", "volume"]),
       )) == 0 : false
-    ])
+    ]) : false
     error_message = "Each runner must be an object and may only use supported RunnerSpec fields. Fleet does not support runner debug."
   }
 }
 
 variable "fleets" {
   description = "Fleet catalog keyed by fleet name. Entries configure a runner reference and Fleet-specific settings."
-  type        = map(any)
+  type        = any
   nullable    = false
 
   validation {
-    condition = alltrue([
-      for fleet in values(var.fleets) : can(keys(fleet)) ? length(setsubtract(
+    condition = can(keys(var.fleets)) ? alltrue([
+      for _, fleet in var.fleets : can(keys(fleet)) ? length(setsubtract(
         toset(keys(fleet)),
         # fleet-catalog-contract: FleetEntry
         toset(["max_launch_batch_size", "max_runners", "runner", "runner_group", "schedule", "timezone", "version"]),
       )) == 0 : false
-    ])
+    ]) : false
     error_message = "Each fleet must be an object and may only use supported Fleet fields. Use the module environment variable instead of fleet env or environment."
   }
 
   validation {
-    condition = alltrue([
-      for fleet in values(var.fleets) : try(fleet.schedule == null, true) ? true : (
+    condition = can(keys(var.fleets)) ? alltrue([
+      for _, fleet in var.fleets : try(fleet.schedule == null, true) ? true : (
         can(slice(fleet.schedule, 0, length(fleet.schedule)))
       )
-    ])
+    ]) : false
     error_message = "Each fleet schedule must be a list or null."
   }
 
   validation {
     condition = try(alltrue(flatten([
-      for fleet in values(var.fleets) : [
+      for _, fleet in var.fleets : [
         for schedule in try([for value in fleet.schedule : value], []) : can(keys(schedule)) ? length(setsubtract(
           toset(keys(schedule)),
           # fleet-catalog-contract: PoolSchedule
@@ -150,7 +150,7 @@ variable "fleets" {
 
   validation {
     condition = try(alltrue(flatten([
-      for fleet in values(var.fleets) : [
+      for _, fleet in var.fleets : [
         for schedule in try([for value in fleet.schedule : value], []) : try(schedule.match, null) == null ? true : can(keys(schedule.match)) ? length(setsubtract(
           toset(keys(schedule.match)),
           # fleet-catalog-contract: ScheduleMatch
@@ -213,6 +213,12 @@ variable "ssh_allowed" {
   default     = false
 }
 
+variable "ssm_allowed" {
+  description = "Enable SSM access for runner instances. When true, this attaches AmazonSSMManagedEC2InstanceDefaultPolicy to the runner instance role."
+  type        = bool
+  default     = true
+}
+
 variable "ssh_cidr_range" {
   description = "CIDR range allowed for SSH access when the module creates its own security group."
   type        = string
@@ -239,7 +245,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.3@sha256:6c2d5ede8996d875578e2fd6a5f472f89a75c7773525f1c747ec333065425e73"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.3.0-rc.1@sha256:6af7add5f83f85130f6dc3e13fbaa2349e1db484e7f9ea10ea573e3b32fdbf27"
   nullable    = false
 }
 
@@ -329,7 +335,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version."
   type        = string
-  default     = "v3.2.3"
+  default     = "v3.3.0-rc.1"
   nullable    = false
 }
 
