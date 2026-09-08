@@ -43,6 +43,7 @@ The public Terraform input is `github_app_private_key`, but the rendered runtime
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_alerts"></a> [alerts](#module\_alerts) | ../alerts | n/a |
+| <a name="module_github_platform"></a> [github\_platform](#module\_github\_platform) | ../github_platform | n/a |
 | <a name="module_runtime"></a> [runtime](#module\_runtime) | ../runtime | n/a |
 
 ## Resources
@@ -76,7 +77,7 @@ The public Terraform input is `github_app_private_key`, but the rendered runtime
 |------|-------------|------|---------|:--------:|
 | <a name="input_account_id"></a> [account\_id](#input\_account\_id) | AWS account ID | `string` | n/a | yes |
 | <a name="input_alerts"></a> [alerts](#input\_alerts) | Fleet alert delivery settings | <pre>object({<br/>    email             = string<br/>    slack_webhook_url = string<br/>  })</pre> | n/a | yes |
-| <a name="input_catalog"></a> [catalog](#input\_catalog) | Runner image, runner, and fleet catalogs | <pre>object({<br/>    images  = map(any)<br/>    runners = map(any)<br/>    fleets  = map(any)<br/>  })</pre> | n/a | yes |
+| <a name="input_catalog"></a> [catalog](#input\_catalog) | Runner image, runner, and fleet catalogs | <pre>object({<br/>    images  = any<br/>    runners = any<br/>    fleets  = any<br/>  })</pre> | n/a | yes |
 | <a name="input_compute"></a> [compute](#input\_compute) | Shared runner compute resources | <pre>object({<br/>    runner_iam = object({<br/>      role_arn     = string<br/>      role_name    = string<br/>      role_id      = string<br/>      profile_arn  = string<br/>      profile_name = string<br/>    })<br/>    runner_logs = object({<br/>      group_name          = string<br/>      group_arn           = string<br/>      resource_group_name = string<br/>      resource_group_arn  = string<br/>    })<br/>    launch_templates = object({<br/>      linux_default = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      linux_default_nested = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      windows_default = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      windows_default_nested = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      linux_private = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      linux_private_nested = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      windows_private = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>      windows_private_nested = object({<br/>        id             = string<br/>        latest_version = number<br/>      })<br/>    })<br/>  })</pre> | n/a | yes |
 | <a name="input_control_plane"></a> [control\_plane](#input\_control\_plane) | Fleet control plane settings published into the runtime secret | <pre>object({<br/>    environment          = string<br/>    private_mode         = string<br/>    cost_allocation_tag  = string<br/>    app_tag              = string<br/>    runner_custom_tags   = list(string)<br/>    spot_circuit_breaker = optional(string, "")<br/>  })</pre> | n/a | yes |
 | <a name="input_extras"></a> [extras](#input\_extras) | Shared runner extras resources | <pre>object({<br/>    cache = object({<br/>      bucket_id   = string<br/>      bucket_name = string<br/>      bucket_arn  = string<br/>    })<br/>    efs = object({<br/>      enabled           = bool<br/>      file_system_id    = string<br/>      file_system_arn   = string<br/>      file_system_dns   = string<br/>      security_group_id = string<br/>    })<br/>    ecr = object({<br/>      enabled         = bool<br/>      repository_arn  = string<br/>      repository_name = string<br/>      repository_url  = string<br/>    })<br/>  })</pre> | n/a | yes |
@@ -89,6 +90,7 @@ The public Terraform input is `github_app_private_key`, but the rendered runtime
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to Fleet resources | `map(string)` | n/a | yes |
 | <a name="input_diagnostic_settings"></a> [diagnostic\_settings](#input\_diagnostic\_settings) | Non-sensitive stack settings exposed by the job diagnostics resolver | `any` | `{}` | no |
 | <a name="input_enable_cache_isolation"></a> [enable\_cache\_isolation](#input\_enable\_cache\_isolation) | Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes | `bool` | `false` | no |
+| <a name="input_permission_boundary_arn"></a> [permission\_boundary\_arn](#input\_permission\_boundary\_arn) | Optional IAM permissions boundary ARN applied to control plane roles | `string` | `""` | no |
 
 ## Outputs
 

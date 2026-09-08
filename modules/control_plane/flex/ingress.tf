@@ -29,6 +29,8 @@ resource "aws_cloudwatch_log_group" "github_apps_setup_lambda" {
 resource "aws_iam_role" "public_ingress" {
   name = "${var.stack_name}-public-ingress-role"
 
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -124,6 +126,8 @@ resource "aws_lambda_function" "public_ingress" {
 resource "aws_iam_role" "github_apps_setup" {
   count = local.admin_routes_enabled ? 1 : 0
   name  = "${var.stack_name}-github-apps-setup-role"
+
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

@@ -573,6 +573,72 @@ func TestPlanSourceCustomPolicyWiring(t *testing.T) {
 	assert.Contains(t, serviceTF, "task_role_managed_policy_arns   = compact(local.runtime.custom_policy_arns)")
 }
 
+func TestPlanModuleManagedSSMAttachmentCanBeDisabled(t *testing.T) {
+	t.Parallel()
+
+	plan := loadPlan(t, map[string]any{"ssm_allowed": false})
+	assert.False(t, hasResourceChangePrefix(plan, "module.compute.aws_iam_role_policy_attachment.ec2_ssm"))
+}
+
+func TestPlanSourceSSMAllowedWiring(t *testing.T) {
+	t.Parallel()
+
+	flexMainTF := readTerraformSource(t, "modules", "flex", "main.tf")
+	fleetMainTF := readTerraformSource(t, "modules", "fleet", "main.tf")
+	assert.Regexp(t, `ssm_allowed\s+= var\.ssm_allowed`, flexMainTF)
+	assert.Regexp(t, `ssm_allowed\s+= var\.ssm_allowed`, fleetMainTF)
+}
+
+func TestPlanSourcePermissionBoundaryWiring(t *testing.T) {
+	t.Parallel()
+
+	flexRoot := readTerraformSource(t, "modules", "flex", "main.tf")
+	fleetRoot := readTerraformSource(t, "modules", "fleet", "main.tf")
+	flexService := readTerraformSource(t, "modules", "control_plane", "flex", "service.tf")
+	flexAlerts := readTerraformSource(t, "modules", "control_plane", "flex", "sns.tf")
+	fleetControlPlane := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
+	fleetAlerts := readTerraformSource(t, "modules", "control_plane", "fleet", "alerts.tf")
+
+	assert.GreaterOrEqual(t, strings.Count(flexRoot, "permission_boundary_arn"), 2,
+		"Flex should pass the boundary to both runner and control plane modules")
+	assert.GreaterOrEqual(t, strings.Count(fleetRoot, "permission_boundary_arn"), 2,
+		"Fleet should pass the boundary to both runner and control plane modules")
+	for path, source := range map[string]string{
+		"Flex runtime":  flexService,
+		"Flex alerts":   flexAlerts,
+		"Fleet runtime": fleetControlPlane,
+		"Fleet alerts":  fleetAlerts,
+	} {
+		assert.Contains(t, source, "permission_boundary_arn", path)
+	}
+
+	roleSources := map[string]string{
+		"Flex": strings.Join([]string{
+			readTerraformSource(t, "modules", "control_plane", "flex", "waf.tf"),
+			readTerraformSource(t, "modules", "control_plane", "flex", "ingress.tf"),
+			readTerraformSource(t, "modules", "control_plane", "flex", "github_runner_cache.tf"),
+			readTerraformSource(t, "modules", "control_plane", "flex", "eventbridge.tf"),
+			readTerraformSource(t, "modules", "control_plane", "flex", "secrets.tf"),
+			readTerraformSource(t, "modules", "control_plane", "flex", "cache_credential_broker.tf"),
+			readTerraformSource(t, "modules", "control_plane", "flex", "job_diagnostics_resolver.tf"),
+		}, "\n"),
+		"Fleet": strings.Join([]string{
+			readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf"),
+			readTerraformSource(t, "modules", "control_plane", "fleet", "secrets.tf"),
+			readTerraformSource(t, "modules", "control_plane", "fleet", "cache_credential_broker.tf"),
+			readTerraformSource(t, "modules", "control_plane", "fleet", "job_diagnostics_resolver.tf"),
+		}, "\n"),
+		"Runtime": readTerraformSource(t, "modules", "control_plane", "runtime", "main.tf"),
+		"Alerts":  readTerraformSource(t, "modules", "control_plane", "alerts", "main.tf"),
+	}
+	for module, source := range roleSources {
+		assert.Equal(t,
+			strings.Count(source, `resource "aws_iam_role"`),
+			strings.Count(source, `permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null`),
+			"every %s IAM role should apply the boundary", module)
+	}
+}
+
 func TestCacheCredentialBrokerWiring(t *testing.T) {
 	t.Parallel()
 
@@ -988,6 +1054,31 @@ func TestPlanConditionalResources(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPlanPermissionBoundaryAppliesToAllRoles(t *testing.T) {
+	t.Parallel()
+
+	const boundaryARN = "arn:aws:iam::123456789012:policy/RequiredBoundary"
+	plan := loadPlan(t, map[string]any{
+		"permission_boundary_arn": boundaryARN,
+		"enable_waf":              true,
+		"alert_slack_webhook_url": "https://hooks.slack.com/services/example",
+	})
+
+	roleCount := 0
+	for address, change := range plan.ResourceChangesMap {
+		if change == nil || change.Type != "aws_iam_role" {
+			continue
+		}
+		roleCount++
+		after, ok := change.Change.After.(map[string]any)
+		require.Truef(t, ok, "expected %s after value to be an object", address)
+		assert.Equalf(t, boundaryARN, after["permissions_boundary"],
+			"%s should use the configured permissions boundary", address)
+	}
+
+	assert.GreaterOrEqual(t, roleCount, 12, "the all-role assertion should cover every current Flex stack IAM role")
 }
 
 func TestPlanRejectsEmptyPublicSubnetsUnlessPrivateOnly(t *testing.T) {

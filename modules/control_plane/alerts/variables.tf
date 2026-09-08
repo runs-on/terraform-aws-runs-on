@@ -31,6 +31,12 @@ variable "allow_budgets_publish" {
   default     = false
 }
 
+variable "permission_boundary_arn" {
+  description = "Optional IAM permissions boundary ARN applied to alerting roles"
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to alerting resources."
   type        = map(string)

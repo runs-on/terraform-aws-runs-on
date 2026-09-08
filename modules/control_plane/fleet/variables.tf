@@ -42,9 +42,9 @@ variable "alerts" {
 variable "catalog" {
   description = "Runner image, runner, and fleet catalogs"
   type = object({
-    images  = map(any)
-    runners = map(any)
-    fleets  = map(any)
+    images  = any
+    runners = any
+    fleets  = any
   })
 }
 
@@ -180,6 +180,12 @@ variable "enable_cache_isolation" {
   description = "Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes"
   type        = bool
   default     = false
+}
+
+variable "permission_boundary_arn" {
+  description = "Optional IAM permissions boundary ARN applied to control plane roles"
+  type        = string
+  default     = ""
 }
 
 variable "diagnostic_settings" {

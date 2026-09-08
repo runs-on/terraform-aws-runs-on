@@ -13,6 +13,8 @@ resource "aws_cloudwatch_log_group" "cache_credential_broker_lambda" {
 resource "aws_iam_role" "cache_credential_broker" {
   name = "${var.stack_name}-cache-broker-role"
 
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

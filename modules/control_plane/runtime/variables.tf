@@ -43,6 +43,12 @@ variable "task_policy_name" {
   type        = string
 }
 
+variable "permission_boundary_arn" {
+  description = "Optional IAM permissions boundary ARN applied to runtime roles"
+  type        = string
+  default     = ""
+}
+
 variable "runner_instance_role_arn" {
   description = "Runner EC2 role ARN"
   type        = string

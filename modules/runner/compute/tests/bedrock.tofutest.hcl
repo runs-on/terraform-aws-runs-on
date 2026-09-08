@@ -146,6 +146,19 @@ run "computed_runner_custom_policy_arns_plan" {
   }
 }
 
+run "module_managed_ssm_attachment_can_be_disabled" {
+  command = plan
+
+  variables {
+    ssm_allowed = false
+  }
+
+  assert {
+    condition     = length(aws_iam_role_policy_attachment.ec2_ssm) == 0
+    error_message = "disabling module-managed SSM should remove its attachment from the runner role."
+  }
+}
+
 run "default_runner_policies_are_scoped" {
   command = plan
 
@@ -200,7 +213,12 @@ run "default_runner_policies_are_scoped" {
   }
 
   assert {
-    condition     = aws_iam_role_policy_attachment.ec2_ssm.policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
-    error_message = "the only default managed runner policy attachment should remain SSM core."
+    condition     = length(aws_iam_role_policy_attachment.ec2_ssm) == 1
+    error_message = "SSM instance management should be enabled by default."
+  }
+
+  assert {
+    condition     = aws_iam_role_policy_attachment.ec2_ssm[0].policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedEC2InstanceDefaultPolicy"
+    error_message = "the default runner policy should allow SSM instance management without Parameter Store reads."
   }
 }

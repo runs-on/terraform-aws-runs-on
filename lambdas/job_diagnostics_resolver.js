@@ -379,10 +379,20 @@ function singleClaimInstallationID(claims) {
 
 function githubAPIBase(config = {}) {
   const enterpriseURL = trim(config.GithubEnterpriseUrl || config.github_enterprise_url);
-  if (enterpriseURL) return enterpriseURL.replace(/\/+$/, '') + '/api/v3';
   const baseURL = trim(config.github_base_url);
-  if (baseURL && !/^https:\/\/github\.com\/?$/i.test(baseURL)) return baseURL.replace(/\/+$/, '') + '/api/v3';
-  return 'https://api.github.com';
+  const configured = (enterpriseURL || baseURL).replace(/\/+$/, '');
+  if (!configured || /^https:\/\/(?:www\.)?github\.com$/i.test(configured) || /^https:\/\/api\.github\.com$/i.test(configured)) {
+    return 'https://api.github.com';
+  }
+  try {
+    const parsed = new URL(configured);
+    const match = parsed.hostname.toLowerCase().match(/^(?:api\.)?([^.]+)\.ghe\.com$/);
+    if (match) return `${parsed.protocol}//api.${match[1]}.ghe.com`;
+  } catch (_error) {
+    // Fall through to the GHES-compatible path. The request will report the
+    // invalid configured URL through the existing diagnostics.
+  }
+  return configured.replace(/\/api\/v3$/i, '') + '/api/v3';
 }
 
 function base64URL(value) {
@@ -863,6 +873,7 @@ module.exports = {
   WORKFLOW_RUN_ID_INDEX,
   createHandler,
   createAppJWT,
+  githubAPIBase,
   parseJobURL,
   unmarshalItem,
   normalizeFlexRecord,

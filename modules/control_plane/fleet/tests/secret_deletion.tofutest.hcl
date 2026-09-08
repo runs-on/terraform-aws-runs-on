@@ -172,6 +172,21 @@ variables {
     runner_custom_tags   = []
     spot_circuit_breaker = "3/20/45"
   }
+
+  permission_boundary_arn = "arn:aws:iam::123456789012:policy/RequiredBoundary"
+}
+
+run "control_plane_roles_use_permission_boundary" {
+  command = plan
+
+  assert {
+    condition = alltrue([for boundary in [
+      aws_iam_role.config_materializer.permissions_boundary,
+      aws_iam_role.cache_credential_broker.permissions_boundary,
+      aws_iam_role.job_diagnostics_resolver.permissions_boundary,
+    ] : boundary == var.permission_boundary_arn])
+    error_message = "Every Fleet control plane role should use the configured permissions boundary."
+  }
 }
 
 run "otel_headers_add_ssm_parameter_and_execution_policy" {
@@ -361,5 +376,60 @@ run "github_api_root_base_url_derives_normalized_broker_issuer" {
   assert {
     condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_TOKEN_ISSUER == "https://ghe.example.com/_services/token"
     error_message = "Fleet broker issuer should match the control-plane JWKS issuer."
+  }
+}
+
+run "ghe_com_base_url_derives_data_residency_endpoints" {
+  command = plan
+
+  variables {
+    github = {
+      app_id          = null
+      app_private_key = null
+      enterprise_pat  = "ghp_test"
+      base_url        = "https://api.sttnwrks.ghe.com"
+      enterprise      = "sttnwrks"
+      license_key     = "test-license"
+    }
+  }
+
+  assert {
+    condition     = local.github_platform == "ghe.com"
+    error_message = "Fleet should classify the dedicated data-residency host as GHE.com."
+  }
+
+  assert {
+    condition     = local.normalized_github_base_url == "https://sttnwrks.ghe.com"
+    error_message = "Fleet should normalize the GHE.com API host to its web host root."
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_TOKEN_ISSUER == "https://token.actions.sttnwrks.ghe.com"
+    error_message = "Fleet should use the dedicated GHE.com Actions OIDC issuer."
+  }
+}
+
+run "ghe_com_api_host_with_api_path_classifies_data_residency" {
+  command = plan
+
+  variables {
+    github = {
+      app_id          = null
+      app_private_key = null
+      enterprise_pat  = "ghp_test"
+      base_url        = "https://api.sttnwrks.ghe.com/api/v3"
+      enterprise      = "sttnwrks"
+      license_key     = "test-license"
+    }
+  }
+
+  assert {
+    condition     = local.github_platform == "ghe.com"
+    error_message = "Fleet should classify a GHE.com API host with an /api/v3 path as GHE.com."
+  }
+
+  assert {
+    condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_TOKEN_ISSUER == "https://token.actions.sttnwrks.ghe.com"
+    error_message = "Fleet should derive the GHE.com Actions OIDC issuer regardless of an /api/v3 path."
   }
 }

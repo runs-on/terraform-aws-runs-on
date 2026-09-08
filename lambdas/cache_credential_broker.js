@@ -11,7 +11,17 @@ let cachedJwksExpiresAt = 0;
 
 const enterpriseURL = normalizeOptionalURL(process.env.GITHUB_ENTERPRISE_URL || '');
 const configuredIssuer = String(process.env.GITHUB_TOKEN_ISSUER || '').trim();
-const issuer = normalizeOptionalURL(configuredIssuer || (enterpriseURL ? `${enterpriseURL}/_services/token` : 'https://token.actions.githubusercontent.com'));
+const issuer = normalizeOptionalURL(configuredIssuer || defaultIssuerForEnterpriseURL(enterpriseURL));
+
+// Mirrors the platform-aware issuer derivation in the Terraform locals and
+// pkg/githubplatform: GHE.com tenants issue from token.actions.SUB.ghe.com,
+// GHES from {enterprise}/_services/token, github.com from the fixed issuer.
+function defaultIssuerForEnterpriseURL(url) {
+  if (!url) return 'https://token.actions.githubusercontent.com';
+  const match = url.toLowerCase().match(/^https:\/\/(?:api\.)?([^./]+)\.ghe\.com$/);
+  if (match) return `https://token.actions.${match[1]}.ghe.com`;
+  return `${url}/_services/token`;
+}
 const bucketArn = process.env.CACHE_BUCKET_ARN;
 const bucketName = bucketNameFromArn(bucketArn);
 // This broker isolates only Magic Cache data under scoped-cache/*. Direct S3
@@ -592,6 +602,7 @@ module.exports = {
   handler,
   buildAssumeRoleInput,
   buildSessionPolicy,
+  defaultIssuerForEnterpriseURL,
   instanceIDFromCallerUserID,
   normalizeAccessControls,
   normalizeCallerIdentityProof,

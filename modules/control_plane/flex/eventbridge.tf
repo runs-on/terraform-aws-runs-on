@@ -130,6 +130,8 @@ moved {
 resource "aws_iam_role" "scheduler" {
   name = "${var.stack_name}-scheduler-role"
 
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

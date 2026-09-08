@@ -9,6 +9,13 @@ terraform {
   }
 }
 
+# Shared GitHub platform classification, aligned with the Go resolver in
+# pkg/githubplatform/platform.go and the flex control-plane module.
+module "github_platform" {
+  source   = "../github_platform"
+  base_url = var.github.base_url
+}
+
 locals {
   partition           = data.aws_partition.current.partition
   github              = var.github
@@ -39,13 +46,12 @@ locals {
   github_app_id_set         = local.github.app_id != null
   github_private_key_set    = try(trimspace(local.github.app_private_key), "") != ""
   github_enterprise_pat_set = try(trimspace(local.github.enterprise_pat), "") != ""
-  # Keep this aligned with the Fleet runtime normalizer so the broker issuer
-  # matches the JWKS refresher issuer for GHES API-root inputs.
-  raw_github_base_url           = trimsuffix(trimspace(local.github.base_url) != "" ? trimspace(local.github.base_url) : "https://github.com", "/")
-  github_host_root_url          = trimsuffix(local.raw_github_base_url, "/api/v3")
-  normalized_github_base_url    = contains(["https://api.github.com", "https://www.github.com"], lower(local.github_host_root_url)) ? "https://github.com" : local.github_host_root_url
-  github_enterprise_url         = local.normalized_github_base_url != "https://github.com" ? local.normalized_github_base_url : ""
-  github_token_issuer           = local.github_enterprise_url != "" ? "${local.github_enterprise_url}/_services/token" : "https://token.actions.githubusercontent.com"
+  # Shared classification keeps the broker and JWKS refresher aligned with the
+  # Fleet runtime endpoint resolver for github.com, GHE.com, and GHES.
+  normalized_github_base_url    = module.github_platform.base_url
+  github_enterprise_url         = module.github_platform.enterprise_url
+  github_platform               = module.github_platform.platform
+  github_token_issuer           = module.github_platform.token_issuer
   normalized_enterprise         = try(trimspace(local.github.enterprise), "")
   license_status_parameter_name = "/${var.stack_name}/license/status"
   license_status_initial_value = jsonencode({
@@ -297,6 +303,7 @@ module "runtime" {
   execution_role_name             = "${var.stack_name}-fleet-execution-role"
   task_role_name                  = "${var.stack_name}-fleet-role"
   task_policy_name                = "${var.stack_name}-fleet"
+  permission_boundary_arn         = var.permission_boundary_arn
   runner_instance_role_arn        = var.compute.runner_iam.role_arn
   cache_bucket_arn                = var.extras.cache.bucket_arn
   extra_task_role_statements      = local.fleet_extra_policy_statements

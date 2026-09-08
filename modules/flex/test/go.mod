@@ -1,6 +1,6 @@
 module github.com/runs-on/terraform-aws-runs-on/modules/flex/test
 
-go 1.26.5
+go 1.26.6
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.5

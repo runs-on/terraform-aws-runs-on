@@ -2,6 +2,12 @@ resource "aws_cloudwatch_log_group" "job_diagnostics_resolver" {
   name              = "/runs-on/${var.stack_name}/lambda/job-diagnostics-resolver"
   retention_in_days = 14
 
+  # Older deployments depended on this group through the resolver's name in
+  # stack config. Keep replacement ordering after that dependency is removed.
+  lifecycle {
+    create_before_destroy = true
+  }
+
   tags = merge(
     local.common_tags,
     {
@@ -12,6 +18,8 @@ resource "aws_cloudwatch_log_group" "job_diagnostics_resolver" {
 
 resource "aws_iam_role" "job_diagnostics_resolver" {
   name = "${var.stack_name}-job-diagnostics-resolver-role"
+
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"

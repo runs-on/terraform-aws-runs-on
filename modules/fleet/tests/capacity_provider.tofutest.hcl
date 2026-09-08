@@ -301,6 +301,38 @@ run "accepts_nested_virtualization_runner_field" {
   }
 }
 
+run "accepts_mixed_shape_runner_entries" {
+  command = plan
+
+  variables {
+    runners = {
+      cached = {
+        cpu    = 2
+        ram    = 4
+        family = ["c7"]
+        image  = "ubuntu24-full-x64"
+        extras = ["s3-cache"]
+      }
+      plain = {
+        cpu    = 2
+        ram    = 4
+        family = ["c7"]
+        image  = "ubuntu24-full-x64"
+      }
+    }
+    fleets = {
+      default = {
+        runner = "cached"
+      }
+    }
+  }
+
+  assert {
+    condition     = local.fleet_catalog.runners.cached.extras[0] == "s3-cache" && !can(local.fleet_catalog.runners.plain.extras)
+    error_message = "Fleet should accept runners with different optional fields without inventing omitted fields."
+  }
+}
+
 run "rejects_unknown_runner_field" {
   command = plan
 
@@ -333,6 +365,34 @@ run "rejects_unknown_image_field" {
   }
 
   expect_failures = [var.images]
+}
+
+run "accepts_mixed_shape_image_entries" {
+  command = plan
+
+  variables {
+    images = {
+      pinned = {
+        ami      = "ami-0123456789abcdef0"
+        platform = "linux"
+        arch     = "x64"
+        tags = {
+          purpose = "ci"
+        }
+      }
+      managed = {
+        name     = "runs-on-v2.2-ubuntu24-full-x64-*"
+        owner    = "898082745236"
+        platform = "linux"
+        arch     = "x64"
+      }
+    }
+  }
+
+  assert {
+    condition     = local.fleet_catalog.images.pinned.ami == "ami-0123456789abcdef0" && !can(local.fleet_catalog.images.managed.ami)
+    error_message = "Fleet should accept images with different optional fields without inventing omitted fields."
+  }
 }
 
 run "rejects_non_object_image_entry" {
@@ -369,6 +429,18 @@ run "rejects_non_object_fleet_entry" {
   }
 
   expect_failures = [var.fleets]
+}
+
+run "rejects_non_object_catalogs" {
+  command = plan
+
+  variables {
+    images  = []
+    runners = []
+    fleets  = []
+  }
+
+  expect_failures = [var.images, var.runners, var.fleets]
 }
 
 run "rejects_unknown_fleet_field" {
@@ -472,6 +544,93 @@ run "accepts_mixed_shape_fleet_schedule" {
             }
           },
         ]
+      }
+    }
+  }
+}
+
+run "accepts_mixed_shape_fleet_entries" {
+  command = plan
+
+  variables {
+    fleets = {
+      scheduled = {
+        runner = "small-x64"
+        schedule = [
+          {
+            name    = "office-hours"
+            hot     = 10
+            stopped = 0
+            match = {
+              day  = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+              time = ["07:00", "18:00"]
+            }
+          },
+          {
+            name    = "default"
+            stopped = 5
+          },
+        ]
+      }
+      on-demand = {
+        runner = "small-x64"
+      }
+    }
+  }
+
+  assert {
+    condition     = local.fleet_catalog.fleets.scheduled.schedule[1].stopped == 5 && !can(local.fleet_catalog.fleets["on-demand"].schedule)
+    error_message = "Fleet should accept fleet and schedule entries with different optional fields without inventing omitted fields."
+  }
+}
+
+run "basic_example_accepts_mixed_shape_catalogs" {
+  command = plan
+
+  module {
+    source = "./examples/basic"
+  }
+
+  variables {
+    github_enterprise_pat  = null
+    github_enterprise_name = null
+
+    images = {
+      pinned = {
+        ami      = "ami-0123456789abcdef0"
+        platform = "linux"
+        arch     = "x64"
+        tags = {
+          purpose = "ci"
+        }
+      }
+      managed = {
+        name     = "runs-on-v2.2-ubuntu24-full-x64-*"
+        owner    = "898082745236"
+        platform = "linux"
+        arch     = "x64"
+      }
+    }
+    runners = {
+      cached = {
+        family = ["c7"]
+        image  = "pinned"
+        extras = ["s3-cache"]
+      }
+      plain = {
+        family = ["c7"]
+        image  = "managed"
+      }
+    }
+    fleets = {
+      scheduled = {
+        runner = "cached"
+        schedule = [{
+          name = "default"
+        }]
+      }
+      on-demand = {
+        runner = "plain"
       }
     }
   }
