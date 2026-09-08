@@ -52,7 +52,7 @@ variable "github_organization" {
 }
 
 variable "github_enterprise_url" {
-  description = "GitHub Enterprise Server URL (optional, leave empty for github.com)"
+  description = "GitHub Enterprise web URL for GHE.com data residency or GitHub Enterprise Server (optional, leave empty for github.com)"
   type        = string
   default     = ""
 }
@@ -116,6 +116,12 @@ variable "ssh_allowed" {
   description = "Allow SSH access to runner instances"
   type        = bool
   default     = false
+}
+
+variable "ssm_allowed" {
+  description = "Enable SSM access for runner instances. When true, this attaches AmazonSSMManagedEC2InstanceDefaultPolicy to the runner instance role."
+  type        = bool
+  default     = true
 }
 
 variable "ssh_cidr_range" {
@@ -210,14 +216,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.2.3@sha256:6c2d5ede8996d875578e2fd6a5f472f89a75c7773525f1c747ec333065425e73"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.3.0@sha256:28fd8690c230dd9c43fe975d0df449d36afa9e0f59776fd07a2c08f1778275f7"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.2.3"
+  default     = "v3.3.0"
   nullable    = false
 }
 

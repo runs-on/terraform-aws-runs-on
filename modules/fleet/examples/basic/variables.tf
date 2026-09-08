@@ -35,7 +35,7 @@ variable "github_enterprise_pat" {
 }
 
 variable "github_base_url" {
-  description = "GitHub host root URL for github.com or GHES."
+  description = "GitHub web host root URL for github.com, GHE.com data residency, or GHES."
   type        = string
   default     = "https://github.com"
 }
@@ -111,13 +111,13 @@ variable "private_subnet_ids" {
 
 variable "images" {
   description = "Optional custom image catalog using fields supported by Fleet's ImageSpec. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here."
-  type        = map(any)
+  type        = any
   default     = {}
 }
 
 variable "runners" {
   description = "Example runner catalog using fields supported by Fleet's RunnerSpec."
-  type        = map(any)
+  type        = any
   default = {
     small-x64 = {
       cpu    = 2
@@ -136,7 +136,7 @@ variable "runners" {
 
 variable "fleets" {
   description = "Example fleet catalog using the config module PoolSpec shape."
-  type        = map(any)
+  type        = any
   default = {
     linux-small = {
       timezone     = "UTC"

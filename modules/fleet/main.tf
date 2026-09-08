@@ -302,6 +302,7 @@ module "compute" {
   log_retention_days          = var.log_retention_days
   permission_boundary_arn     = var.permission_boundary_arn
   runner_custom_policy_arns   = var.runner_custom_policy_arns
+  ssm_allowed                 = var.ssm_allowed
   enable_bedrock              = var.enable_bedrock
   enable_cache_isolation      = var.enable_cache_isolation
   enable_stickydisk_isolation = var.enable_stickydisk_isolation
@@ -330,6 +331,7 @@ module "control_plane" {
   control_plane                     = local.fleet_control_plane
   diagnostic_settings               = local.fleet_diagnostic_settings
   enable_cache_isolation            = var.enable_cache_isolation
+  permission_boundary_arn           = var.permission_boundary_arn
   tags                              = local.common_tags
 }
 

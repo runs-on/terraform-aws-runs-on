@@ -15,6 +15,8 @@ resource "aws_cloudwatch_log_group" "github_runner_cache_refresh_lambda" {
 resource "aws_iam_role" "github_runner_cache_refresh" {
   name = "${var.stack_name}-github-runner-cache-refresh-role"
 
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

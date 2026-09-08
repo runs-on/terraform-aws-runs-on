@@ -218,6 +218,12 @@ variable "enable_cache_isolation" {
   default     = false
 }
 
+variable "permission_boundary_arn" {
+  description = "Optional IAM permissions boundary ARN applied to control plane roles"
+  type        = string
+  default     = ""
+}
+
 variable "diagnostic_settings" {
   description = "Non-sensitive stack settings exposed by the job diagnostics resolver"
   type        = any

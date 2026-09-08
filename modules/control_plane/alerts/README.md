@@ -41,6 +41,7 @@ No modules.
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | RunsOn stack name used to name alerting resources. | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags applied to alerting resources. | `map(string)` | n/a | yes |
 | <a name="input_allow_budgets_publish"></a> [allow\_budgets\_publish](#input\_allow\_budgets\_publish) | Allow AWS Budgets in this account to publish to the alert topic. | `bool` | `false` | no |
+| <a name="input_permission_boundary_arn"></a> [permission\_boundary\_arn](#input\_permission\_boundary\_arn) | Optional IAM permissions boundary ARN applied to alerting roles | `string` | `""` | no |
 | <a name="input_slack_webhook_url"></a> [slack\_webhook\_url](#input\_slack\_webhook\_url) | Slack webhook URL for alert notifications. | `string` | `""` | no |
 
 ## Outputs

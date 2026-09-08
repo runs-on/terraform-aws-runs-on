@@ -1,12 +1,13 @@
 module "alerts" {
   source = "../alerts"
 
-  stack_name            = var.stack_name
-  account_id            = var.account_id
-  email                 = local.alerts.email
-  slack_webhook_url     = local.alerts.slack_webhook_url
-  allow_budgets_publish = local.operations.app_budget_daily_usd > 0
-  tags                  = local.common_tags
+  stack_name              = var.stack_name
+  account_id              = var.account_id
+  email                   = local.alerts.email
+  slack_webhook_url       = local.alerts.slack_webhook_url
+  allow_budgets_publish   = local.operations.app_budget_daily_usd > 0
+  permission_boundary_arn = var.permission_boundary_arn
+  tags                    = local.common_tags
 }
 
 moved {

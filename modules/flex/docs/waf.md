@@ -4,7 +4,7 @@ Enable AWS WAF to protect only the webhook ingestion endpoint at `/github/webhoo
 
 For `github.com`, RunsOn can manage the default Web ACL for you and refresh GitHub webhook IP ranges every hour. If you provide `public_ingress_web_acl_arn`, RunsOn will associate that ACL instead of creating a managed one.
 
-For GitHub Enterprise Server, automatic GitHub IP synchronization is not supported. If `enable_waf = true`, you must also set `public_ingress_web_acl_arn`.
+For GHE.com data residency and GitHub Enterprise Server, automatic GitHub IP synchronization is not supported. If `enable_waf = true`, you must also set `public_ingress_web_acl_arn`.
 
 ## Behavior
 
@@ -21,7 +21,7 @@ If `enable_admin_routes = false`, the admin Lambda exposure is removed entirely,
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.3"
+  version = "v3.3.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -39,7 +39,7 @@ module "runs-on" {
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.2.3"
+  version = "v3.3.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

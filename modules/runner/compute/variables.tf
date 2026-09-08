@@ -79,6 +79,12 @@ variable "runner_custom_policy_arns" {
   default     = []
 }
 
+variable "ssm_allowed" {
+  description = "Enable SSM access for runner instances. When true, this attaches AmazonSSMManagedEC2InstanceDefaultPolicy to the runner instance role."
+  type        = bool
+  default     = true
+}
+
 variable "enable_bedrock" {
   description = "Enable Amazon Bedrock access for EC2 runner instances"
   type        = bool

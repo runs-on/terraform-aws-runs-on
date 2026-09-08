@@ -74,14 +74,39 @@ function createDefaultAws() {
   };
 }
 
+function githubEndpoints(raw) {
+  // Mirror pkg/githubplatform Resolve: tolerate a terminal /api/v3 path and
+  // normalize the public GitHub hosts back to the github.com platform.
+  const configured = String(raw || '').trim().replace(/\/+$/, '').replace(/\/api\/v3$/i, '');
+  if (!configured || /^https:\/\/(?:www\.|api\.)?github\.com(?::\d+)?$/i.test(configured)) {
+    return { platform: 'github.com', webUrl: 'https://github.com/', apiUrl: 'https://api.github.com/' };
+  }
+
+  try {
+    const parsed = new URL(configured);
+    const match = parsed.hostname.toLowerCase().match(/^(?:api\.)?([^.]+)\.ghe\.com$/);
+    if (match) {
+      const webHost = `${match[1]}.ghe.com`;
+      return {
+        platform: 'ghe.com',
+        webUrl: `${parsed.protocol}//${webHost}/`,
+        apiUrl: `${parsed.protocol}//api.${webHost}/`,
+      };
+    }
+  } catch (_error) {
+    // Preserve the configured value in the setup link so the resulting error
+    // points at the invalid customer input instead of github.com.
+  }
+
+  return { platform: 'ghes', webUrl: configured + '/', apiUrl: configured + '/api/v3/' };
+}
+
 function githubBaseUrl() {
-  const enterprise = String(process.env.RUNS_ON_GITHUB_ENTERPRISE_URL || '').trim();
-  return enterprise ? enterprise.replace(/\/+$/, '') + '/' : 'https://github.com/';
+  return githubEndpoints(process.env.RUNS_ON_GITHUB_ENTERPRISE_URL).webUrl;
 }
 
 function githubApiUrl() {
-  const enterprise = String(process.env.RUNS_ON_GITHUB_ENTERPRISE_URL || '').trim();
-  return enterprise ? enterprise.replace(/\/+$/, '') + '/api/v3/' : 'https://api.github.com/';
+  return githubEndpoints(process.env.RUNS_ON_GITHUB_ENTERPRISE_URL).apiUrl;
 }
 
 function normalizedHeaders(headers) {
@@ -1131,6 +1156,7 @@ function createHandler(options = {}) {
 module.exports = {
   buildPendingPersistedGitHubApps,
   createHandler,
+  githubEndpoints,
   handler: createHandler(),
   renderSetupSuccessPage,
 };

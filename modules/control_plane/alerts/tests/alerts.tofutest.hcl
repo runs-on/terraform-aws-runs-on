@@ -59,8 +59,9 @@ run "slack_and_budget_alerts" {
   command = plan
 
   variables {
-    slack_webhook_url     = "https://hooks.slack.com/services/example"
-    allow_budgets_publish = true
+    slack_webhook_url       = "https://hooks.slack.com/services/example"
+    allow_budgets_publish   = true
+    permission_boundary_arn = "arn:aws:iam::123456789012:policy/RequiredBoundary"
   }
 
   assert {
@@ -71,6 +72,11 @@ run "slack_and_budget_alerts" {
   assert {
     condition     = output.slack_webhook_lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:mock"
     error_message = "Slack webhook Lambda ARN output should expose non-secret resource metadata."
+  }
+
+  assert {
+    condition     = aws_iam_role.slack_webhook[0].permissions_boundary == var.permission_boundary_arn
+    error_message = "The Slack webhook role should use the configured permissions boundary."
   }
 
   assert {

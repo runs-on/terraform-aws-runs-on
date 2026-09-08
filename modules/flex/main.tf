@@ -34,7 +34,7 @@ resource "terraform_data" "validate_public_subnets" {
 check "ghes_waf_requires_public_ingress_web_acl" {
   assert {
     condition     = !var.enable_waf || trimspace(var.github_enterprise_url) == "" || trimspace(var.public_ingress_web_acl_arn) != ""
-    error_message = "enable_waf=true with github_enterprise_url requires public_ingress_web_acl_arn. Automatic GitHub webhook IP synchronization is only supported for github.com."
+    error_message = "enable_waf=true with a GHE.com or GHES github_enterprise_url requires public_ingress_web_acl_arn. Automatic GitHub webhook IP synchronization is only supported for github.com."
   }
 }
 
@@ -327,6 +327,7 @@ module "compute" {
   log_retention_days          = var.log_retention_days
   permission_boundary_arn     = var.permission_boundary_arn
   runner_custom_policy_arns   = var.runner_custom_policy_arns
+  ssm_allowed                 = var.ssm_allowed
   enable_bedrock              = var.enable_bedrock
   enable_cache_isolation      = var.enable_cache_isolation
   enable_stickydisk_isolation = var.enable_stickydisk_isolation
@@ -343,21 +344,22 @@ module "control_plane" {
   region     = local.region
   account_id = local.account_id
 
-  stack_name             = var.stack_name
-  environment            = var.environment
-  cost_allocation_tag    = var.cost_allocation_tag
-  license_key            = var.license_key
-  network                = module.network.network
-  extras                 = module.extras.extras
-  compute                = module.compute.compute
-  github                 = local.flex_github
-  runtime                = local.flex_runtime
-  runner                 = local.flex_runner
-  operations             = local.flex_operations
-  diagnostic_settings    = local.flex_diagnostic_settings
-  alerts                 = local.flex_alerts
-  enable_cache_isolation = var.enable_cache_isolation
-  tags                   = local.common_tags
+  stack_name              = var.stack_name
+  environment             = var.environment
+  cost_allocation_tag     = var.cost_allocation_tag
+  license_key             = var.license_key
+  network                 = module.network.network
+  extras                  = module.extras.extras
+  compute                 = module.compute.compute
+  github                  = local.flex_github
+  runtime                 = local.flex_runtime
+  runner                  = local.flex_runner
+  operations              = local.flex_operations
+  diagnostic_settings     = local.flex_diagnostic_settings
+  alerts                  = local.flex_alerts
+  enable_cache_isolation  = var.enable_cache_isolation
+  permission_boundary_arn = var.permission_boundary_arn
+  tags                    = local.common_tags
 
   # Ensure NAT gateway is ready before the worker service starts
   depends_on = [

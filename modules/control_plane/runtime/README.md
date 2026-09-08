@@ -73,6 +73,7 @@ No modules.
 | <a name="input_extra_execution_role_statements"></a> [extra\_execution\_role\_statements](#input\_extra\_execution\_role\_statements) | Additional IAM statements appended to the ECS task execution role policy | `any` | `[]` | no |
 | <a name="input_extra_task_role_statements"></a> [extra\_task\_role\_statements](#input\_extra\_task\_role\_statements) | Additional IAM statements appended to the shared task role policy | `any` | `[]` | no |
 | <a name="input_force_new_deployment"></a> [force\_new\_deployment](#input\_force\_new\_deployment) | Force a new ECS deployment of the worker service. | `bool` | `false` | no |
+| <a name="input_permission_boundary_arn"></a> [permission\_boundary\_arn](#input\_permission\_boundary\_arn) | Optional IAM permissions boundary ARN applied to runtime roles | `string` | `""` | no |
 | <a name="input_platform_version"></a> [platform\_version](#input\_platform\_version) | Fargate platform version | `string` | `"LATEST"` | no |
 | <a name="input_task_role_managed_policy_arns"></a> [task\_role\_managed\_policy\_arns](#input\_task\_role\_managed\_policy\_arns) | Managed policy ARNs attached to the shared task role | `list(string)` | `[]` | no |
 
