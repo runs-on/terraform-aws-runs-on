@@ -328,17 +328,17 @@ func TestPlanSourceTerraformLambdaArtifactsAreBundled(t *testing.T) {
 
 	for _, parts := range [][]string{
 		{"modules", "control_plane", "alerts", "main.tf"},
-		{"modules", "control_plane", "fleet", "cache_credential_broker.tf"},
-		{"modules", "control_plane", "fleet", "job_diagnostics_resolver.tf"},
-		{"modules", "control_plane", "fleet", "main.tf"},
-		{"modules", "control_plane", "fleet", "secrets.tf"},
-		{"modules", "control_plane", "flex", "cache_credential_broker.tf"},
-		{"modules", "control_plane", "flex", "github_runner_cache.tf"},
-		{"modules", "control_plane", "flex", "ingress.tf"},
-		{"modules", "control_plane", "flex", "job_diagnostics_resolver.tf"},
-		{"modules", "control_plane", "flex", "main.tf"},
-		{"modules", "control_plane", "flex", "secrets.tf"},
-		{"modules", "control_plane", "flex", "waf.tf"},
+		{"modules", "control_plane", "control_plane_fleet", "cache_credential_broker.tf"},
+		{"modules", "control_plane", "control_plane_fleet", "job_diagnostics_resolver.tf"},
+		{"modules", "control_plane", "control_plane_fleet", "main.tf"},
+		{"modules", "control_plane", "control_plane_fleet", "secrets.tf"},
+		{"modules", "control_plane", "control_plane_flex", "cache_credential_broker.tf"},
+		{"modules", "control_plane", "control_plane_flex", "github_runner_cache.tf"},
+		{"modules", "control_plane", "control_plane_flex", "ingress.tf"},
+		{"modules", "control_plane", "control_plane_flex", "job_diagnostics_resolver.tf"},
+		{"modules", "control_plane", "control_plane_flex", "main.tf"},
+		{"modules", "control_plane", "control_plane_flex", "secrets.tf"},
+		{"modules", "control_plane", "control_plane_flex", "waf.tf"},
 	} {
 		source := readTerraformSource(t, parts...)
 		path := strings.Join(parts, "/")
@@ -372,8 +372,8 @@ func TestPlanSourceTerraformLambdaArtifactsAreBundled(t *testing.T) {
 		assert.Equal(t, artifact.zipEntry, archive.File[0].Name, artifact.name)
 	}
 
-	flexMain := readTerraformSource(t, "modules", "control_plane", "flex", "main.tf")
-	fleetMain := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
+	flexMain := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "main.tf")
+	fleetMain := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "main.tf")
 	alertsMain := readTerraformSource(t, "modules", "control_plane", "alerts", "main.tf")
 	assert.Contains(t, flexMain, `lambda_artifact_dir`)
 	assert.Contains(t, fleetMain, `lambda_artifact_dir`)
@@ -383,11 +383,11 @@ func TestPlanSourceTerraformLambdaArtifactsAreBundled(t *testing.T) {
 func TestPlanSourceStackConfigMaterializerWiring(t *testing.T) {
 	t.Parallel()
 
-	secretsTF := readTerraformSource(t, "modules", "control_plane", "flex", "secrets.tf")
-	mainTF := readTerraformSource(t, "modules", "control_plane", "flex", "main.tf")
-	ingressTF := readTerraformSource(t, "modules", "control_plane", "flex", "ingress.tf")
-	resolverTF := readTerraformSource(t, "modules", "control_plane", "flex", "job_diagnostics_resolver.tf")
-	serviceTF := readTerraformSource(t, "modules", "control_plane", "flex", "service.tf")
+	secretsTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "secrets.tf")
+	mainTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "main.tf")
+	ingressTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "ingress.tf")
+	resolverTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "job_diagnostics_resolver.tf")
+	serviceTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "service.tf")
 
 	assert.NotContains(t, secretsTF, `resource "aws_secretsmanager_secret_version" "runs_on_stack_config"`)
 	assert.Contains(t, secretsTF, `resource "aws_lambda_invocation" "stack_config_materializer"`)
@@ -434,9 +434,9 @@ func TestPlanSourceRuntimeECSServicePropagatesTagsToTasks(t *testing.T) {
 func TestPlanSourceFleetConfigMaterializerWiring(t *testing.T) {
 	t.Parallel()
 
-	mainTF := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
-	resolverTF := readTerraformSource(t, "modules", "control_plane", "fleet", "job_diagnostics_resolver.tf")
-	secretsTF := readTerraformSource(t, "modules", "control_plane", "fleet", "secrets.tf")
+	mainTF := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "main.tf")
+	resolverTF := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "job_diagnostics_resolver.tf")
+	secretsTF := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "secrets.tf")
 
 	assert.NotContains(t, mainTF, `resource "aws_secretsmanager_secret_version" "config"`)
 	assert.NotContains(t, secretsTF, `resource "aws_secretsmanager_secret_version" "config"`)
@@ -457,7 +457,7 @@ func TestPlanSourceFleetConfigMaterializerWiring(t *testing.T) {
 func TestPlanSourceFleetRunsOneControllerDuringDeployments(t *testing.T) {
 	t.Parallel()
 
-	fleetTF := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
+	fleetTF := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "main.tf")
 	runtimeTF := readTerraformSource(t, "modules", "control_plane", "runtime", "main.tf")
 
 	assert.Contains(t, fleetTF, "deployment_maximum_percent = 100")
@@ -524,7 +524,7 @@ func TestPlanSourceRuntimeWaitsForECSServiceSteadyState(t *testing.T) {
 func TestPlanSourcePublicIngressDeploymentAvoidsAdminRouteDestroyCycle(t *testing.T) {
 	t.Parallel()
 
-	ingressTF := readTerraformSource(t, "modules", "control_plane", "flex", "ingress.tf")
+	ingressTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "ingress.tf")
 	_, afterDeployment, ok := strings.Cut(ingressTF, `resource "aws_api_gateway_deployment" "public_ingress"`)
 	require.True(t, ok, "public ingress deployment resource should exist")
 
@@ -548,7 +548,7 @@ func TestPlanSourcePublicIngressDeploymentAvoidsAdminRouteDestroyCycle(t *testin
 func TestGitHubRunnerCacheRefreshSeedSourceWiring(t *testing.T) {
 	t.Parallel()
 
-	githubRunnerCacheTF := readTerraformSource(t, "modules", "control_plane", "flex", "github_runner_cache.tf")
+	githubRunnerCacheTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "github_runner_cache.tf")
 
 	assert.Contains(t, githubRunnerCacheTF, `resource "aws_lambda_invocation" "github_runner_cache_refresh_seed"`)
 	assert.Contains(t, githubRunnerCacheTF, "function_name = aws_lambda_function.github_runner_cache_refresh.function_name")
@@ -563,7 +563,7 @@ func TestPlanSourceCustomPolicyWiring(t *testing.T) {
 
 	mainTF := readTerraformSource(t, "modules", "flex", "main.tf")
 	fleetMainTF := readTerraformSource(t, "modules", "fleet", "main.tf")
-	serviceTF := readTerraformSource(t, "modules", "control_plane", "flex", "service.tf")
+	serviceTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "service.tf")
 
 	// Regexp rather than Contains: the sticky-disk isolation flags widen the
 	// compute block's argument alignment, so exact spacing would be brittle.
@@ -594,10 +594,10 @@ func TestPlanSourcePermissionBoundaryWiring(t *testing.T) {
 
 	flexRoot := readTerraformSource(t, "modules", "flex", "main.tf")
 	fleetRoot := readTerraformSource(t, "modules", "fleet", "main.tf")
-	flexService := readTerraformSource(t, "modules", "control_plane", "flex", "service.tf")
-	flexAlerts := readTerraformSource(t, "modules", "control_plane", "flex", "sns.tf")
-	fleetControlPlane := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
-	fleetAlerts := readTerraformSource(t, "modules", "control_plane", "fleet", "alerts.tf")
+	flexService := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "service.tf")
+	flexAlerts := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "sns.tf")
+	fleetControlPlane := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "main.tf")
+	fleetAlerts := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "alerts.tf")
 
 	assert.GreaterOrEqual(t, strings.Count(flexRoot, "permission_boundary_arn"), 2,
 		"Flex should pass the boundary to both runner and control plane modules")
@@ -614,19 +614,19 @@ func TestPlanSourcePermissionBoundaryWiring(t *testing.T) {
 
 	roleSources := map[string]string{
 		"Flex": strings.Join([]string{
-			readTerraformSource(t, "modules", "control_plane", "flex", "waf.tf"),
-			readTerraformSource(t, "modules", "control_plane", "flex", "ingress.tf"),
-			readTerraformSource(t, "modules", "control_plane", "flex", "github_runner_cache.tf"),
-			readTerraformSource(t, "modules", "control_plane", "flex", "eventbridge.tf"),
-			readTerraformSource(t, "modules", "control_plane", "flex", "secrets.tf"),
-			readTerraformSource(t, "modules", "control_plane", "flex", "cache_credential_broker.tf"),
-			readTerraformSource(t, "modules", "control_plane", "flex", "job_diagnostics_resolver.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "waf.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "ingress.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "github_runner_cache.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "eventbridge.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "secrets.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "cache_credential_broker.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "job_diagnostics_resolver.tf"),
 		}, "\n"),
 		"Fleet": strings.Join([]string{
-			readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf"),
-			readTerraformSource(t, "modules", "control_plane", "fleet", "secrets.tf"),
-			readTerraformSource(t, "modules", "control_plane", "fleet", "cache_credential_broker.tf"),
-			readTerraformSource(t, "modules", "control_plane", "fleet", "job_diagnostics_resolver.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "main.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "secrets.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "cache_credential_broker.tf"),
+			readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "job_diagnostics_resolver.tf"),
 		}, "\n"),
 		"Runtime": readTerraformSource(t, "modules", "control_plane", "runtime", "main.tf"),
 		"Alerts":  readTerraformSource(t, "modules", "control_plane", "alerts", "main.tf"),
@@ -642,9 +642,9 @@ func TestPlanSourcePermissionBoundaryWiring(t *testing.T) {
 func TestCacheCredentialBrokerWiring(t *testing.T) {
 	t.Parallel()
 
-	brokerTF := readTerraformSource(t, "modules", "control_plane", "flex", "cache_credential_broker.tf")
-	fleetBrokerTF := readTerraformSource(t, "modules", "control_plane", "fleet", "cache_credential_broker.tf")
-	fleetMainTF := readTerraformSource(t, "modules", "control_plane", "fleet", "main.tf")
+	brokerTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "cache_credential_broker.tf")
+	fleetBrokerTF := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "cache_credential_broker.tf")
+	fleetMainTF := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "main.tf")
 	computeIAM := readTerraformSource(t, "modules", "runner", "compute", "iam.tf")
 	extrasS3 := readTerraformSource(t, "modules", "runner", "extras", "s3.tf")
 	cloudFormation := readRepoSource(t, "cloudformation", "template.yaml")

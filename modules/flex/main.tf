@@ -339,7 +339,7 @@ module "compute" {
 }
 
 module "control_plane" {
-  source = "../control_plane/flex"
+  source = "../control_plane/control_plane_flex"
 
   region     = local.region
   account_id = local.account_id

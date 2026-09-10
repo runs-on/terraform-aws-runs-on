@@ -314,7 +314,7 @@ module "compute" {
 }
 
 module "control_plane" {
-  source = "../control_plane/fleet"
+  source = "../control_plane/control_plane_fleet"
 
   region     = local.region
   account_id = data.aws_caller_identity.current.account_id

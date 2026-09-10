@@ -569,6 +569,15 @@ run "worker_policy_scopes_stack_state_resources" {
   assert {
     condition = anytrue([
       for statement in local.flex_control_plane_extra_policy_statements :
+      statement.Action == ["ssm:GetParameter"] &&
+      statement.Resource == "arn:aws:ssm:us-east-1:123456789012:parameter/${var.stack_name}/license-key"
+    ])
+    error_message = "Worker must have read-only access to the stack license-key parameter."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in local.flex_control_plane_extra_policy_statements :
       statement.Action == [
         "ssm:PutParameter",
         "ssm:GetParameter",

@@ -31,6 +31,11 @@ locals {
       Resource = module.alerts.topic_arn
     },
     {
+      Effect   = "Allow"
+      Action   = ["ssm:GetParameter"]
+      Resource = "arn:${local.partition}:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/license-key"
+    },
+    {
       Effect = "Allow"
       Action = [
         "ssm:PutParameter",

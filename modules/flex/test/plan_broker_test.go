@@ -14,8 +14,8 @@ import (
 func TestPlanSourceCacheCredentialBrokerWiring(t *testing.T) {
 	t.Parallel()
 
-	brokerTF := readTerraformSource(t, "modules", "control_plane", "flex", "cache_credential_broker.tf")
-	fleetBrokerTF := readTerraformSource(t, "modules", "control_plane", "fleet", "cache_credential_broker.tf")
+	brokerTF := readTerraformSource(t, "modules", "control_plane", "control_plane_flex", "cache_credential_broker.tf")
+	fleetBrokerTF := readTerraformSource(t, "modules", "control_plane", "control_plane_fleet", "cache_credential_broker.tf")
 	computeIAM := readTerraformSource(t, "modules", "runner", "compute", "iam.tf")
 	extrasS3 := readTerraformSource(t, "modules", "runner", "extras", "s3.tf")
 	brokerJS := readRepoSource(t, "terraform", "lambdas", "cache_credential_broker.js")
