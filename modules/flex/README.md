@@ -20,7 +20,7 @@ Public module source:
 ```hcl
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.3.0"
+  version = "v3.3.1"
 }
 ```
 
@@ -133,7 +133,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.3.0"
+  version = "v3.3.1"
 
   stack_name = var.stack_name
 
@@ -312,7 +312,7 @@ Minimal key-policy statement:
 | Name | Source | Version |
 |------|--------|---------|
 | <a name="module_compute"></a> [compute](#module\_compute) | ../runner/compute | n/a |
-| <a name="module_control_plane"></a> [control\_plane](#module\_control\_plane) | ../control_plane/flex | n/a |
+| <a name="module_control_plane"></a> [control\_plane](#module\_control\_plane) | ../control_plane/control_plane_flex | n/a |
 | <a name="module_extras"></a> [extras](#module\_extras) | ../runner/extras | n/a |
 | <a name="module_network"></a> [network](#module\_network) | ../runner/network | n/a |
 
@@ -338,9 +338,9 @@ Minimal key-policy statement:
 | <a name="input_app_custom_policy_arns"></a> [app\_custom\_policy\_arns](#input\_app\_custom\_policy\_arns) | Optional managed IAM policy ARNs to attach to the RunsOn service role. | `list(string)` | `[]` | no |
 | <a name="input_app_ecr_repository_url"></a> [app\_ecr\_repository\_url](#input\_app\_ecr\_repository\_url) | Private ECR repository URL for RunsOn image (e.g., 123456789012.dkr.ecr.us-east-1.amazonaws.com/my-repo:tag). When specified, the worker service will pull from this private ECR instead of public ECR. | `string` | `""` | no |
 | <a name="input_app_force_new_deployment"></a> [app\_force\_new\_deployment](#input\_app\_force\_new\_deployment) | Force a new ECS deployment of the RunsOn control-plane service. Set to true for one apply when migrating existing installs across the v3.0.6 ECS capacity provider change or when changing app\_capacity\_provider. | `bool` | `false` | no |
-| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.3.0@sha256:28fd8690c230dd9c43fe975d0df449d36afa9e0f59776fd07a2c08f1778275f7"` | no |
+| <a name="input_app_image"></a> [app\_image](#input\_app\_image) | Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.3.1@sha256:d5194302c11127f8158e21154c6daeed4343d34615e0f98d6270ed6ff506c929"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.3.0"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application version tag for RunsOn service. Published module releases inject the released default during mirror publication. | `string` | `"v3.3.1"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap script version tag | `string` | `"v0.1.12"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |

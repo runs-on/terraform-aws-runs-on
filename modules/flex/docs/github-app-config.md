@@ -61,7 +61,7 @@ Once your app is created, pass the credentials as Terraform variables:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.3.0"
+  version = "v3.3.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -105,3 +105,13 @@ After the first deployment:
 3. Update the GitHub App setup URL to `https://<YOUR_RUNSON_BASE_URL>/setup/success`
 
 Once GitHub points at this public URL, you can enable AWS WAF on the API Gateway stage later without changing the GitHub App webhook URL again.
+
+## License key in SSM
+
+For Flex, `license_key` accepts the key itself or an SSM parameter ARN:
+`arn:PARTITION:ssm:REGION:ACCOUNT:parameter/STACK_NAME/license-key`.
+Use the stack's region, account, and name. The service role can read this parameter but cannot modify it.
+If the parameter uses a customer-managed KMS key, grant the service role `kms:Decrypt` on that key separately.
+
+After updating permissions, restart the ECS service to reload the license key.
+Check the worker logs for `License key loaded from SSM`, followed by `License check`.
