@@ -217,6 +217,10 @@ removed {
   # Preserve pre-materializer config versions in Secrets Manager while removing
   # provider ownership of staging labels from existing Fleet state.
   from = aws_secretsmanager_secret_version.config
+
+  lifecycle {
+    destroy = true
+  }
 }
 
 resource "aws_ssm_parameter" "license_status" {
