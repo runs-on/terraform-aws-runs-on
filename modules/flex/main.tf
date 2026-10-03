@@ -103,6 +103,7 @@ locals {
     otel_traces_enabled       = var.otel_traces_enabled
     logger_level              = var.logger_level
     extra_env_vars            = var.extra_env_vars
+    container_insights        = var.container_insights_enabled
   }
 
   flex_runner = {

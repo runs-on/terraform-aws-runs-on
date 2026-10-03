@@ -318,12 +318,10 @@ resource "aws_cloudwatch_log_group" "this" {
 resource "aws_ecs_cluster" "this" {
   name = var.cluster_name
 
-  dynamic "setting" {
-    for_each = var.container_insights_enabled ? [1] : []
-    content {
-      name  = "containerInsights"
-      value = "enabled"
-    }
+  # Always declared: dropping the block would leave an existing cluster's "enabled" value in place.
+  setting {
+    name  = "containerInsights"
+    value = var.container_insights_enabled ? "enabled" : "disabled"
   }
 
   tags = merge(

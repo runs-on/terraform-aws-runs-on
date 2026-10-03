@@ -267,6 +267,12 @@ variable "app_capacity_provider" {
   }
 }
 
+variable "container_insights_enabled" {
+  description = "Enable ECS Container Insights on the control-plane cluster. Container Insights publishes custom CloudWatch metrics billed per metric; small installs can set false to avoid that fixed cost."
+  type        = bool
+  default     = true
+}
+
 variable "app_force_new_deployment" {
   description = "Force a new ECS deployment of the RunsOn control-plane service. Set to true for one apply when migrating existing installs across the v3.0.6 ECS capacity provider change or when changing app_capacity_provider."
   type        = bool

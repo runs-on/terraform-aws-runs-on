@@ -123,6 +123,7 @@ module "runtime" {
   stack_name = var.stack_name
 
   cluster_name                    = var.stack_name
+  container_insights_enabled      = local.runtime.container_insights
   service_name                    = "flexd"
   task_definition_family          = "${var.stack_name}-flexd"
   execution_role_name             = "${var.stack_name}-flex-execution-role"
