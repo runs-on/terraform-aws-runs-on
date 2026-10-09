@@ -159,6 +159,7 @@ variable "runtime" {
     otel_traces_enabled       = bool
     logger_level              = string
     extra_env_vars            = map(string)
+    container_insights        = optional(bool, false)
   })
 }
 
@@ -211,6 +212,12 @@ variable "alerts" {
     condition     = trimspace(var.alerts.email) != ""
     error_message = "alerts.email must not be empty."
   }
+}
+
+variable "messaging_kms_key_arn" {
+  description = "Customer-managed KMS key ARN for SQS queue and SNS alert topic encryption. Empty keeps SQS-managed SSE on queues and no SSE on the topic (SNS default disk encryption only)."
+  type        = string
+  default     = ""
 }
 
 variable "tags" {

@@ -77,7 +77,7 @@ resource "aws_iam_role_policy" "public_ingress" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         Effect = "Allow"
         Action = [
@@ -85,7 +85,7 @@ resource "aws_iam_role_policy" "public_ingress" {
         ]
         Resource = aws_sqs_queue.webhooks.arn
       },
-    ]
+    ], local.messaging_kms_statements)
   })
 }
 
@@ -177,7 +177,7 @@ resource "aws_iam_role_policy" "github_apps_setup" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         Effect = "Allow"
         Action = [
@@ -235,7 +235,7 @@ resource "aws_iam_role_policy" "github_apps_setup" {
         ]
         Resource = aws_sqs_queue.system.arn
       },
-    ]
+    ], local.messaging_kms_statements)
   })
 }
 

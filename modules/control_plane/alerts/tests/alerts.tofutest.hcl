@@ -53,6 +53,11 @@ run "email_only_alerts" {
     condition     = length(aws_sns_topic_policy.alerts) == 0
     error_message = "Budget publish policy should be absent by default."
   }
+
+  assert {
+    condition     = aws_sns_topic.alerts.kms_master_key_id == null
+    error_message = "Alert topic should have no SSE key without a KMS key."
+  }
 }
 
 run "slack_and_budget_alerts" {
@@ -63,6 +68,12 @@ run "slack_and_budget_alerts" {
     allow_budgets_publish   = true
     log_retention_days      = 365
     permission_boundary_arn = "arn:aws:iam::123456789012:policy/RequiredBoundary"
+    kms_key_arn             = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+  }
+
+  assert {
+    condition     = aws_sns_topic.alerts.kms_master_key_id == var.kms_key_arn
+    error_message = "Alert topic should use the configured KMS key."
   }
 
   assert {

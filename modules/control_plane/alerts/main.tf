@@ -16,8 +16,9 @@ locals {
 }
 
 resource "aws_sns_topic" "alerts" {
-  name         = "${var.stack_name}-alerts"
-  display_name = "RunsOn Alerts"
+  name              = "${var.stack_name}-alerts"
+  display_name      = "RunsOn Alerts"
+  kms_master_key_id = var.kms_key_arn != "" ? var.kms_key_arn : null
 
   tags = merge(
     var.tags,

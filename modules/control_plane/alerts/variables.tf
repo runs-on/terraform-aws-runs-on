@@ -31,6 +31,12 @@ variable "allow_budgets_publish" {
   default     = false
 }
 
+variable "kms_key_arn" {
+  description = "Customer-managed KMS key ARN for alert topic server-side encryption. Empty leaves SSE off (SNS default disk encryption only)."
+  type        = string
+  default     = ""
+}
+
 variable "log_retention_days" {
   description = "CloudWatch Logs retention in days for the Slack webhook Lambda."
   type        = number

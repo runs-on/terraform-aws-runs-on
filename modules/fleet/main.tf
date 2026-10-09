@@ -86,6 +86,7 @@ locals {
     otel_logs_enabled         = var.otel_logs_enabled
     otel_traces_enabled       = var.otel_traces_enabled
     extra_env_vars            = var.extra_env_vars
+    container_insights        = var.container_insights_enabled
   }
 
   fleet_control_plane = {
@@ -333,6 +334,7 @@ module "control_plane" {
   diagnostic_settings               = local.fleet_diagnostic_settings
   enable_cache_isolation            = var.enable_cache_isolation
   permission_boundary_arn           = var.permission_boundary_arn
+  messaging_kms_key_arn             = var.messaging_kms_key_arn
   tags                              = local.common_tags
 }
 

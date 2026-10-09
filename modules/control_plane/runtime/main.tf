@@ -120,6 +120,19 @@ locals {
       Resource = var.runner_instance_role_arn
     },
     {
+      # The control plane publishes each built-in image's current AMI under
+      # /<stack>/images for EC2 Image Builder recipes and other consumers.
+      Effect = "Allow"
+      Action = [
+        "ssm:GetParametersByPath",
+        "ssm:PutParameter",
+      ]
+      Resource = [
+        "arn:${local.partition}:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/images",
+        "arn:${local.partition}:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/images/*",
+      ]
+    },
+    {
       Effect = "Allow"
       Action = [
         "ec2:TerminateInstances",
@@ -318,12 +331,10 @@ resource "aws_cloudwatch_log_group" "this" {
 resource "aws_ecs_cluster" "this" {
   name = var.cluster_name
 
-  dynamic "setting" {
-    for_each = var.container_insights_enabled ? [1] : []
-    content {
-      name  = "containerInsights"
-      value = "enabled"
-    }
+  # Always declared: removing the setting leaves an existing cluster's value unchanged.
+  setting {
+    name  = "containerInsights"
+    value = var.container_insights_enabled ? "enabled" : "disabled"
   }
 
   tags = merge(
@@ -447,7 +458,22 @@ resource "aws_ecs_task_definition" "this" {
     operating_system_family = "LINUX"
   }
 
-  container_definitions = jsonencode(var.container_definitions)
+  # Containers get a read-only root filesystem (Security Hub ECS.5). Fargate
+  # has no tmpfs, so /tmp (worker heartbeat) is an empty task volume.
+  container_definitions = jsonencode([
+    for container in var.container_definitions : merge(container, {
+      readonlyRootFilesystem = true
+      mountPoints = concat(try(container.mountPoints, []), [{
+        sourceVolume  = "tmp"
+        containerPath = "/tmp"
+        readOnly      = false
+      }])
+    })
+  ])
+
+  volume {
+    name = "tmp"
+  }
 
   tags = merge(
     var.tags,

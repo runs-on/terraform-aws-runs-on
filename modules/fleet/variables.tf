@@ -35,7 +35,7 @@ variable "github_enterprise_pat" {
 }
 
 variable "github_base_url" {
-  description = "GitHub web host root URL. Leave the default for github.com, or set a GHE.com data-residency or GHES host."
+  description = "GitHub web host root URL (https). Leave the default for github.com, or set a GHE.com data-residency or GHES host."
   type        = string
   default     = "https://github.com"
 }
@@ -245,7 +245,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.4.0@sha256:08c80b917f9c3e7e3968e2e030ced82b2fd5319b03679339484c2debeb4c6eb5"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.5.0-rc.1@sha256:2737b8539ea802e1723fa696b5432debdb3a87243a9870a843da37a2cb765687"
   nullable    = false
 }
 
@@ -276,7 +276,7 @@ variable "otel_exporter_headers" {
 }
 
 variable "otel_exporter_temporality" {
-  description = "OTLP metrics temporality: cumulative (default) or delta"
+  description = "OTLP metrics temporality: cumulative (default, for Prometheus-compatible backends) or delta (recommended for SigNoz, required by Datadog). Delta applies to counters and histograms; up-down counters stay cumulative."
   type        = string
   default     = "cumulative"
 
@@ -315,6 +315,12 @@ variable "app_size" {
   }
 }
 
+variable "container_insights_enabled" {
+  description = "Enable ECS Container Insights on the control-plane cluster. Disabled by default: Container Insights publishes custom CloudWatch metrics billed per metric, a fixed cost the RunsOn dashboards do not need."
+  type        = bool
+  default     = false
+}
+
 variable "app_capacity_provider" {
   description = "Fargate capacity provider for the Fleet worker service. Use fargate_spot to lower idle cost for small installs; interrupted in-flight assigned jobs are reconciled by the Fleet runtime."
   type        = string
@@ -341,7 +347,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version."
   type        = string
-  default     = "v3.4.0"
+  default     = "v3.5.0-rc.1"
   nullable    = false
 }
 
@@ -448,6 +454,17 @@ variable "permission_boundary_arn" {
   description = "Optional IAM permission boundary ARN applied to created roles."
   type        = string
   default     = ""
+}
+
+variable "messaging_kms_key_arn" {
+  description = "Customer-managed KMS key ARN used to encrypt the SNS alerts topic (Fleet creates no SQS queues). Leave empty for no SSE on the topic (SNS default disk encryption only). The module grants RunsOn roles access through IAM, so the key policy must delegate to IAM in this account."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = trimspace(var.messaging_kms_key_arn) == "" || can(regex("^arn:[^:]+:kms:[^:]+:[0-9]{12}:key/[^/]+$", trimspace(var.messaging_kms_key_arn)))
+    error_message = "messaging_kms_key_arn must be empty or a KMS key ARN (arn:<partition>:kms:<region>:<account>:key/<id>); aliases are not supported."
+  }
 }
 
 variable "runner_custom_policy_arns" {

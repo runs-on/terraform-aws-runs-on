@@ -136,6 +136,12 @@ variable "compute" {
   })
 }
 
+variable "messaging_kms_key_arn" {
+  description = "Customer-managed KMS key ARN for SNS alert topic encryption (Fleet creates no SQS queues). Empty leaves SSE off (SNS default disk encryption only)."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to Fleet resources"
   type        = map(string)
@@ -156,6 +162,7 @@ variable "runtime" {
     otel_logs_enabled         = bool
     otel_traces_enabled       = bool
     extra_env_vars            = map(string)
+    container_insights        = optional(bool, false)
   })
 }
 

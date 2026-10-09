@@ -630,6 +630,18 @@ run "worker_policy_scopes_stack_state_resources" {
   }
 
   assert {
+    condition = anytrue([
+      for statement in local.flex_control_plane_extra_policy_statements :
+      statement.Action == [
+        "ssm:PutParameter",
+        "ssm:GetParameter",
+      ] &&
+      statement.Resource == "arn:aws:ssm:us-east-1:123456789012:parameter/${var.stack_name}/costs/non-zero"
+    ])
+    error_message = "Worker must read and write the cost report non-zero parameter."
+  }
+
+  assert {
     condition = alltrue(flatten([
       for statement in local.flex_control_plane_extra_policy_statements : [
         for action in try(statement.Action, []) :
@@ -844,5 +856,38 @@ run "ghes_api_root_enterprise_url_derives_host_root_issuer" {
   assert {
     condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_TOKEN_ISSUER == "https://ghe.example.com/_services/token"
     error_message = "Flex broker issuer should match the JWKS refresher issuer for GHES API-root inputs."
+  }
+}
+
+run "messaging_kms_key_encrypts_queues_and_grants_producers" {
+  command = plan
+
+  variables {
+    messaging_kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+  }
+
+  assert {
+    condition = alltrue([for queue in [
+      aws_sqs_queue.webhooks_dead_letter,
+      aws_sqs_queue.system_dead_letter,
+      aws_sqs_queue.webhooks,
+      aws_sqs_queue.system,
+      aws_sqs_queue.events,
+    ] : queue.kms_master_key_id == var.messaging_kms_key_arn])
+    error_message = "Every Flex queue should use the configured KMS key."
+  }
+
+  assert {
+    condition = alltrue([for statements in [
+      local.flex_control_plane_extra_policy_statements,
+      jsondecode(aws_iam_role_policy.public_ingress.policy).Statement,
+      jsondecode(aws_iam_role_policy.github_apps_setup[0].policy).Statement,
+      jsondecode(aws_iam_role_policy.scheduler_sqs.policy).Statement,
+      ] : anytrue([
+        for statement in statements :
+        statement.Action == ["kms:Decrypt", "kms:GenerateDataKey"] &&
+        statement.Resource == var.messaging_kms_key_arn
+    ])])
+    error_message = "Every role that sends to or reads from the queues or alert topic should be granted the KMS key."
   }
 }

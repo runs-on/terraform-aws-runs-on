@@ -72,6 +72,33 @@ run "defaults_to_fargate_capacity_provider" {
   }
 }
 
+run "containers_use_read_only_root_filesystem" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for container in jsondecode(aws_ecs_task_definition.this.container_definitions) :
+      container.readonlyRootFilesystem && contains([for m in container.mountPoints : m.containerPath if m.sourceVolume == "tmp" && !m.readOnly], "/tmp")
+    ])
+    error_message = "runtime containers should have a read-only root filesystem with a writable /tmp volume (Security Hub ECS.5)."
+  }
+
+  assert {
+    condition     = contains([for v in aws_ecs_task_definition.this.volume : v.name], "tmp")
+    error_message = "runtime task definition should declare the tmp volume mounted at /tmp."
+  }
+}
+
+run "container_insights_disabled_by_default" {
+  command = plan
+
+  # Omitting the setting would leave an existing cluster's "enabled" value in place.
+  assert {
+    condition     = one([for s in aws_ecs_cluster.this.setting : s.value if s.name == "containerInsights"]) == "disabled"
+    error_message = "disabling Container Insights should declare containerInsights=disabled on the cluster."
+  }
+}
+
 run "runtime_roles_use_permission_boundary" {
   command = plan
 
