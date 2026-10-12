@@ -171,5 +171,5 @@ variable "platform_version" {
 variable "container_insights_enabled" {
   description = "Enable ECS container insights on the cluster"
   type        = bool
-  default     = true
+  default     = false
 }

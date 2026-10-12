@@ -333,8 +333,9 @@ func validateInteractiveIngressSetupPageWithRetryDelay(serviceURL string, maxRet
 			}
 
 			bodyText := string(body)
-			if !strings.Contains(bodyText, "Welcome to RunsOn") {
-				return fmt.Errorf("setup page missing expected marker: Welcome to RunsOn")
+			// The manifest form is what makes this the setup page; its copy may change.
+			if !strings.Contains(bodyText, `name="manifest"`) {
+				return fmt.Errorf("setup page missing expected marker: GitHub App manifest form")
 			}
 			if !strings.Contains(bodyText, "Register GitHub App") {
 				return fmt.Errorf("setup page missing expected marker: Register GitHub App")

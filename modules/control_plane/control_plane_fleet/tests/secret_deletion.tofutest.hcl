@@ -189,6 +189,32 @@ run "control_plane_roles_use_permission_boundary" {
   }
 }
 
+run "zero_budget_skips_daily_budget" {
+  command = plan
+
+  assert {
+    condition     = module.alerts.daily_budget_name == null
+    error_message = "Daily budget should be absent when alerts.app_budget_daily_usd is 0."
+  }
+}
+
+run "positive_budget_creates_daily_budget" {
+  command = plan
+
+  variables {
+    alerts = {
+      email                = "alerts@example.com"
+      slack_webhook_url    = ""
+      app_budget_daily_usd = 10
+    }
+  }
+
+  assert {
+    condition     = module.alerts.daily_budget_name == "test-plan-app-daily-budget"
+    error_message = "Daily budget should be created when alerts.app_budget_daily_usd is greater than 0."
+  }
+}
+
 run "otel_headers_add_ssm_parameter_and_execution_policy" {
   command = plan
 

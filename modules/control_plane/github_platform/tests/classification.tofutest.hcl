@@ -77,3 +77,13 @@ run "ghes_with_custom_port_keeps_port" {
     error_message = "A GHES host should derive its issuer from the port-preserving host root."
   }
 }
+
+run "http_url_is_rejected" {
+  command = plan
+
+  variables {
+    base_url = "http://github.example.com"
+  }
+
+  expect_failures = [var.base_url]
+}

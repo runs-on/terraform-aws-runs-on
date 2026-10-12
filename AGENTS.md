@@ -1,6 +1,7 @@
 # Terraform Package Guide
 
-This directory contains the Terraform/OpenTofu module mirrored to `runs-on/terraform-aws-runs-on`.
+This directory contains the Terraform/OpenTofu modules (`modules/flex`, `modules/fleet`, and their shared
+submodules) mirrored to `runs-on/terraform-aws-runs-on`.
 
 Make changes under `terraform/` in `runs-on/monorepo` and open pull requests
 there. Do not edit or open implementation PRs in `runs-on/terraform-aws-runs-on`;
@@ -25,10 +26,10 @@ releases publish this directory to that public mirror.
 
 ## Important Files
 
-- `README.md`: public module docs with injected terraform-docs tables
-- `variables.tf`: root module inputs; public defaults are injected only in the mirrored export
-- `modules/*/README.md`: generated submodule docs
+- `README.md`: public docs with injected terraform-docs tables
+- `modules/flex/variables.tf`, `modules/fleet/variables.tf`: product module inputs; public defaults are injected only in the mirrored export
+- `modules/**/README.md`: generated module docs (`make docs`)
 - `lambdas/`: canonical Lambda source files mirrored to the public Terraform repo
-- `docs/`: narrative docs mirrored downstream
-- `test/`: Terratest coverage for plan and AWS-backed scenarios
-- `test/cmd/with-ci-image`: helper that builds a `runs-on-ci` image and injects `RUNS_ON_APP_IMAGE` / `RUNS_ON_APP_TAG`
+- `modules/flex/docs/`: narrative docs mirrored downstream
+- `modules/flex/test/`: Terratest coverage for plan and AWS-backed scenarios
+- `modules/flex/test/cmd/with-ci-image`: helper that builds a `runs-on-ci` image and injects `RUNS_ON_APP_IMAGE` / `RUNS_ON_APP_TAG`

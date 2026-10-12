@@ -1,51 +1,20 @@
 # modules/flex_control_plane/cloudwatch.tf
-# CloudWatch dashboard and budget for RunsOn core module
+# CloudWatch dashboard for RunsOn core module
 # Log query values are generated from scripts/cloudwatch-queries.toml.
-
-###########################
-# Worker Daily Cost Budget
-###########################
-
-resource "aws_budgets_budget" "app_daily_budget" {
-  count = local.operations.app_budget_daily_usd > 0 ? 1 : 0
-
-  account_id        = var.account_id
-  name              = "${var.stack_name}-app-daily-budget"
-  budget_type       = "COST"
-  limit_amount      = tostring(local.operations.app_budget_daily_usd)
-  limit_unit        = "USD"
-  time_unit         = "DAILY"
-  time_period_start = "2024-01-01_00:00"
-
-  cost_filter {
-    name   = "TagKeyValue"
-    values = [format("user:%s$%s", var.cost_allocation_tag, var.stack_name)]
-  }
-
-  notification {
-    comparison_operator       = "GREATER_THAN"
-    notification_type         = "ACTUAL"
-    threshold                 = 100
-    threshold_type            = "PERCENTAGE"
-    subscriber_sns_topic_arns = [module.alerts.topic_arn]
-  }
-
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${var.stack_name}-app-daily-budget"
-    }
-  )
-}
 
 ###########################
 # CloudWatch Dashboard
 ###########################
 
+locals {
+  # Also linked from the setup status page.
+  dashboard_name = "${var.stack_name}-Dashboard"
+}
+
 resource "aws_cloudwatch_dashboard" "runs_on" {
   count = local.operations.enable_default_dashboard ? 1 : 0
 
-  dashboard_name = "${var.stack_name}-Dashboard"
+  dashboard_name = local.dashboard_name
 
   dashboard_body = jsonencode({
     widgets = [
@@ -313,6 +282,45 @@ resource "aws_cloudwatch_dashboard" "runs_on" {
           query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"spot_interruption\"\n| fields @timestamp, interruption_time, trip_count, recovery_minutes, circuit_breaker_active\n| sort @timestamp desc\n| limit 50"
           region = var.region
           title  = "Recent Spot Interruptions (Last 50)"
+          view   = "table"
+        }
+      },
+      {
+        type   = "log"
+        x      = 0
+        y      = 36
+        width  = 9
+        height = 6
+        properties = {
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| stats max(runner_vcpus_total) as vCPUs by bin(5m) as t\n| sort t asc"
+          region = var.region
+          title  = "Runner vCPUs (5min peaks)"
+          view   = "timeSeries"
+        }
+      },
+      {
+        type   = "log"
+        x      = 9
+        y      = 36
+        width  = 9
+        height = 6
+        properties = {
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| stats max(jobs_in_progress_total) as JobsInProgress by bin(5m) as t\n| sort t asc"
+          region = var.region
+          title  = "Jobs in Progress (5min peaks)"
+          view   = "timeSeries"
+        }
+      },
+      {
+        type   = "log"
+        x      = 18
+        y      = 36
+        width  = 6
+        height = 6
+        properties = {
+          query  = "SOURCE '${local.worker_log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| stats max(runner_vcpus_total) as PeakVCPUs, latest(runner_vcpus_total) as CurrentVCPUs, max(jobs_in_progress_total) as PeakJobsInProgress, latest(jobs_in_progress_total) as CurrentJobsInProgress"
+          region = var.region
+          title  = "Runner Usage (Current Period)"
           view   = "table"
         }
       }

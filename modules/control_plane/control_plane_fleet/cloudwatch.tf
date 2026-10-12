@@ -45,6 +45,27 @@ resource "aws_cloudwatch_dashboard" "fleet" {
           query  = "SOURCE '${module.runtime.runtime.log_group_name}'\n| filter level = \"error\" or metric_type = \"spot_interruption\"\n| fields @timestamp, metric_type, message, instance_id, repo_full_name\n| sort @timestamp desc\n| limit 50"
           region = var.region, title = "Recent Incidents", view = "table"
         }
+      },
+      {
+        type = "log", x = 0, y = 12, width = 9, height = 6
+        properties = {
+          query  = "SOURCE '${module.runtime.runtime.log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| stats max(runner_vcpus_total) as vCPUs by bin(5m) as t\n| sort t asc"
+          region = var.region, title = "Runner vCPUs (5min peaks)", view = "timeSeries"
+        }
+      },
+      {
+        type = "log", x = 9, y = 12, width = 9, height = 6
+        properties = {
+          query  = "SOURCE '${module.runtime.runtime.log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| stats max(jobs_in_progress_total) as JobsInProgress by bin(5m) as t\n| sort t asc"
+          region = var.region, title = "Jobs in Progress (5min peaks)", view = "timeSeries"
+        }
+      },
+      {
+        type = "log", x = 18, y = 12, width = 6, height = 6
+        properties = {
+          query  = "SOURCE '${module.runtime.runtime.log_group_name}'\n| filter metric_type = \"operator_snapshot\"\n| stats max(runner_vcpus_total) as PeakVCPUs, latest(runner_vcpus_total) as CurrentVCPUs, max(jobs_in_progress_total) as PeakJobsInProgress, latest(jobs_in_progress_total) as CurrentJobsInProgress"
+          region = var.region, title = "Runner Usage (Current Period)", view = "table"
+        }
       }
     ]
   })

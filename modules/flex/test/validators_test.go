@@ -13,7 +13,7 @@ func TestValidateInteractiveIngressSetupPageWithRetryDelay(t *testing.T) {
 	t.Run("passes on setup page", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_, _ = w.Write([]byte("<html><h1>Welcome to RunsOn</h1><button>Register GitHub App</button></html>"))
+			_, _ = w.Write([]byte("<html><h1>Set up RunsOn</h1><form><input type=\"hidden\" name=\"manifest\"><button>Register GitHub App</button></form></html>"))
 		}))
 		defer server.Close()
 
