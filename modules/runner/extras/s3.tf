@@ -100,6 +100,25 @@ resource "aws_s3_bucket_lifecycle_configuration" "cache" {
   }
 
   rule {
+    # Runner telemetry captures live outside cache/, which every runner can
+    # read; they keep the cache retention.
+    id     = "ExpireTelemetry"
+    status = "Enabled"
+
+    filter {
+      prefix = "telemetry/"
+    }
+
+    expiration {
+      days = var.cache_expiration_days
+    }
+
+    noncurrent_version_expiration {
+      noncurrent_days = 1
+    }
+  }
+
+  rule {
     id     = "CleanupIncompleteMultipartUploads"
     status = "Enabled"
 

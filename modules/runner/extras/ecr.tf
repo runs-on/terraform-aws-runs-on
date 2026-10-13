@@ -31,6 +31,18 @@ resource "aws_ecr_repository" "ephemeral" {
   )
 }
 
+# v3.0.0-v3.0.2 split the repository by prevent_destroy_optional_resources.
+# Only one of the two can exist in state, so chain both into ephemeral[0].
+moved {
+  from = aws_ecr_repository.ephemeral_protected[0]
+  to   = aws_ecr_repository.ephemeral_unprotected[0]
+}
+
+moved {
+  from = aws_ecr_repository.ephemeral_unprotected[0]
+  to   = aws_ecr_repository.ephemeral[0]
+}
+
 locals {
   ecr_repository_name_generated = var.enable_ecr ? "runs-on-${random_id.ephemeral_registry[0].hex}-ephemeral-registry" : ""
   ecr_repository_name           = var.enable_ecr ? aws_ecr_repository.ephemeral[0].name : ""

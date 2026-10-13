@@ -77,7 +77,7 @@ resource "aws_iam_role_policy" "public_ingress" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         Effect = "Allow"
         Action = [
@@ -85,7 +85,7 @@ resource "aws_iam_role_policy" "public_ingress" {
         ]
         Resource = aws_sqs_queue.webhooks.arn
       },
-    ]
+    ], local.messaging_kms_statements)
   })
 }
 
@@ -177,7 +177,7 @@ resource "aws_iam_role_policy" "github_apps_setup" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         Effect = "Allow"
         Action = [
@@ -235,7 +235,26 @@ resource "aws_iam_role_policy" "github_apps_setup" {
         ]
         Resource = aws_sqs_queue.system.arn
       },
-    ]
+      # Read-only diagnostics for the status page.
+      {
+        Effect   = "Allow"
+        Action   = ["ecs:DescribeServices"]
+        Resource = "arn:${local.partition}:ecs:${var.region}:${var.account_id}:service/${local.runtime_cluster_name}/${local.runtime_service_name}"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:GetQueueAttributes"]
+        Resource = [aws_sqs_queue.webhooks.arn, aws_sqs_queue.webhooks_dead_letter.arn]
+      },
+      {
+        Effect = "Allow"
+        Action = ["servicequotas:GetServiceQuota"]
+        Resource = [
+          "arn:${local.partition}:servicequotas:${var.region}:${var.account_id}:ec2/L-34B43A08",
+          "arn:${local.partition}:servicequotas:${var.region}:${var.account_id}:ec2/L-1216C47A",
+        ]
+      },
+    ], local.messaging_kms_statements)
   })
 }
 
@@ -258,6 +277,7 @@ resource "aws_lambda_function" "github_apps_setup" {
 
   environment {
     variables = {
+      RUNS_ON_ENV                          = var.environment
       RUNS_ON_GITHUB_ORG                   = local.github.organization
       RUNS_ON_GITHUB_ENTERPRISE_URL        = local.github.enterprise_url
       RUNS_ON_GITHUB_APPS_SECRET_ARN       = aws_secretsmanager_secret.runs_on_github_apps.arn
@@ -268,6 +288,11 @@ resource "aws_lambda_function" "github_apps_setup" {
       RUNS_ON_PUBLIC_BASE_URL              = local.public_ingress_base_url
       RUNS_ON_TOPIC_ARN                    = module.alerts.topic_arn
       RUNS_ON_SYSTEM_QUEUE_URL             = aws_sqs_queue.system.url
+      RUNS_ON_ECS_CLUSTER                  = local.runtime_cluster_name
+      RUNS_ON_ECS_SERVICE                  = local.runtime_service_name
+      RUNS_ON_WEBHOOKS_QUEUE_URL           = aws_sqs_queue.webhooks.url
+      RUNS_ON_WEBHOOKS_DLQ_URL             = aws_sqs_queue.webhooks_dead_letter.url
+      RUNS_ON_DASHBOARD_NAME               = local.operations.enable_default_dashboard ? local.dashboard_name : ""
     }
   }
 
@@ -466,6 +491,25 @@ resource "aws_api_gateway_method_settings" "public_ingress" {
     logging_level   = "OFF"
     metrics_enabled = true
   }
+}
+
+# The setup pages are public, and each status view calls GitHub as the App:
+# cap them so anonymous traffic cannot spend the App's API budget that the
+# control plane needs.
+resource "aws_api_gateway_method_settings" "setup_throttle" {
+  for_each    = local.admin_routes_enabled ? toset(["setup/GET", "setup/{proxy+}/GET"]) : toset([])
+  rest_api_id = aws_api_gateway_rest_api.public_ingress.id
+  stage_name  = aws_api_gateway_stage.public_ingress.stage_name
+  method_path = each.value
+
+  settings {
+    logging_level          = "OFF"
+    metrics_enabled        = true
+    throttling_rate_limit  = 2
+    throttling_burst_limit = 10
+  }
+
+  depends_on = [aws_api_gateway_method_settings.public_ingress]
 }
 
 resource "aws_lambda_permission" "public_ingress" {

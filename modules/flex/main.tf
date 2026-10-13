@@ -103,6 +103,7 @@ locals {
     otel_traces_enabled       = var.otel_traces_enabled
     logger_level              = var.logger_level
     extra_env_vars            = var.extra_env_vars
+    container_insights        = var.container_insights_enabled
   }
 
   flex_runner = {
@@ -363,6 +364,7 @@ module "control_plane" {
   alerts                  = local.flex_alerts
   enable_cache_isolation  = var.enable_cache_isolation
   permission_boundary_arn = var.permission_boundary_arn
+  messaging_kms_key_arn   = var.messaging_kms_key_arn
   tags                    = local.common_tags
 
   # Ensure NAT gateway is ready before the worker service starts

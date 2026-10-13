@@ -50,8 +50,13 @@ run "email_only_alerts" {
   }
 
   assert {
-    condition     = length(aws_sns_topic_policy.alerts) == 0
-    error_message = "Budget publish policy should be absent by default."
+    condition     = length(aws_budgets_budget.app_daily_budget) == 0 && length(aws_sns_topic_policy.alerts) == 0 && output.daily_budget_name == null
+    error_message = "The daily budget and its publish policy should be absent by default."
+  }
+
+  assert {
+    condition     = aws_sns_topic.alerts.kms_master_key_id == null
+    error_message = "Alert topic should have no SSE key without a KMS key."
   }
 }
 
@@ -60,9 +65,16 @@ run "slack_and_budget_alerts" {
 
   variables {
     slack_webhook_url       = "https://hooks.slack.com/services/example"
-    allow_budgets_publish   = true
+    daily_budget_usd        = 25
+    cost_allocation_tag     = "team"
     log_retention_days      = 365
     permission_boundary_arn = "arn:aws:iam::123456789012:policy/RequiredBoundary"
+    kms_key_arn             = "arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+  }
+
+  assert {
+    condition     = aws_sns_topic.alerts.kms_master_key_id == var.kms_key_arn
+    error_message = "Alert topic should use the configured KMS key."
   }
 
   assert {
@@ -104,6 +116,17 @@ run "slack_and_budget_alerts" {
 
   assert {
     condition     = length(aws_sns_topic_policy.alerts) == 1
-    error_message = "Budget publish topic policy should be created when requested."
+    error_message = "Budget publish topic policy should be created with the daily budget."
+  }
+
+  assert {
+    condition = (
+      aws_budgets_budget.app_daily_budget[0].name == "test-plan-app-daily-budget" &&
+      aws_budgets_budget.app_daily_budget[0].limit_amount == "25" &&
+      aws_budgets_budget.app_daily_budget[0].time_unit == "DAILY" &&
+      one(aws_budgets_budget.app_daily_budget[0].cost_filter).values == tolist(["user:team$test-plan"]) &&
+      one(aws_budgets_budget.app_daily_budget[0].notification).subscriber_sns_topic_arns == toset([aws_sns_topic.alerts.arn])
+    )
+    error_message = "The daily budget should filter on the stack's cost allocation tag and notify the alert topic."
   }
 }

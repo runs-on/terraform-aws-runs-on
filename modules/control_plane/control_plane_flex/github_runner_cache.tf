@@ -130,6 +130,8 @@ resource "aws_lambda_invocation" "github_runner_cache_refresh_seed" {
   input = jsonencode({
     input = {
       bucket = var.extras.cache.bucket_name
+      # A failed seed must not fail the apply: the daily refresh retries.
+      seed = true
     }
   })
   triggers = {

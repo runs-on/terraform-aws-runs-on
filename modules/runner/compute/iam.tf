@@ -88,6 +88,14 @@ resource "aws_iam_role_policy_attachment" "ec2_custom_additional" {
   policy_arn = var.runner_custom_policy_arns[count.index]
 }
 
+# v3.0.x and v3.1.x attached the singular runner_custom_policy_arn here. Without
+# this move, the old address's detach can race the new address's attach of the
+# same role and policy pair, and leave the policy detached.
+moved {
+  from = aws_iam_role_policy_attachment.ec2_custom[0]
+  to   = aws_iam_role_policy_attachment.ec2_custom_additional[0]
+}
+
 # Inline policies for EC2 instances
 resource "aws_iam_role_policy" "ec2_read_only" {
   name = "ReadOnly"
@@ -409,6 +417,19 @@ resource "aws_iam_role_policy" "ec2_s3_access" {
           ]
           Resource = [
             "${var.extras.cache.bucket_arn}/runners/$${aws:userid}/stickydisk-clean/*"
+          ]
+        },
+        {
+          # The agent uploads the runner's telemetry capture to its own
+          # telemetry/ prefix at shutdown. Captured logs and spans can hold a
+          # repository's private data, so runners may write only their own
+          # prefix and read none.
+          Effect = "Allow"
+          Action = [
+            "s3:PutObject"
+          ]
+          Resource = [
+            "${var.extras.cache.bucket_arn}/telemetry/$${aws:userid}/*"
           ]
         },
         {

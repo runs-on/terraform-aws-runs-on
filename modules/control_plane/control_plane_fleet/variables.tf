@@ -29,8 +29,9 @@ variable "github" {
 variable "alerts" {
   description = "Fleet alert delivery settings"
   type = object({
-    email             = string
-    slack_webhook_url = string
+    email                = string
+    slack_webhook_url    = string
+    app_budget_daily_usd = optional(number, 0)
   })
 
   validation {
@@ -136,6 +137,12 @@ variable "compute" {
   })
 }
 
+variable "messaging_kms_key_arn" {
+  description = "Customer-managed KMS key ARN for SNS alert topic encryption (Fleet creates no SQS queues). Empty leaves SSE off (SNS default disk encryption only)."
+  type        = string
+  default     = ""
+}
+
 variable "tags" {
   description = "Tags applied to Fleet resources"
   type        = map(string)
@@ -156,6 +163,7 @@ variable "runtime" {
     otel_logs_enabled         = bool
     otel_traces_enabled       = bool
     extra_env_vars            = map(string)
+    container_insights        = optional(bool, false)
   })
 }
 

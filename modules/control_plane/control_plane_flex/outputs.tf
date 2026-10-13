@@ -35,6 +35,7 @@ output "alerts" {
   value = {
     topic_arn                = module.alerts.topic_arn
     topic_name               = module.alerts.topic_name
+    daily_budget_name        = module.alerts.daily_budget_name
     slack_webhook_lambda_arn = module.alerts.slack_webhook_lambda_arn
   }
 }

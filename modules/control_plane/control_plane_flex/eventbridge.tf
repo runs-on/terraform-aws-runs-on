@@ -159,7 +159,7 @@ resource "aws_iam_role_policy" "scheduler_sqs" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         Effect   = "Allow"
         Action   = "sqs:SendMessage"
@@ -170,6 +170,6 @@ resource "aws_iam_role_policy" "scheduler_sqs" {
         Action   = "lambda:InvokeFunction"
         Resource = aws_lambda_function.github_runner_cache_refresh.arn
       }
-    ]
+    ], local.messaging_kms_statements)
   })
 }
