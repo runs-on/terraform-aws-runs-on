@@ -110,7 +110,7 @@ locals {
   config_secret_json    = jsonencode(local.secret_payload)
   config_secret_version = nonsensitive(sha256(local.config_secret_json))
 
-  fleet_extra_policy_statements = [
+  fleet_extra_policy_statements = concat([
     {
       Effect = "Allow"
       Action = [
@@ -150,7 +150,16 @@ locals {
       ]
       Resource = module.alerts.topic_arn
     },
-  ]
+    ], trimspace(var.messaging_kms_key_arn) != "" ? [
+    {
+      Effect = "Allow"
+      Action = [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+      ]
+      Resource = trimspace(var.messaging_kms_key_arn)
+    },
+  ] : [])
 
   fleet_extra_execution_role_statements = local.runtime.otel_exporter_headers != "" ? [
     {
@@ -298,6 +307,7 @@ module "runtime" {
   stack_name = var.stack_name
 
   cluster_name                    = var.stack_name
+  container_insights_enabled      = local.runtime.container_insights
   service_name                    = "fleetd"
   task_definition_family          = "${var.stack_name}-fleetd"
   execution_role_name             = "${var.stack_name}-fleet-execution-role"
@@ -327,6 +337,9 @@ module "runtime" {
       image      = local.runtime.image
       essential  = true
       entryPoint = ["/app/dist/fleetd"]
+      # fleetd lets a launch batch in flight finish for up to 40s on SIGTERM,
+      # then closes its scale-set sessions and flushes telemetry.
+      stopTimeout = 60
       environment = [
         for key, value in merge(
           {

@@ -1,6 +1,9 @@
 # ECS worker service for RunsOn Flex control plane
 
 locals {
+  # Also read by the setup Lambda for its status page.
+  runtime_cluster_name = var.stack_name
+  runtime_service_name = "flexd"
   flex_control_plane_extra_execution_role_statements = local.runtime.otel_exporter_headers != "" ? [
     {
       Effect = "Allow"
@@ -11,7 +14,7 @@ locals {
     },
   ] : []
 
-  flex_control_plane_extra_policy_statements = [
+  flex_control_plane_extra_policy_statements = concat(local.messaging_kms_statements, [
     {
       Effect = "Allow"
       Action = [
@@ -43,6 +46,16 @@ locals {
         "ssm:GetParameters",
       ]
       Resource = aws_ssm_parameter.license_status.arn
+    },
+    {
+      # The daily cost report records whether costs are non-zero, and the
+      # cost allocation tag alert reads it back.
+      Effect = "Allow"
+      Action = [
+        "ssm:PutParameter",
+        "ssm:GetParameter",
+      ]
+      Resource = "arn:${local.partition}:ssm:${var.region}:${var.account_id}:parameter/${var.stack_name}/costs/non-zero"
     },
     {
       Effect = "Allow"
@@ -112,7 +125,7 @@ locals {
       ]
       Resource = "arn:${local.partition}:logs:${var.region}:${var.account_id}:log-group:${local.worker_log_group_name}:*"
     },
-  ]
+  ])
 }
 
 module "runtime" {
@@ -122,8 +135,9 @@ module "runtime" {
   account_id = var.account_id
   stack_name = var.stack_name
 
-  cluster_name                    = var.stack_name
-  service_name                    = "flexd"
+  cluster_name                    = local.runtime_cluster_name
+  container_insights_enabled      = local.runtime.container_insights
+  service_name                    = local.runtime_service_name
   task_definition_family          = "${var.stack_name}-flexd"
   execution_role_name             = "${var.stack_name}-flex-execution-role"
   task_role_name                  = "${var.stack_name}-flex-role"
@@ -177,7 +191,7 @@ module "runtime" {
         interval    = 5
         timeout     = 5
         retries     = 3
-        startPeriod = 15
+        startPeriod = 240
       }
       logConfiguration = {
         logDriver = "awslogs"

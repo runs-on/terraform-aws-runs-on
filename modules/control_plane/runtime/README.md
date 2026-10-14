@@ -66,7 +66,7 @@ No modules.
 | <a name="input_task_policy_name"></a> [task\_policy\_name](#input\_task\_policy\_name) | Inline policy name for the shared ECS task role | `string` | n/a | yes |
 | <a name="input_task_role_name"></a> [task\_role\_name](#input\_task\_role\_name) | Shared ECS task role name | `string` | n/a | yes |
 | <a name="input_capacity_provider"></a> [capacity\_provider](#input\_capacity\_provider) | ECS capacity provider used by the service | `string` | `"FARGATE"` | no |
-| <a name="input_container_insights_enabled"></a> [container\_insights\_enabled](#input\_container\_insights\_enabled) | Enable ECS container insights on the cluster | `bool` | `true` | no |
+| <a name="input_container_insights_enabled"></a> [container\_insights\_enabled](#input\_container\_insights\_enabled) | Enable ECS container insights on the cluster | `bool` | `false` | no |
 | <a name="input_deployment_maximum_percent"></a> [deployment\_maximum\_percent](#input\_deployment\_maximum\_percent) | Maximum deployment percentage | `number` | `200` | no |
 | <a name="input_deployment_minimum_healthy_percent"></a> [deployment\_minimum\_healthy\_percent](#input\_deployment\_minimum\_healthy\_percent) | Minimum healthy deployment percentage | `number` | `0` | no |
 | <a name="input_ebs_encryption_key_id"></a> [ebs\_encryption\_key\_id](#input\_ebs\_encryption\_key\_id) | Optional EBS encryption key ID | `string` | `""` | no |

@@ -9,6 +9,9 @@ const { Readable } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 
 const defaultReleaseUrl = 'https://api.github.com/repos/actions/runner/releases/latest';
+// The same answer without an API quota: this page redirects to .../releases/tag/v<version>.
+const releaseRedirectUrl = 'https://github.com/actions/runner/releases/latest';
+const latestVersionAttempts = 3;
 const defaultPrefix = 'agents/github-runner';
 const defaultManifestKey = `${defaultPrefix}/latest.json`;
 const runnerVersionPattern = /^\d+\.\d+\.\d+$/;
@@ -96,7 +99,7 @@ function runnerAssetSpecs(version) {
   }));
 }
 
-async function fetchLatestVersion(fetchImpl, releaseUrl) {
+async function fetchLatestVersionFromApi(fetchImpl, releaseUrl) {
   const response = await fetchImpl(releaseUrl, {
     headers: {
       Accept: 'application/json',
@@ -104,7 +107,11 @@ async function fetchLatestVersion(fetchImpl, releaseUrl) {
     },
   });
   if (!response.ok) {
-    throw new Error(`GitHub latest runner release request failed with status ${response.status}`);
+    const error = new Error(`GitHub latest runner release request failed with status ${response.status}`);
+    // Lambda shares its egress addresses, so GitHub's anonymous API quota
+    // (60 requests an hour per address) is often already spent.
+    error.rateLimited = response.status === 403 || response.status === 429;
+    throw error;
   }
 
   const payload = await response.json();
@@ -113,6 +120,47 @@ async function fetchLatestVersion(fetchImpl, releaseUrl) {
     throw new Error(`GitHub latest runner release response did not include a valid tag_name: ${payload?.tag_name}`);
   }
   return version;
+}
+
+async function fetchLatestVersionFromRedirect(fetchImpl) {
+  const response = await fetchImpl(releaseRedirectUrl, {
+    redirect: 'manual',
+    headers: { 'User-Agent': 'runs-on-github-runner-cache-refresh' },
+  });
+  const location = trimString(response.headers?.get?.('location'));
+  const version = (location.match(/\/releases\/tag\/v([^/?#]+)$/) || [])[1] || '';
+  if (!runnerVersionPattern.test(version)) {
+    throw new Error(`GitHub latest runner release redirect did not name a version (status ${response.status})`);
+  }
+  return version;
+}
+
+function defaultSleep(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+// fetchLatestVersion asks the GitHub API, falls back to the release page's
+// redirect when the API is rate limited, and retries a few times.
+async function fetchLatestVersion(fetchImpl, releaseUrl, sleep = defaultSleep) {
+  let lastError;
+  for (let attempt = 1; attempt <= latestVersionAttempts; attempt += 1) {
+    try {
+      return await fetchLatestVersionFromApi(fetchImpl, releaseUrl);
+    } catch (error) {
+      lastError = error;
+      if (error.rateLimited) {
+        try {
+          return await fetchLatestVersionFromRedirect(fetchImpl);
+        } catch (redirectError) {
+          log('warn', 'GitHub runner release redirect lookup failed', { error: String(redirectError?.message || redirectError) });
+        }
+      }
+    }
+    if (attempt < latestVersionAttempts) {
+      await sleep(attempt * 2000);
+    }
+  }
+  throw lastError;
 }
 
 async function getObjectString(aws, bucket, key) {
@@ -253,7 +301,7 @@ async function performSync(event, options = {}) {
     throw new Error('RUNS_ON_RUNNER_CACHE_BUCKET must be configured');
   }
 
-  const version = await fetchLatestVersion(fetchImpl, config.releaseUrl);
+  const version = await fetchLatestVersion(fetchImpl, config.releaseUrl, options.sleep);
   const existingManifest = await loadExistingManifest(aws, config.bucket, config.manifestKey);
   const specs = runnerAssetSpecs(version);
 
@@ -318,6 +366,12 @@ async function sendCloudFormationResponse(event, status, data, reason, fetchImpl
   });
 }
 
+function seedFailure(error) {
+  const message = String(error?.message || error);
+  log('error', 'GitHub runner cache seed failed; the daily refresh will retry', { error: message });
+  return { seeded: false, error: message };
+}
+
 function isCloudFormationCustomResourceEvent(event) {
   return !!event?.ResponseURL && !!event?.RequestType;
 }
@@ -329,21 +383,27 @@ async function createHandler(event, options = {}) {
       return { skipped: true };
     }
 
+    // Seeding the cache at install time is an optimisation: the daily
+    // refresh fills it anyway, so a failure here must not roll the stack back.
     try {
       const result = await performSync(event, options);
       await sendCloudFormationResponse(event, 'SUCCESS', result, undefined, options.fetchImpl || fetch);
       return result;
     } catch (error) {
-      const message = String(error?.message || error);
-      log('error', 'CloudFormation GitHub runner cache refresh seed failed', { error: message });
-      await sendCloudFormationResponse(event, 'FAILED', { error: message }, message, options.fetchImpl || fetch);
-      throw error;
+      const result = seedFailure(error);
+      await sendCloudFormationResponse(event, 'SUCCESS', result, `Runner cache not seeded, the daily refresh will retry: ${result.error}`, options.fetchImpl || fetch);
+      return result;
     }
   }
 
   try {
     return await performSync(event, options);
   } catch (error) {
+    // Terraform seeds with a direct invocation marked `seed`; like the
+    // CloudFormation seed, it must not fail the apply.
+    if (event?.input?.seed === true) {
+      return seedFailure(error);
+    }
     const message = String(error?.message || error);
     log('error', 'GitHub runner cache refresh failed', { error: message });
     throw error;

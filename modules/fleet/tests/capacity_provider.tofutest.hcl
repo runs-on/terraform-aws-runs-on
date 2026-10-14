@@ -252,6 +252,24 @@ run "exports_alerts_with_slack_webhook" {
     condition     = output.alerts.slack_webhook_lambda_arn == "arn:aws:lambda:us-east-1:123456789012:function:mock"
     error_message = "Fleet root alerts output should expose the non-secret Slack webhook Lambda ARN."
   }
+
+  assert {
+    condition     = output.alerts.daily_budget_name == "test-plan-app-daily-budget"
+    error_message = "Fleet should create the daily budget by default."
+  }
+}
+
+run "zero_budget_skips_daily_budget" {
+  command = plan
+
+  variables {
+    app_budget_daily_usd = 0
+  }
+
+  assert {
+    condition     = output.alerts.daily_budget_name == null
+    error_message = "Daily budget should be absent when app_budget_daily_usd is 0."
+  }
 }
 
 run "can_use_fargate_spot_capacity_provider" {

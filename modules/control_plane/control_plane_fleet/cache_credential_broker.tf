@@ -110,9 +110,15 @@ resource "aws_lambda_function" "cache_credential_broker" {
   role          = aws_iam_role.cache_credential_broker.arn
   runtime       = "nodejs24.x"
   handler       = "index.handler"
+  # Graviton: about 20% cheaper per GB-second; the broker has no native code.
+  architectures = ["arm64"]
   # Headroom for the caller-identity proof fetch, the S3 JWKS read, and the
   # STS AssumeRole round-trip.
-  timeout     = 30
+  timeout = 30
+  # The first call in a new container, which a job's first Magic Cache
+  # request waits for, took 5.8 s on x86 with the SDK loaded in the handler,
+  # and 2.8 s on arm64 with the SDK loaded at init. 256 MB would halve that
+  # again but double the cost of every warm call.
   memory_size = 128
 
   filename         = "${local.lambda_artifact_dir}/cache-credential-broker.zip"

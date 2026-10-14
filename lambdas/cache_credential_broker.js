@@ -1,6 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
+const https = require('node:https');
 
 let sts;
 let AssumeRoleCommand;
@@ -110,6 +111,15 @@ function getS3Client() {
     s3 = new awsS3.S3Client({});
   }
   return s3;
+}
+
+// In Lambda, load the SDK and resolve the function's credentials during the
+// init phase, so a new container's first call does not do it while a job's
+// first Magic Cache request waits. Tests load this module without the SDK.
+if (process.env.AWS_LAMBDA_FUNCTION_NAME) {
+  for (const client of [getSTSClient(), getS3Client()]) {
+    client.config.credentials().catch(() => {});
+  }
 }
 
 // setS3ClientForTesting injects a fake S3 client and command constructor so
@@ -226,15 +236,35 @@ async function bodyToString(body) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+// httpsGetText reads a small HTTPS response with node:https. fetch loads its
+// HTTP client on first use, which took about 0.7 s of a new container's first
+// call at 128 MB. The deadline covers the whole exchange, so a stalled
+// connection fails the call instead of holding it until the Lambda timeout.
+function httpsGetText(url, failure) {
+  return new Promise((resolve, reject) => {
+    https.get(url, { signal: AbortSignal.timeout(10_000) }, (res) => {
+      let body = '';
+      res.setEncoding('utf8');
+      res.on('error', reject);
+      res.on('data', (chunk) => {
+        body += chunk;
+      });
+      res.on('end', () => {
+        if (res.statusCode < 200 || res.statusCode > 299) {
+          reject(new Error(`${failure}: ${res.statusCode}`));
+          return;
+        }
+        resolve(body);
+      });
+    }).on('error', reject);
+  });
+}
+
 async function fetchCallerIdentity(proof) {
   // Replay is bounded by X-Amz-Expires, then STS verifies that the signed URL was
   // minted by the caller's current instance role credentials.
   const url = validateCallerIdentityProof(proof).url;
-  const response = await fetch(url, { method: 'GET' });
-  if (!response.ok) {
-    throw new Error(`failed to verify caller identity: ${response.status}`);
-  }
-  const xml = await response.text();
+  const xml = await httpsGetText(url, 'failed to verify caller identity');
   const accountID = extractXMLTag(xml, 'Account');
   if (accountID !== expectedAccountID) {
     throw new Error('caller identity account does not match runner role account');

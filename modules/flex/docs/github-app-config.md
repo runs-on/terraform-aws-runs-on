@@ -12,7 +12,7 @@ RunsOn normally creates a GitHub App during the web-based setup. If you prefer t
 
 | Setting | Value |
 |---------|-------|
-| App name | `RunsOn [<ORG>]` |
+| App name | Any name unique on GitHub; the setup flow uses `runs-on-flex-<first 4 characters of the environment>-<timestamp>` (34 characters max) |
 | Homepage URL | `https://runs-on.com` |
 | Setup URL | `https://<YOUR_RUNSON_BASE_URL>/setup/success` |
 | Public | `false` |
@@ -61,7 +61,7 @@ Once your app is created, pass the credentials as Terraform variables:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.4.0"
+  version = "v3.5.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
