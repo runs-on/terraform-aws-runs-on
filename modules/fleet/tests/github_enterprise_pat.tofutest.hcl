@@ -6,6 +6,12 @@ mock_provider "aws" {
     }
   }
 
+  mock_data "aws_caller_identity" {
+    defaults = {
+      account_id = "123456789012"
+    }
+  }
+
   mock_resource "aws_iam_instance_profile" {
     defaults = {
       arn = "arn:aws:iam::123456789012:instance-profile/test-plan-ec2-instance-profile"

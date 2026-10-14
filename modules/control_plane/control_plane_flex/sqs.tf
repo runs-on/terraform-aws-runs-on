@@ -9,7 +9,8 @@ resource "aws_sqs_queue" "webhooks_dead_letter" {
   name                      = "${var.stack_name}-webhooks-dlq.fifo"
   fifo_queue                = true
   message_retention_seconds = 259200 # 3 days
-  sqs_managed_sse_enabled   = true
+  sqs_managed_sse_enabled   = local.messaging_kms_key_arn == "" ? true : null
+  kms_master_key_id         = local.messaging_kms_key_arn != "" ? local.messaging_kms_key_arn : null
 
   tags = merge(
     local.common_tags,
@@ -23,7 +24,8 @@ resource "aws_sqs_queue" "system_dead_letter" {
   name                      = "${var.stack_name}-system-dlq.fifo"
   fifo_queue                = true
   message_retention_seconds = 259200 # 3 days
-  sqs_managed_sse_enabled   = true
+  sqs_managed_sse_enabled   = local.messaging_kms_key_arn == "" ? true : null
+  kms_master_key_id         = local.messaging_kms_key_arn != "" ? local.messaging_kms_key_arn : null
 
   tags = merge(
     local.common_tags,
@@ -44,7 +46,8 @@ resource "aws_sqs_queue" "webhooks" {
   message_retention_seconds   = 86400
   receive_wait_time_seconds   = 10
   visibility_timeout_seconds  = 120
-  sqs_managed_sse_enabled     = true
+  sqs_managed_sse_enabled     = local.messaging_kms_key_arn == "" ? true : null
+  kms_master_key_id           = local.messaging_kms_key_arn != "" ? local.messaging_kms_key_arn : null
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.webhooks_dead_letter.arn
@@ -66,7 +69,8 @@ resource "aws_sqs_queue" "system" {
   message_retention_seconds   = 86400
   receive_wait_time_seconds   = 10
   visibility_timeout_seconds  = 120
-  sqs_managed_sse_enabled     = true
+  sqs_managed_sse_enabled     = local.messaging_kms_key_arn == "" ? true : null
+  kms_master_key_id           = local.messaging_kms_key_arn != "" ? local.messaging_kms_key_arn : null
 
   redrive_policy = jsonencode({
     deadLetterTargetArn = aws_sqs_queue.system_dead_letter.arn
@@ -86,7 +90,8 @@ resource "aws_sqs_queue" "events" {
   message_retention_seconds  = 7200
   receive_wait_time_seconds  = 10
   visibility_timeout_seconds = 120
-  sqs_managed_sse_enabled    = true
+  sqs_managed_sse_enabled    = local.messaging_kms_key_arn == "" ? true : null
+  kms_master_key_id          = local.messaging_kms_key_arn != "" ? local.messaging_kms_key_arn : null
 
   tags = merge(
     local.common_tags,

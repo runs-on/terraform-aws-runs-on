@@ -52,7 +52,7 @@ variable "github_organization" {
 }
 
 variable "github_enterprise_url" {
-  description = "GitHub Enterprise web URL for GHE.com data residency or GitHub Enterprise Server (optional, leave empty for github.com)"
+  description = "GitHub Enterprise web URL (https) for GHE.com data residency or GitHub Enterprise Server (optional, leave empty for github.com)"
   type        = string
   default     = ""
 }
@@ -214,6 +214,17 @@ variable "ebs_encryption_key_id" {
   default     = ""
 }
 
+variable "messaging_kms_key_arn" {
+  description = "Customer-managed KMS key ARN used to encrypt the control plane SQS queues and the SNS alerts topic. Leave empty to keep SQS-managed SSE on queues and no SSE on the topic (SNS default disk encryption only). The key policy must allow events.amazonaws.com (and budgets.amazonaws.com when app_budget_daily_usd > 0) kms:GenerateDataKey and kms:Decrypt; the module grants RunsOn roles access through IAM."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = trimspace(var.messaging_kms_key_arn) == "" || can(regex("^arn:[^:]+:kms:[^:]+:[0-9]{12}:key/[^/]+$", trimspace(var.messaging_kms_key_arn)))
+    error_message = "messaging_kms_key_arn must be empty or a KMS key ARN (arn:<partition>:kms:<region>:<account>:key/<id>); aliases are not supported."
+  }
+}
+
 ###########################
 # Worker Service Configuration
 # Used by: core module
@@ -222,14 +233,14 @@ variable "ebs_encryption_key_id" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.4.0@sha256:08c80b917f9c3e7e3968e2e030ced82b2fd5319b03679339484c2debeb4c6eb5"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.5.0-rc.5@sha256:eb2a7a059c1859de1e565152b0c4fc548d9a35cf551aff1aa500b8bb1ea5a4fc"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.4.0"
+  default     = "v3.5.0-rc.5"
   nullable    = false
 }
 
@@ -254,6 +265,12 @@ variable "app_size" {
     condition     = contains(["small", "medium", "high", "xhigh"], var.app_size)
     error_message = "app_size must be one of: small, medium, high, xhigh."
   }
+}
+
+variable "container_insights_enabled" {
+  description = "Enable ECS Container Insights on the control-plane cluster. Disabled by default: Container Insights publishes custom CloudWatch metrics billed per metric, a fixed cost the RunsOn dashboards do not need."
+  type        = bool
+  default     = false
 }
 
 variable "app_capacity_provider" {
@@ -365,7 +382,7 @@ variable "runner_custom_policy_arns" {
 }
 
 variable "runner_config_auto_extends_from" {
-  description = "Auto-extend runner configuration from this base config"
+  description = "Repository whose .github/runs-on.yml every repository config extends, replacing any _extends it declares. Set to \".\" to use each repository's own _extends"
   type        = string
   default     = ".github-private"
 }
@@ -440,14 +457,14 @@ variable "otel_exporter_endpoint" {
 }
 
 variable "otel_exporter_headers" {
-  description = "OpenTelemetry exporter headers (optional)"
+  description = "OpenTelemetry exporter headers as comma-separated key=value pairs, as in OTEL_EXPORTER_OTLP_HEADERS. Values may be percent-encoded: authorization=Bearer%20KEY and authorization=Bearer KEY are equivalent (optional)"
   type        = string
   default     = ""
   sensitive   = true
 }
 
 variable "otel_exporter_temporality" {
-  description = "OTLP metrics temporality: cumulative (default) or delta"
+  description = "OTLP metrics temporality: cumulative (default, for Prometheus-compatible backends) or delta (recommended for SigNoz, required by Datadog). Delta applies to counters and histograms; up-down counters stay cumulative."
   type        = string
   default     = "cumulative"
 

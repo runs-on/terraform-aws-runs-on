@@ -18,13 +18,26 @@ module "github_platform" {
 
 # Local variables
 locals {
-  partition                             = data.aws_partition.current.partition
-  github                                = var.github
-  runtime                               = var.runtime
-  runner                                = var.runner
-  operations                            = var.operations
-  cost_reports_enabled                  = local.operations.enable_cost_reports != "no"
-  alerts                                = var.alerts
+  partition             = data.aws_partition.current.partition
+  github                = var.github
+  runtime               = var.runtime
+  runner                = var.runner
+  operations            = var.operations
+  cost_reports_enabled  = local.operations.enable_cost_reports != "no"
+  alerts                = var.alerts
+  messaging_kms_key_arn = trimspace(var.messaging_kms_key_arn)
+  # Producers need GenerateDataKey and consumers need Decrypt on the
+  # customer-managed key; grant both to every role touching queues or topics.
+  messaging_kms_statements = local.messaging_kms_key_arn != "" ? [
+    {
+      Effect = "Allow"
+      Action = [
+        "kms:Decrypt",
+        "kms:GenerateDataKey",
+      ]
+      Resource = local.messaging_kms_key_arn
+    },
+  ] : []
   common_tags                           = var.tags
   github_enterprise_url                 = module.github_platform.enterprise_url
   github_platform                       = module.github_platform.platform
@@ -82,6 +95,7 @@ locals {
     BucketCache                        = var.extras.cache.bucket_name
     CacheCredentialBrokerFunctionName  = var.enable_cache_isolation ? aws_lambda_function.cache_credential_broker.function_name : ""
     InstanceRoleName                   = var.compute.runner_iam.role_name
+    InstanceRoleId                     = var.compute.runner_iam.role_id
     SshAllowed                         = local.runner.ssh_allowed ? "true" : "false"
     LaunchTemplateLinuxDefault         = var.compute.launch_templates.linux_default.id
     LaunchTemplateLinuxDefaultNested   = var.compute.launch_templates.linux_default_nested.id

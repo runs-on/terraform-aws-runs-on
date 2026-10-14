@@ -13,11 +13,13 @@ locals {
   # Only the webhook URL is secret; whether Slack alerting is configured is safe metadata for counts and outputs.
   slack_webhook_enabled = nonsensitive(trimspace(var.slack_webhook_url) != "")
   lambda_artifact_dir   = "${path.module}/../../../lambdas/dist"
+  daily_budget_enabled  = var.daily_budget_usd > 0
 }
 
 resource "aws_sns_topic" "alerts" {
-  name         = "${var.stack_name}-alerts"
-  display_name = "RunsOn Alerts"
+  name              = "${var.stack_name}-alerts"
+  display_name      = "RunsOn Alerts"
+  kms_master_key_id = var.kms_key_arn != "" ? var.kms_key_arn : null
 
   tags = merge(
     var.tags,
@@ -28,7 +30,7 @@ resource "aws_sns_topic" "alerts" {
 }
 
 resource "aws_sns_topic_policy" "alerts" {
-  count = var.allow_budgets_publish ? 1 : 0
+  count = local.daily_budget_enabled ? 1 : 0
 
   arn = aws_sns_topic.alerts.arn
 
@@ -51,6 +53,38 @@ resource "aws_sns_topic_policy" "alerts" {
       }
     ]
   })
+}
+
+resource "aws_budgets_budget" "app_daily_budget" {
+  count = local.daily_budget_enabled ? 1 : 0
+
+  account_id        = var.account_id
+  name              = "${var.stack_name}-app-daily-budget"
+  budget_type       = "COST"
+  limit_amount      = tostring(var.daily_budget_usd)
+  limit_unit        = "USD"
+  time_unit         = "DAILY"
+  time_period_start = "2024-01-01_00:00"
+
+  cost_filter {
+    name   = "TagKeyValue"
+    values = [format("user:%s$%s", var.cost_allocation_tag, var.stack_name)]
+  }
+
+  notification {
+    comparison_operator       = "GREATER_THAN"
+    notification_type         = "ACTUAL"
+    threshold                 = 100
+    threshold_type            = "PERCENTAGE"
+    subscriber_sns_topic_arns = [aws_sns_topic.alerts.arn]
+  }
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.stack_name}-app-daily-budget"
+    }
+  )
 }
 
 resource "aws_sns_topic_subscription" "email" {

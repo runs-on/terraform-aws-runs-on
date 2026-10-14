@@ -22,7 +22,7 @@ Public module source:
 ```hcl
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.4.0"
+  version = "v3.5.0"
 }
 ```
 
@@ -165,7 +165,7 @@ locals {
 
 module "runs_on_fleet" {
   source  = "runs-on/runs-on/aws//modules/fleet"
-  version = "v3.4.0"
+  version = "v3.5.0"
 
   stack_name             = var.stack_name
   github_enterprise_pat  = var.github_enterprise_pat
@@ -422,13 +422,15 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Name of the RunsOn Fleet stack. | `string` | n/a | yes |
 | <a name="input_vpc_id"></a> [vpc\_id](#input\_vpc\_id) | VPC ID where the Fleet stack will run. | `string` | n/a | yes |
 | <a name="input_alert_slack_webhook_url"></a> [alert\_slack\_webhook\_url](#input\_alert\_slack\_webhook\_url) | Slack webhook URL for alert notifications (optional) | `string` | `""` | no |
+| <a name="input_app_budget_daily_usd"></a> [app\_budget\_daily\_usd](#input\_app\_budget\_daily\_usd) | Daily AWS cost budget in USD for this stack, filtered by the configured cost allocation tag. Set to 0 to disable the budget. Fleet does not activate the cost allocation tag: activate it in AWS Billing (in the management account for AWS Organizations member accounts), or the budget sees no spend. | `number` | `10` | no |
 | <a name="input_app_capacity_provider"></a> [app\_capacity\_provider](#input\_app\_capacity\_provider) | Fargate capacity provider for the Fleet worker service. Use fargate\_spot to lower idle cost for small installs; interrupted in-flight assigned jobs are reconciled by the Fleet runtime. | `string` | `"fargate"` | no |
 | <a name="input_app_size"></a> [app\_size](#input\_app\_size) | Preset for the Fleet worker service, default EC2 launch concurrency, and default registration concurrency. Allowed values: small, medium, high, xhigh. | `string` | `"small"` | no |
-| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version. | `string` | `"v3.4.0"` | no |
+| <a name="input_app_tag"></a> [app\_tag](#input\_app\_tag) | Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version. | `string` | `"v3.5.0-rc.5"` | no |
 | <a name="input_bootstrap_tag"></a> [bootstrap\_tag](#input\_bootstrap\_tag) | Bootstrap release tag used by the shared compute bootstrap template. | `string` | `"v0.1.17"` | no |
 | <a name="input_cache_bucket_namespace"></a> [cache\_bucket\_namespace](#input\_cache\_bucket\_namespace) | S3 namespace for the cache bucket. Use account-regional when an organization SCP requires account-regional S3 bucket names. | `string` | `"global"` | no |
 | <a name="input_cache_bucket_versioning_enabled"></a> [cache\_bucket\_versioning\_enabled](#input\_cache\_bucket\_versioning\_enabled) | Enable S3 object versioning for the cache bucket. | `bool` | `false` | no |
 | <a name="input_cache_expiration_days"></a> [cache\_expiration\_days](#input\_cache\_expiration\_days) | Number of days to retain cache artifacts. | `number` | `10` | no |
+| <a name="input_container_insights_enabled"></a> [container\_insights\_enabled](#input\_container\_insights\_enabled) | Enable ECS Container Insights on the control-plane cluster. Disabled by default: Container Insights publishes custom CloudWatch metrics billed per metric, a fixed cost the RunsOn dashboards do not need. | `bool` | `false` | no |
 | <a name="input_cost_allocation_tag"></a> [cost\_allocation\_tag](#input\_cost\_allocation\_tag) | Tag key used for cost allocation. | `string` | `"stack"` | no |
 | <a name="input_ecr_pull_through_cache_rules"></a> [ecr\_pull\_through\_cache\_rules](#input\_ecr\_pull\_through\_cache\_rules) | Existing ECR pull-through cache rules to reference for Fleet runner image pulls. Create or import the regional rules outside the RunsOn module. | <pre>map(object({<br/>    ecr_repository_prefix      = string<br/>    upstream_registry_url      = string<br/>    upstream_repository_prefix = optional(string)<br/>  }))</pre> | `{}` | no |
 | <a name="input_enable_bedrock"></a> [enable\_bedrock](#input\_enable\_bedrock) | Enable Amazon Bedrock access for EC2 runner instances. | `bool` | `false` | no |
@@ -440,7 +442,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_force_destroy_buckets"></a> [force\_destroy\_buckets](#input\_force\_destroy\_buckets) | Allow the cache bucket to be destroyed while non-empty. | `bool` | `false` | no |
 | <a name="input_github_app_id"></a> [github\_app\_id](#input\_github\_app\_id) | GitHub App ID used by the Fleet runtime. | `number` | `null` | no |
 | <a name="input_github_app_private_key"></a> [github\_app\_private\_key](#input\_github\_app\_private\_key) | GitHub App private key in PEM format. | `string` | `null` | no |
-| <a name="input_github_base_url"></a> [github\_base\_url](#input\_github\_base\_url) | GitHub web host root URL. Leave the default for github.com, or set a GHE.com data-residency or GHES host. | `string` | `"https://github.com"` | no |
+| <a name="input_github_base_url"></a> [github\_base\_url](#input\_github\_base\_url) | GitHub web host root URL (https). Leave the default for github.com, or set a GHE.com data-residency or GHES host. | `string` | `"https://github.com"` | no |
 | <a name="input_github_enterprise_name"></a> [github\_enterprise\_name](#input\_github\_enterprise\_name) | GitHub Enterprise slug used when github\_enterprise\_pat is set. | `string` | `null` | no |
 | <a name="input_github_enterprise_pat"></a> [github\_enterprise\_pat](#input\_github\_enterprise\_pat) | Classic PAT used for enterprise-target Fleet mode. Must start with ghp\_ when set. | `string` | `null` | no |
 | <a name="input_images"></a> [images](#input\_images) | Custom runner image catalog keyed by image name. Built-in image names such as ubuntu24-full-x64 and ubuntu26-full-x64 do not need entries here. | `any` | `{}` | no |
@@ -448,9 +450,10 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_ipv6_enabled"></a> [ipv6\_enabled](#input\_ipv6\_enabled) | Enable IPv6 on EC2 runner launch templates. | `bool` | `false` | no |
 | <a name="input_log_retention_days"></a> [log\_retention\_days](#input\_log\_retention\_days) | CloudWatch Logs retention in days. Control-plane Lambda logs keep at least 14 days. | `number` | `7` | no |
 | <a name="input_maintenance_mode"></a> [maintenance\_mode](#input\_maintenance\_mode) | Enable maintenance mode (disables queue processing and leader election) | `bool` | `false` | no |
+| <a name="input_messaging_kms_key_arn"></a> [messaging\_kms\_key\_arn](#input\_messaging\_kms\_key\_arn) | Customer-managed KMS key ARN used to encrypt the SNS alerts topic (Fleet creates no SQS queues). Leave empty for no SSE on the topic (SNS default disk encryption only). The module grants RunsOn roles access through IAM, so the key policy must delegate to IAM in this account, and must allow budgets.amazonaws.com kms:GenerateDataKey and kms:Decrypt when app\_budget\_daily\_usd > 0. | `string` | `""` | no |
 | <a name="input_otel_exporter_endpoint"></a> [otel\_exporter\_endpoint](#input\_otel\_exporter\_endpoint) | OpenTelemetry exporter endpoint for observability (optional) | `string` | `""` | no |
-| <a name="input_otel_exporter_headers"></a> [otel\_exporter\_headers](#input\_otel\_exporter\_headers) | OpenTelemetry exporter headers (optional) | `string` | `""` | no |
-| <a name="input_otel_exporter_temporality"></a> [otel\_exporter\_temporality](#input\_otel\_exporter\_temporality) | OTLP metrics temporality: cumulative (default) or delta | `string` | `"cumulative"` | no |
+| <a name="input_otel_exporter_headers"></a> [otel\_exporter\_headers](#input\_otel\_exporter\_headers) | OpenTelemetry exporter headers as comma-separated key=value pairs, as in OTEL\_EXPORTER\_OTLP\_HEADERS. Values may be percent-encoded: authorization=Bearer%20KEY and authorization=Bearer KEY are equivalent (optional) | `string` | `""` | no |
+| <a name="input_otel_exporter_temporality"></a> [otel\_exporter\_temporality](#input\_otel\_exporter\_temporality) | OTLP metrics temporality: cumulative (default, for Prometheus-compatible backends) or delta (recommended for SigNoz, required by Datadog). Delta applies to counters and histograms; up-down counters stay cumulative. | `string` | `"cumulative"` | no |
 | <a name="input_otel_logs_enabled"></a> [otel\_logs\_enabled](#input\_otel\_logs\_enabled) | Enable OpenTelemetry log export | `bool` | `true` | no |
 | <a name="input_otel_resource_attributes"></a> [otel\_resource\_attributes](#input\_otel\_resource\_attributes) | Extra OTLP resource attributes as comma-separated key=value pairs, set as OTEL\_RESOURCE\_ATTRIBUTES. They override RunsOn defaults such as deployment.environment, except service.name. (optional) | `string` | `""` | no |
 | <a name="input_otel_traces_enabled"></a> [otel\_traces\_enabled](#input\_otel\_traces\_enabled) | Enable OpenTelemetry trace export | `bool` | `true` | no |
@@ -461,7 +464,7 @@ You can also create the rule outside the module with `aws_ecr_pull_through_cache
 | <a name="input_runner_custom_policy_arns"></a> [runner\_custom\_policy\_arns](#input\_runner\_custom\_policy\_arns) | Optional managed policy ARNs attached to the EC2 runner role. Use this when policy ARNs are computed by other resources. | `list(string)` | `[]` | no |
 | <a name="input_runner_custom_tags"></a> [runner\_custom\_tags](#input\_runner\_custom\_tags) | Additional custom tags propagated to launched runner instances. | `list(string)` | `[]` | no |
 | <a name="input_runner_max_runtime"></a> [runner\_max\_runtime](#input\_runner\_max\_runtime) | Maximum runtime in minutes passed to the shared compute bootstrap template. | `number` | `60` | no |
-| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.4.0@sha256:08c80b917f9c3e7e3968e2e030ced82b2fd5319b03679339484c2debeb4c6eb5"` | no |
+| <a name="input_runtime_image"></a> [runtime\_image](#input\_runtime\_image) | RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image. | `string` | `"public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.5.0-rc.5@sha256:eb2a7a059c1859de1e565152b0c4fc548d9a35cf551aff1aa500b8bb1ea5a4fc"` | no |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Security group IDs for runners and the Fleet worker. Leave empty to create a dedicated group. | `list(string)` | `[]` | no |
 | <a name="input_spot_circuit_breaker"></a> [spot\_circuit\_breaker](#input\_spot\_circuit\_breaker) | Spot circuit breaker for Fleet launches, formatted as COUNT/WINDOW\_MINUTES/RECOVERY\_MINUTES: after COUNT spot interruptions within WINDOW\_MINUTES, launch on-demand for RECOVERY\_MINUTES. "false" disables it; empty uses the built-in default "2/15/30" (same semantics as the Flex SpotCircuitBreaker stack parameter). | `string` | `""` | no |
 | <a name="input_ssh_allowed"></a> [ssh\_allowed](#input\_ssh\_allowed) | Allow SSH ingress when the module creates its own security group. | `bool` | `false` | no |
