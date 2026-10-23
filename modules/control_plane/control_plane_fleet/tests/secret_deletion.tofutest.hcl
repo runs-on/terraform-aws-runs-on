@@ -23,6 +23,12 @@ mock_provider "aws" {
       arn = "arn:aws:sns:us-east-1:123456789012:mock"
     }
   }
+
+  mock_resource "aws_lambda_function" {
+    defaults = {
+      arn = "arn:aws:lambda:us-east-1:123456789012:function:mock"
+    }
+  }
 }
 
 variables {
@@ -176,6 +182,17 @@ variables {
   permission_boundary_arn = "arn:aws:iam::123456789012:policy/RequiredBoundary"
 }
 
+# IAM role names stop at 64 characters, and the longest existing suffix,
+# -fleet-config-materializer-role, leaves 33 for stack names such as per-user
+# dev stacks. Planning fails if a new resource name runs past a limit.
+run "longest_stack_name_fits_resource_names" {
+  command = plan
+
+  variables {
+    stack_name = "runs-on-fleet-dev-abcdefghijkl-v3"
+  }
+}
+
 run "control_plane_roles_use_permission_boundary" {
   command = plan
 
@@ -184,6 +201,8 @@ run "control_plane_roles_use_permission_boundary" {
       aws_iam_role.config_materializer.permissions_boundary,
       aws_iam_role.cache_credential_broker.permissions_boundary,
       aws_iam_role.job_diagnostics_resolver.permissions_boundary,
+      aws_iam_role.github_runner_cache_refresh.permissions_boundary,
+      aws_iam_role.github_runner_cache_refresh_scheduler.permissions_boundary,
     ] : boundary == var.permission_boundary_arn])
     error_message = "Every Fleet control plane role should use the configured permissions boundary."
   }

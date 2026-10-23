@@ -6,6 +6,8 @@ The stack config secret is the only tag-discovered control-plane anchor. Other r
 
 > Do not remove `runs-on-stack-name`. It is required for deployment-agnostic discovery of the stack config secret.
 
+Resources also carry `aws-apn-id-135269210855 = pc:2b9joblhmcbhnqakspwshptlz`. This [AWS Partner Revenue Measurement](https://docs.aws.amazon.com/PRM/latest/aws-prm-onboarding-guide/manual-tagging.html) tag lets AWS attribute the stack's usage to RunsOn. It changes nothing in your bill or permissions, and it counts toward the 50-tag limit per resource.
+
 ## Custom Tags
 
 Use the `tags` variable to apply additional tags to all resources:
@@ -13,7 +15,7 @@ Use the `tags` variable to apply additional tags to all resources:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.5.0"
+  version = "v3.6.0"
 
   # ...
 

@@ -212,6 +212,8 @@ locals {
       "runs-on-stack-name"      = var.stack_name
       "runs-on-environment"     = var.environment
       (var.cost_allocation_tag) = var.stack_name
+      # AWS Partner Revenue Measurement: attributes this usage to RunsOn.
+      "aws-apn-id-135269210855" = "pc:2b9joblhmcbhnqakspwshptlz"
     }
   )
 }

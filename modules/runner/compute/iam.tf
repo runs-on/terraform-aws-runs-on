@@ -465,7 +465,7 @@ resource "aws_iam_role_policy" "ec2_scoped_cache_broker" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat([
       {
         Effect = "Allow"
         Action = [
@@ -502,6 +502,23 @@ resource "aws_iam_role_policy" "ec2_scoped_cache_broker" {
         }
       },
       {
+        # The git cache (extras=git-cache) deletes coordination claims it
+        # gives up under a repository's git/ prefix.
+        Effect = "Allow"
+        Action = [
+          "s3:DeleteObject"
+        ]
+        Resource = "${var.extras.cache.bucket_arn}/scoped-cache/*/git/*"
+        Condition = {
+          StringLike = {
+            "aws:userid" = "*:runs-on-cache-i-*"
+          }
+          StringEquals = {
+            "aws:PrincipalTag/runs-on-cache-brokered" = "true"
+          }
+        }
+      },
+      {
         # The agent invokes the broker with its instance-profile session.
         Effect = "Allow"
         Action = [
@@ -528,7 +545,18 @@ resource "aws_iam_role_policy" "ec2_scoped_cache_broker" {
           }
         }
       }
-    ]
+      ], var.enable_cache_isolation ? [
+      {
+        # With isolation, git cache entries live in each repository's scoped
+        # prefix. Entries stored in the shared prefix before isolation was
+        # enabled stay unreadable until they expire.
+        Effect = "Deny"
+        Action = [
+          "s3:GetObject"
+        ]
+        Resource = "${var.extras.cache.bucket_arn}/cache/git/v1/*"
+      }
+    ] : [])
   })
 }
 
