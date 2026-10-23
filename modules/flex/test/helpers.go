@@ -23,7 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	ssmtypes "github.com/aws/aws-sdk-go-v2/service/ssm/types"
 	ghinstallation "github.com/bradleyfalzon/ghinstallation/v2"
-	"github.com/google/go-github/v84/github"
+	"github.com/google/go-github/v88/github"
 	"github.com/gruntwork-io/terratest/modules/files"
 	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/gruntwork-io/terratest/modules/terraform"
@@ -807,8 +807,11 @@ func getGitHubInstallationClient(appID int64, privateKey, owner string) (*github
 		return nil, fmt.Errorf("failed to create GitHub App JWT transport: %w", err)
 	}
 
-	appClient := github.NewClient(&http.Client{Transport: appTransport})
-	installation, _, err := appClient.Apps.FindOrganizationInstallation(
+	appClient, err := github.NewClient(github.WithHTTPClient(&http.Client{Transport: appTransport}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GitHub App client: %w", err)
+	}
+	installation, _, err := appClient.Apps.GetOrganizationInstallation(
 		context.Background(), owner,
 	)
 	if err != nil {
@@ -816,7 +819,7 @@ func getGitHubInstallationClient(appID int64, privateKey, owner string) (*github
 	}
 
 	itr := ghinstallation.NewFromAppsTransport(appTransport, installation.GetID())
-	return github.NewClient(&http.Client{Transport: itr}), nil
+	return github.NewClient(github.WithHTTPClient(&http.Client{Transport: itr}))
 }
 
 func requireGitHubAppRepositoryAccess(t *testing.T, appID int64, privateKey, owner, repo string) {
@@ -827,8 +830,9 @@ func requireGitHubAppRepositoryAccess(t *testing.T, appID int64, privateKey, own
 	)
 	require.NoError(t, err, "Failed to create GitHub App JWT transport")
 
-	client := github.NewClient(&http.Client{Transport: transport})
-	installation, _, err := client.Apps.FindRepositoryInstallation(context.Background(), owner, repo)
+	client, err := github.NewClient(github.WithHTTPClient(&http.Client{Transport: transport}))
+	require.NoError(t, err, "Failed to create GitHub App client")
+	installation, _, err := client.Apps.GetRepositoryInstallation(context.Background(), owner, repo)
 	if err == nil {
 		t.Logf("GitHub App installation %d can access %s/%s", installation.GetID(), owner, repo)
 		return
@@ -858,7 +862,7 @@ func getGitHubActionsClient(appID int64, privateKey, owner string) (*github.Clie
 	}
 
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
-	return github.NewClient(oauth2.NewClient(context.Background(), tokenSource)), nil
+	return github.NewClient(github.WithHTTPClient(oauth2.NewClient(context.Background(), tokenSource)))
 }
 
 // UpdateGitHubAppWebhookURL authenticates as a GitHub App using JWT and updates
@@ -871,7 +875,8 @@ func UpdateGitHubAppWebhookURL(t *testing.T, appID int64, privateKey string, web
 	)
 	require.NoError(t, err, "Failed to create GitHub App JWT transport")
 
-	client := github.NewClient(&http.Client{Transport: transport})
+	client, err := github.NewClient(github.WithHTTPClient(&http.Client{Transport: transport}))
+	require.NoError(t, err, "Failed to create GitHub App client")
 	_, _, err = client.Apps.UpdateHookConfig(
 		context.Background(),
 		&github.HookConfig{URL: new(webhookURL)},

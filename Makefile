@@ -10,6 +10,7 @@ TEST_PLAN_TOFU_MODULES = \
 	modules/control_plane/alerts \
 	modules/control_plane/control_plane_fleet \
 	modules/control_plane/control_plane_flex \
+	modules/control_plane/github_platform \
 	modules/control_plane/runtime \
 	modules/runner/compute \
 	modules/runner/extras \
@@ -72,6 +73,7 @@ test-plan: ## Run plan-only validation tests (free, ~2min)
 # Each module may rewrite lockfile constraint metadata, so initialize once and
 # verify that every selected provider version still comes from the canonical
 # lockfile. A second read-only init would only repeat the same installation.
+# Validating here also covers modules without test files, such as ami_sync.
 test-plan-tofu:
 	@echo "Running OpenTofu plan tests..."
 	@tmp=$$(mktemp -d); \
@@ -90,10 +92,11 @@ test-plan-tofu:
 			cp "$(TEST_PLAN_LOCK_FILE)" "$$tmp/$$dir/.terraform.lock.hcl"; \
 			(cd "$$tmp/$$dir" && \
 				tofu init -backend=false -input=false >/dev/null && \
-				awk '/^provider "/ { provider=$$2; gsub(/"/, "", provider) } /version[[:space:]]*=/ { version=$$3; gsub(/"/, "", version); print provider " " version }' .terraform.lock.hcl > .terraform/provider-versions && \
+				awk '/^provider "/ { provider=$$2; gsub(/"/, "", provider) } /version[[:space:]]*=/ { version=$$3; gsub(/"/, "", version); print provider " " version }' .terraform.lock.hcl > "$$tmp/selected-versions" && \
 				while read provider version; do \
 					grep -qx "$$provider $$version" "$$lock_versions" || { echo "$$dir selected $$provider $$version, which is not pinned by $(TEST_PLAN_LOCK_FILE)"; exit 1; }; \
-				done < .terraform/provider-versions && \
+				done < "$$tmp/selected-versions" && \
+				tofu validate -no-color && \
 				tofu test -no-color); \
 		done
 

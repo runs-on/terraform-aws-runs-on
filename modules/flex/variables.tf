@@ -233,14 +233,14 @@ variable "messaging_kms_key_arn" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.5.0@sha256:eb2a7a059c1859de1e565152b0c4fc548d9a35cf551aff1aa500b8bb1ea5a4fc"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.6.0-rc.1@sha256:1db57a436b2c094bc0af0d7966cd154a246dfe7d55596faaa050570ef4417c4a"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.5.0"
+  default     = "v3.6.0-rc.1"
   nullable    = false
 }
 
@@ -493,7 +493,7 @@ variable "otel_traces_enabled" {
 }
 
 variable "logger_level" {
-  description = "Logging level for RunsOn service (debug, info, warn, error)"
+  description = "Logging level for the RunsOn service and the runner agent (debug, info, warn, error)"
   type        = string
   default     = "info"
 

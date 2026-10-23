@@ -1,5 +1,9 @@
 'use strict';
 
+// CloudFormation creates the IP sets with these documentation addresses and
+// reapplies them on any update to the sets. Terraform creates them empty.
+const PLACEHOLDER_ADDRESSES = new Set(['192.0.2.1/32', '2001:db8::1/128']);
+
 function createDefaultAws() {
   let initialized = false;
   let wafv2;
@@ -109,6 +113,11 @@ async function fetchMeta(fetchImpl, metaUrl) {
   return response.json();
 }
 
+function needsSeed(addresses) {
+  const normalized = uniqueSorted(addresses);
+  return normalized.length === 0 || normalized.some((address) => PLACEHOLDER_ADDRESSES.has(address));
+}
+
 async function syncIPSet(aws, params, desiredAddresses) {
   const current = await aws.getIPSet({
     Id: params.id,
@@ -148,20 +157,31 @@ async function performSync(event, options = {}) {
     throw new Error('Both IPv4 and IPv6 WAF IP set identifiers must be configured');
   }
 
+  const ipSets = {
+    ipv4: { id: config.ipv4Id, name: config.ipv4Name, scope: config.scope },
+    ipv6: { id: config.ipv6Id, name: config.ipv6Name, scope: config.scope },
+  };
+
+  // Stack deploys run the seed on every upgrade. Unauthenticated GitHub meta
+  // requests from Lambda's shared egress IPs get rate limited, so a seed only
+  // calls GitHub when a set still lacks the webhook ranges.
+  if (options.seed) {
+    const current = await Promise.all(Object.values(ipSets).map((params) => aws.getIPSet({
+      Id: params.id,
+      Name: params.name,
+      Scope: params.scope,
+    })));
+    if (!current.some((response) => needsSeed(response?.IPSet?.Addresses))) {
+      log('info', 'WAF IP sets already hold GitHub webhook CIDRs; the hourly sync keeps them current');
+      return { skipped: true };
+    }
+  }
+
   const meta = await fetchMeta(fetchImpl, config.metaUrl);
   const hooks = splitHookCidrs(meta);
 
-  const ipv4 = await syncIPSet(aws, {
-    id: config.ipv4Id,
-    name: config.ipv4Name,
-    scope: config.scope,
-  }, hooks.ipv4);
-
-  const ipv6 = await syncIPSet(aws, {
-    id: config.ipv6Id,
-    name: config.ipv6Name,
-    scope: config.scope,
-  }, hooks.ipv6);
+  const ipv4 = await syncIPSet(aws, ipSets.ipv4, hooks.ipv4);
+  const ipv6 = await syncIPSet(aws, ipSets.ipv6, hooks.ipv6);
 
   const result = {
     meta_url: config.metaUrl,
@@ -172,7 +192,7 @@ async function performSync(event, options = {}) {
   return result;
 }
 
-async function sendCloudFormationResponse(event, status, data, reason) {
+async function sendCloudFormationResponse(event, status, data, reason, fetchImpl = fetch) {
   const responseUrl = trimString(event?.ResponseURL);
   if (!responseUrl) return;
 
@@ -186,7 +206,7 @@ async function sendCloudFormationResponse(event, status, data, reason) {
     Data: data || {},
   });
 
-  await fetch(responseUrl, {
+  await fetchImpl(responseUrl, {
     method: 'PUT',
     headers: {
       'content-type': '',
@@ -201,25 +221,35 @@ function isCloudFormationCustomResourceEvent(event) {
 }
 
 async function createHandler(event, options = {}) {
+  const fetchImpl = options.fetchImpl || fetch;
   if (isCloudFormationCustomResourceEvent(event)) {
     if (event.RequestType === 'Delete') {
-      await sendCloudFormationResponse(event, 'SUCCESS', { skipped: true }, 'Delete request acknowledged');
+      await sendCloudFormationResponse(event, 'SUCCESS', { skipped: true }, 'Delete request acknowledged', fetchImpl);
       return { skipped: true };
     }
 
     try {
-      const result = await performSync(event, options);
-      await sendCloudFormationResponse(event, 'SUCCESS', result);
+      const result = await performSync(event, { ...options, seed: true });
+      await sendCloudFormationResponse(event, 'SUCCESS', result, undefined, fetchImpl);
       return result;
     } catch (error) {
       const message = String(error?.message || error);
+      // A failed Update rolls the stack back, and the rollback runs this seed
+      // again: a second failure leaves the stack in UPDATE_ROLLBACK_FAILED.
+      // The hourly sync repairs the IP sets instead.
+      if (event.RequestType === 'Update') {
+        log('warn', 'CloudFormation GitHub WAF seed failed; the hourly sync will retry', { error: message });
+        await sendCloudFormationResponse(event, 'SUCCESS', { error: message }, message, fetchImpl);
+        return { error: message };
+      }
       log('error', 'CloudFormation GitHub WAF seed failed', { error: message });
-      await sendCloudFormationResponse(event, 'FAILED', { error: message }, message);
+      await sendCloudFormationResponse(event, 'FAILED', { error: message }, message, fetchImpl);
       throw error;
     }
   }
 
-  return performSync(event, options);
+  // Terraform's lifecycle-scoped seed invocation adds a `tf` key to its input.
+  return performSync(event, { ...options, seed: !!event?.tf });
 }
 
 module.exports = {

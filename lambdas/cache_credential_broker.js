@@ -67,6 +67,10 @@ async function handler(event) {
   const { ownerID, repoID } = tokenRepositoryIDs(token.payload);
   const repository = repositoryPath(ownerID, repoID);
 
+  if (input.mode === 'git') {
+    return mintGitCredentials({ caller, ownerID, repoID, repository, ac, tokenExp: token.payload.exp });
+  }
+
   const readPrefixes = prefixesFor(ownerID, repoID, ac.readScopes);
   const writePrefixes = prefixesFor(ownerID, repoID, ac.writeScopes);
   if (readPrefixes.length === 0 && writePrefixes.length === 0) {
@@ -93,6 +97,66 @@ async function handler(event) {
     write_prefixes: writePrefixes,
     expires_at: assumed.Credentials.Expiration.toISOString(),
   };
+}
+
+// The git cache follows Magic Cache's scopes: a job stores fetch responses and
+// coordination claims only under its own ref's prefix, and reads that prefix
+// first, then those of the other refs its token may read (usually the default
+// branch). A pull request therefore cannot store anything its base branch's
+// jobs read.
+async function mintGitCredentials({ caller, ownerID, repoID, repository, ac, tokenExp }) {
+  const prefixes = gitPrefixesFor(ownerID, repoID, ac);
+  if (prefixes.read.length === 0) {
+    throw new Error('runtime token has no usable cache scopes');
+  }
+  const assumed = await getSTSClient().send(new AssumeRoleCommand(buildAssumeRoleInput({
+    instanceID: caller.instanceID,
+    ownerID,
+    repoID,
+    durationSeconds: sessionDuration(tokenExp),
+    policy: buildGitSessionPolicy(prefixes),
+  })));
+  return {
+    access_key_id: assumed.Credentials.AccessKeyId,
+    secret_access_key: assumed.Credentials.SecretAccessKey,
+    session_token: assumed.Credentials.SessionToken,
+    expiration: assumed.Credentials.Expiration.toISOString(),
+    repository,
+    git_write_prefix: prefixes.write,
+    git_read_prefixes: prefixes.read,
+    expires_at: assumed.Credentials.Expiration.toISOString(),
+  };
+}
+
+// gitPrefixesFor returns where a token's job may store git cache entries (its
+// one write scope; none when the token has no or several write scopes) and
+// where it may read them, the write prefix first. The literal git segment
+// keeps them apart from Magic Cache's scope segments.
+function gitPrefixesFor(ownerID, repoID, ac) {
+  const root = `scoped-cache/${repositoryPath(ownerID, repoID)}/git`;
+  const write = ac.writeScopes.length === 1 ? `${root}/${scopeSegment(ac.writeScopes[0])}` : '';
+  const read = ac.readScopes.map((scope) => `${root}/${scopeSegment(scope)}`).filter((prefix) => prefix !== write);
+  return { write, read: write ? [write, ...read] : read };
+}
+
+// No s3:ListBucket: the git cache never lists, and reads the AccessDenied S3
+// then returns for a missing object as a miss.
+function buildGitSessionPolicy({ write, read }) {
+  const statements = [
+    {
+      Effect: 'Allow',
+      Action: 's3:GetObject',
+      Resource: read.map((prefix) => `${bucketArn}/${prefix}/*`),
+    },
+  ];
+  if (write) {
+    statements.push({
+      Effect: 'Allow',
+      Action: ['s3:PutObject', 's3:DeleteObject', 's3:AbortMultipartUpload'],
+      Resource: `${bucketArn}/${write}/*`,
+    });
+  }
+  return { Version: '2012-10-17', Statement: statements };
 }
 
 function getSTSClient() {
@@ -138,8 +202,13 @@ function normalizeEvent(event) {
     throw new Error('missing request body');
   }
   const runtimeToken = typeof body.runtime_token === 'string' ? body.runtime_token.trim() : '';
+  const mode = body.mode === undefined || body.mode === '' ? 'cache' : body.mode;
+  if (mode !== 'cache' && mode !== 'git') {
+    throw new Error('unknown broker mode');
+  }
   return {
     runtime_token: runtimeToken,
+    mode,
     caller_identity: normalizeCallerIdentityProof(body.caller_identity),
   };
 }
@@ -522,7 +591,7 @@ function buildSessionPolicy(ownerID, repoID, readPrefixes, writePrefixes) {
   };
 }
 
-function buildAssumeRoleInput({ instanceID, ownerID, repoID, durationSeconds, readPrefixes = [], writePrefixes = [] }) {
+function buildAssumeRoleInput({ instanceID, ownerID, repoID, durationSeconds, readPrefixes = [], writePrefixes = [], policy }) {
   const input = {
     RoleArn: runnerRoleArn,
     // The runner role's scoped-cache grants also check aws:userid, whose
@@ -546,7 +615,7 @@ function buildAssumeRoleInput({ instanceID, ownerID, repoID, durationSeconds, re
   // credentials never leave the agent's cache server, so there is no base
   // boundary to merge and no packed-policy pressure from pass-through
   // statements.
-  input.Policy = JSON.stringify(buildSessionPolicy(ownerID, repoID, readPrefixes, writePrefixes));
+  input.Policy = JSON.stringify(policy || buildSessionPolicy(ownerID, repoID, readPrefixes, writePrefixes));
   if (input.Policy.length > maxAssumeRolePolicyChars) {
     throw new Error(`broker session policy exceeds STS plaintext limit (${input.Policy.length}/${maxAssumeRolePolicyChars} characters)`);
   }
@@ -648,7 +717,9 @@ function stsHostnamesForRegion(partition, region) {
 module.exports = {
   handler,
   buildAssumeRoleInput,
+  buildGitSessionPolicy,
   buildSessionPolicy,
+  gitPrefixesFor,
   defaultIssuerForEnterpriseURL,
   instanceIDFromCallerUserID,
   normalizeAccessControls,

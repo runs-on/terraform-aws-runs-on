@@ -1,0 +1,211 @@
+# Mirrors RunsOn's GitHub Actions runner (runs-on/runner) into the cache
+# bucket. Runners install it from there when their image has none, and when
+# GitHub refuses the image's runner version. Instance configs already point at
+# agents/github-runner/latest.json, and the runner role reads agents/*.
+# Same function as Flex (control_plane_flex/github_runner_cache.tf).
+
+resource "aws_cloudwatch_log_group" "github_runner_cache_refresh_lambda" {
+  name              = "/runs-on/${var.stack_name}/lambda/github-runner-cache-refresh"
+  retention_in_days = local.lambda_log_retention_days
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.stack_name}-github-runner-cache-refresh-lambda"
+    }
+  )
+}
+
+resource "aws_iam_role" "github_runner_cache_refresh" {
+  name = "${var.stack_name}-runner-cache-refresh-role"
+
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.stack_name}-runner-cache-refresh-role"
+    }
+  )
+}
+
+resource "aws_iam_role_policy" "github_runner_cache_refresh_logs" {
+  name = "RunsOnGitHubRunnerCacheRefreshLogPermissions"
+  role = aws_iam_role.github_runner_cache_refresh.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "${aws_cloudwatch_log_group.github_runner_cache_refresh_lambda.arn}:*"
+      },
+    ]
+  })
+}
+
+resource "aws_iam_role_policy" "github_runner_cache_refresh" {
+  name = "RunsOnGitHubRunnerCacheRefreshPermissions"
+  role = aws_iam_role.github_runner_cache_refresh.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:ListBucket",
+        ]
+        Resource = var.extras.cache.bucket_arn
+        Condition = {
+          StringLike = {
+            "s3:prefix" = [
+              "agents/github-runner",
+              "agents/github-runner/*",
+            ]
+          }
+        }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+        ]
+        Resource = "${var.extras.cache.bucket_arn}/agents/github-runner/*"
+      },
+    ]
+  })
+}
+
+resource "aws_lambda_function" "github_runner_cache_refresh" {
+  function_name = "${var.stack_name}-github-runner-cache-refresh"
+  role          = aws_iam_role.github_runner_cache_refresh.arn
+  runtime       = "nodejs24.x"
+  handler       = "index.handler"
+  timeout       = 300
+  memory_size   = 512
+
+  filename         = "${local.lambda_artifact_dir}/github-runner-cache-refresh.zip"
+  source_code_hash = filebase64sha256("${local.lambda_artifact_dir}/github-runner-cache-refresh.zip")
+
+  logging_config {
+    log_format = "Text"
+    log_group  = aws_cloudwatch_log_group.github_runner_cache_refresh_lambda.name
+  }
+
+  environment {
+    variables = {
+      RUNS_ON_RUNNER_CACHE_BUCKET = var.extras.cache.bucket_name
+    }
+  }
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.stack_name}-github-runner-cache-refresh"
+    }
+  )
+
+  depends_on = [
+    aws_iam_role_policy.github_runner_cache_refresh_logs,
+  ]
+}
+
+resource "aws_lambda_invocation" "github_runner_cache_refresh_seed" {
+  function_name = aws_lambda_function.github_runner_cache_refresh.function_name
+  input = jsonencode({
+    input = {
+      bucket = var.extras.cache.bucket_name
+      # A failed seed must not fail the apply: the daily refresh retries.
+      seed = true
+    }
+  })
+  triggers = {
+    lambda_version = aws_lambda_function.github_runner_cache_refresh.source_code_hash
+  }
+
+  depends_on = [
+    aws_iam_role_policy.github_runner_cache_refresh,
+  ]
+}
+
+resource "aws_iam_role" "github_runner_cache_refresh_scheduler" {
+  name = "${var.stack_name}-runner-cache-scheduler"
+
+  permissions_boundary = var.permission_boundary_arn != "" ? var.permission_boundary_arn : null
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.stack_name}-runner-cache-scheduler"
+    }
+  )
+}
+
+resource "aws_iam_role_policy" "github_runner_cache_refresh_scheduler" {
+  name = "InvokeGitHubRunnerCacheRefresh"
+  role = aws_iam_role.github_runner_cache_refresh_scheduler.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.github_runner_cache_refresh.arn
+      },
+    ]
+  })
+}
+
+resource "aws_scheduler_schedule" "github_runner_cache_refresh" {
+  name                         = "${var.stack_name}-github-runner-cache-refresh"
+  schedule_expression          = "cron(15 0 * * ? *)"
+  schedule_expression_timezone = "UTC"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = aws_lambda_function.github_runner_cache_refresh.arn
+    role_arn = aws_iam_role.github_runner_cache_refresh_scheduler.arn
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+
+    input = jsonencode({})
+  }
+}
