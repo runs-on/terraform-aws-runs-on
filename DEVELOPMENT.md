@@ -27,8 +27,8 @@ make test-plan    # Free Terratest plan checks
 
 - The canonical release version comes from the repository root [`../VERSION`](../VERSION).
 - Use `make sync-metadata` or root `make sync-metadata` to refresh Terraform release-facing docs after a version bump.
-- The monorepo copy intentionally leaves `app_image` and `app_tag` blank by default.
-- The mirrored public repo gets the released `app_image` and `app_tag` injected during mirror publication after the release image is built.
+- The monorepo copy leaves the Flex `app_image` and `app_tag` defaults blank, and gives Fleet a test `runtime_image` and a `dev` `app_tag`.
+- Mirror publication replaces those defaults in each module's `variables.tf` with the released image and tag after the release image is built.
 - Do not create tags or GitHub releases from `terraform/`; use root `releasectl release final`.
 
 ## IAM Policy Notes

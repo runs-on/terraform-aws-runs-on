@@ -32,10 +32,10 @@ locals {
     S3BucketCache       = var.extras.cache.bucket_name
     BootstrapTag        = var.bootstrap_tag
     AgentS3Bucket       = "s3://${var.extras.cache.bucket_name}/agents/${var.app_tag}"
-    EfsEnvLine          = local.efs_file_system_id != "" ? "$env:RUNS_ON_EFS_ID = \"${local.efs_file_system_id}\"" : ""
+    EfsEnvLine          = local.efs_file_system_id != "" ? "set RUNS_ON_EFS_ID=${local.efs_file_system_id}" : ""
     EphemeralRegistryEnvLine = join("\n", compact([
-      local.ecr_repository_url != "" ? "$env:RUNS_ON_ECR_CACHE = \"${local.ecr_repository_url}\"" : "",
-      local.ecr_pull_through_cache_registry_url != "" ? "$env:RUNS_ON_ECR_PULL_THROUGH_CACHE = \"${local.ecr_pull_through_cache_registry_url}\"" : "",
+      local.ecr_repository_url != "" ? "set RUNS_ON_ECR_CACHE=${local.ecr_repository_url}" : "",
+      local.ecr_pull_through_cache_registry_url != "" ? "set RUNS_ON_ECR_PULL_THROUGH_CACHE=${local.ecr_pull_through_cache_registry_url}" : "",
     ]))
   }
 }
@@ -187,7 +187,7 @@ resource "aws_launch_template" "windows_default" {
     tags          = local.common_tags
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.ps1.tmpl", local.windows_user_data_vars))
+  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.cmd.tmpl", local.windows_user_data_vars))
 
   tags = merge(
     local.common_tags,
@@ -240,7 +240,7 @@ resource "aws_launch_template" "windows_default_nested" {
     tags          = local.common_tags
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.ps1.tmpl", local.windows_user_data_vars))
+  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.cmd.tmpl", local.windows_user_data_vars))
 
   tags = merge(
     local.common_tags,
@@ -393,7 +393,7 @@ resource "aws_launch_template" "windows_private" {
     tags          = local.common_tags
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.ps1.tmpl", local.windows_user_data_vars))
+  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.cmd.tmpl", local.windows_user_data_vars))
 
   tags = merge(
     local.common_tags,
@@ -446,7 +446,7 @@ resource "aws_launch_template" "windows_private_nested" {
     tags          = local.common_tags
   }
 
-  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.ps1.tmpl", local.windows_user_data_vars))
+  user_data = base64encode(templatefile("${path.module}/user-data/windows-bootstrap.cmd.tmpl", local.windows_user_data_vars))
 
   tags = merge(
     local.common_tags,

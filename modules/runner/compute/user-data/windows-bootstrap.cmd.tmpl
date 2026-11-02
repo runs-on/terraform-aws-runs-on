@@ -1,0 +1,40 @@
+<script>
+@echo off
+rem A batch script instead of PowerShell: on a fresh instance the first
+rem powershell.exe pays 10 to 25 s loading .NET from a cold EBS volume before
+rem the bootstrap can start, while cmd.exe starts at once.
+echo %DATE% %TIME%
+set RUNS_ON_RUNNER_MAX_RUNTIME=${RunnerMaxRuntime}
+set RUNS_ON_LOG_GROUP_NAME=${EC2InstanceLogGroup}
+set AWS_REGION=${Region}
+set RUNS_ON_S3_BUCKET_CACHE=${S3BucketCache}
+${EfsEnvLine}
+${EphemeralRegistryEnvLine}
+rem Neither service is needed before the agent is up; both start in the background.
+sc config AmazonSSMAgent start= auto >nul 2>&1
+sc start AmazonSSMAgent >nul 2>&1
+sc start docker >nul 2>&1
+set BOOTSTRAP=C:\runs-on\bootstrap-${BootstrapTag}.exe
+set BOOTSTRAP_URL=https://github.com/runs-on/bootstrap/releases/download/${BootstrapTag}/bootstrap-${BootstrapTag}-windows-%PROCESSOR_ARCHITECTURE%.exe
+if not exist "%BOOTSTRAP%" (
+  mkdir C:\runs-on >nul 2>&1
+  where curl.exe >nul 2>&1 && curl.exe -fsSL --retry 3 -o "%BOOTSTRAP%" "%BOOTSTRAP_URL%"
+)
+rem Windows Server 2016 ships no curl.exe: fall back to PowerShell with TLS 1.2, as the previous user data did.
+if not exist "%BOOTSTRAP%" (
+  powershell.exe -NoProfile -NonInteractive -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%BOOTSTRAP_URL%' -OutFile '%BOOTSTRAP%' -UseBasicParsing"
+)
+rem Only images that still ship Defender need the exclusion, and only they pay for PowerShell here.
+sc query WinDefend >nul 2>&1 && powershell.exe -NoProfile -NonInteractive -Command "Add-MpPreference -ExclusionProcess '%BOOTSTRAP%' -ErrorAction SilentlyContinue"
+"%BOOTSTRAP%" --exec --post-exec shutdown "${AgentS3Bucket}/agent-windows-%PROCESSOR_ARCHITECTURE%.exe"
+set BOOTSTRAP_EXIT=%ERRORLEVEL%
+if not "%BOOTSTRAP_EXIT%"=="0" (
+  echo Bootstrap failed with exit code %BOOTSTRAP_EXIT%. Sleeping 60s for troubleshooting/log shipping...
+  rem timeout.exe exits at once without a console stdin, which a detached EC2Launch script has none of.
+  ping -n 61 127.0.0.1 >nul
+)
+echo user-data: Going to shut down now...
+shutdown /s /t 0 /f
+</script>
+<detach>true</detach>
+<persist>true</persist>
