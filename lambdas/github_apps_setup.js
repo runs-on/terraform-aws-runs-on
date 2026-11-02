@@ -1144,7 +1144,7 @@ function renderTroubleshooting(stackConfig, appState) {
     'export AWS_PROFILE=your-aws-admin-profile',
     ...(region ? [`export AWS_REGION=${region}`] : []),
     '# Check the stack and export its logs',
-    `roc doctor --stack ${stackName}`,
+    `roc stack doctor --stack ${stackName}`,
     '# Export everything about one job, from its GitHub URL',
     `roc logs ${githubBaseUrl()}OWNER/REPO/actions/runs/RUN/job/JOB --full --stack ${stackName}`,
   ].join('\n');

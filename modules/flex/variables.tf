@@ -233,14 +233,14 @@ variable "messaging_kms_key_arn" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.5.1@sha256:aadacce1b311f7ea9a9ae82ceb1fe07df4fc58adda658174e6575a12120e1b73"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.6.0-rc.4@sha256:3c36f631f9a8591d071b102d2ab71bed10947b03d522ce3b3275b0ea5adf5037"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.5.1"
+  default     = "v3.6.0-rc.4"
   nullable    = false
 }
 
@@ -410,7 +410,7 @@ variable "enable_cost_reports" {
 }
 
 variable "spot_circuit_breaker" {
-  description = "Spot instance circuit breaker configuration (e.g., '2/15/30' = 2 failures in 15min, block for 30min)"
+  description = "Spot instance circuit breaker, counted per instance family (e.g., '2/15/30' = 2 interruptions of one family in 15min stop spot launches of that family for 30min; jobs whose families are all paused launch on-demand). 'false' disables it"
   type        = string
   default     = "2/15/30"
 }
@@ -493,7 +493,7 @@ variable "otel_traces_enabled" {
 }
 
 variable "logger_level" {
-  description = "Logging level for RunsOn service (debug, info, warn, error)"
+  description = "Logging level for the RunsOn service and the runner agent (debug, info, warn, error)"
   type        = string
   default     = "info"
 

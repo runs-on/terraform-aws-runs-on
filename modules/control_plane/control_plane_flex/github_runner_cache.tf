@@ -130,7 +130,7 @@ resource "aws_lambda_invocation" "github_runner_cache_refresh_seed" {
   input = jsonencode({
     input = {
       bucket = var.extras.cache.bucket_name
-      # A failed seed must not fail the apply: the daily refresh retries.
+      # A failed seed must not fail the apply: the hourly refresh retries.
       seed = true
     }
   })
@@ -145,7 +145,7 @@ resource "aws_lambda_invocation" "github_runner_cache_refresh_seed" {
 
 resource "aws_scheduler_schedule" "github_runner_cache_refresh" {
   name                         = "${var.stack_name}-github-runner-cache-refresh"
-  schedule_expression          = "cron(15 0 * * ? *)"
+  schedule_expression          = "cron(15 * * * ? *)"
   schedule_expression_timezone = "UTC"
 
   flexible_time_window {
