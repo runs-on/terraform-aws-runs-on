@@ -29,6 +29,12 @@ mock_provider "aws" {
       arn = "arn:aws:sns:us-east-1:123456789012:mock"
     }
   }
+
+  mock_resource "aws_lambda_function" {
+    defaults = {
+      arn = "arn:aws:lambda:us-east-1:123456789012:function:mock"
+    }
+  }
 }
 
 variables {

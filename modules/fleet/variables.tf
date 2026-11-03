@@ -163,7 +163,7 @@ variable "fleets" {
 }
 
 variable "spot_circuit_breaker" {
-  description = "Spot circuit breaker for Fleet launches, formatted as COUNT/WINDOW_MINUTES/RECOVERY_MINUTES: after COUNT spot interruptions within WINDOW_MINUTES, launch on-demand for RECOVERY_MINUTES. \"false\" disables it; empty uses the built-in default \"2/15/30\" (same semantics as the Flex SpotCircuitBreaker stack parameter)."
+  description = "Spot circuit breaker for Fleet launches, formatted as COUNT/WINDOW_MINUTES/RECOVERY_MINUTES and counted per instance family: after COUNT spot interruptions of one family within WINDOW_MINUTES, that family launches on-demand for RECOVERY_MINUTES, and a target goes on-demand once all its families are paused. \"false\" disables it; empty uses the built-in default \"2/15/30\" (same semantics as the Flex SpotCircuitBreaker stack parameter)."
   type        = string
   default     = ""
 }
@@ -251,7 +251,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.5.1@sha256:aadacce1b311f7ea9a9ae82ceb1fe07df4fc58adda658174e6575a12120e1b73"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.6.0-rc.5@sha256:64f8618e156bb8512eee0f67e75b6c433f6072ff52fa85c62623d277c58f6f92"
   nullable    = false
 }
 
@@ -339,7 +339,7 @@ variable "app_capacity_provider" {
 }
 
 variable "maintenance_mode" {
-  description = "Enable maintenance mode (disables queue processing and leader election)"
+  description = "Enable maintenance mode: scales the Fleet controller to zero. Scale set sessions close, new jobs wait on GitHub, and running jobs finish"
   type        = bool
   default     = false
 }
@@ -353,7 +353,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version."
   type        = string
-  default     = "v3.5.1"
+  default     = "v3.6.0-rc.5"
   nullable    = false
 }
 
