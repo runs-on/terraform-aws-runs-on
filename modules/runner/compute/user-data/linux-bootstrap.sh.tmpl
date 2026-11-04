@@ -48,6 +48,17 @@ chmod a+x "$BOOTSTRAP_BIN"
 EOF
 chmod a+x /usr/local/bin/runs-on-bootstrap.sh
 
+# Docker's unit lowers dockerd's OOM score by 500, and `docker build` steps
+# inherit it from dockerd's built-in BuildKit. A build that ran out of memory
+# was then spared while the kernel killed the GitHub runner's Worker (0), and
+# the job was lost. At 0, builds rank with containers. Docker starts on demand,
+# after the enable below has reloaded systemd.
+mkdir -p /etc/systemd/system/docker.service.d
+cat <<'EOF' > /etc/systemd/system/docker.service.d/10-runs-on-oom-score.conf
+[Service]
+OOMScoreAdjust=0
+EOF
+
 # The agent copies /var/log/cloud-init-output.log into /runs-on/output.log, so
 # bootstrap output must reach only the latter, or every line ships twice.
 cat <<'EOF' > /etc/systemd/system/runs-on-bootstrap.service
@@ -69,6 +80,11 @@ Restart=no
 # customer lifecycle scripts and the runner's Worker to 0; the runner raises
 # job processes to +500.
 OOMScoreAdjust=-500
+# Job steps run in this unit too. systemd stops a unit when the kernel kills
+# one of its processes for memory (the default OOMPolicy=stop), and that would
+# take down the agent and the Listener, which report the job. The killed step
+# must fail on its own.
+OOMPolicy=continue
 
 [Install]
 WantedBy=multi-user.target

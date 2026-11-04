@@ -116,15 +116,6 @@ locals {
         "${aws_dynamodb_table.workflow_jobs.arn}/index/daily-activity-index",
       ]
     },
-    {
-      Effect = "Allow"
-      Action = [
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "logs:DescribeLogStreams",
-      ]
-      Resource = "arn:${local.partition}:logs:${var.region}:${var.account_id}:log-group:${local.worker_log_group_name}:*"
-    },
   ])
 }
 
