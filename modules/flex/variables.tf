@@ -233,14 +233,14 @@ variable "messaging_kms_key_arn" {
 variable "app_image" {
   description = "Container image for the RunsOn worker service. Published module releases inject a pinned public default during mirror publication."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.6.0@sha256:734ccf223758533284bebd4db53b195475317975214a3d969d25ef8af2072530"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.6.1-rc.1@sha256:6a7bbf547560a12ed8b2b3e5683dddae1d2bdce750c7e8fea1b66b3325294cb1"
   nullable    = false
 }
 
 variable "app_tag" {
   description = "Application version tag for RunsOn service. Published module releases inject the released default during mirror publication."
   type        = string
-  default     = "v3.6.0"
+  default     = "v3.6.1-rc.1"
   nullable    = false
 }
 
