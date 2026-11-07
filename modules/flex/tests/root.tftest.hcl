@@ -617,3 +617,50 @@ run "ghes_managed_waf_requires_public_ingress_acl" {
 
   expect_failures = [check.ghes_waf_requires_public_ingress_web_acl]
 }
+
+run "admin_routes_allowlist_requires_managed_waf" {
+  command = plan
+
+  variables {
+    admin_routes_allowed_cidrs = ["203.0.113.10/32"]
+  }
+
+  expect_failures = [terraform_data.validate_admin_routes_allowed_cidrs]
+}
+
+run "admin_routes_allowlist_rejects_user_managed_waf" {
+  command = plan
+
+  variables {
+    enable_waf                 = true
+    public_ingress_web_acl_arn = "arn:aws:wafv2:us-east-1:123456789012:regional/webacl/custom/abcd1234"
+    admin_routes_allowed_cidrs = ["203.0.113.10/32"]
+  }
+
+  expect_failures = [terraform_data.validate_admin_routes_allowed_cidrs]
+}
+
+run "admin_routes_allowlist_rejects_invalid_cidr" {
+  command = plan
+
+  variables {
+    enable_waf                 = true
+    admin_routes_allowed_cidrs = ["not-a-cidr"]
+  }
+
+  expect_failures = [var.admin_routes_allowed_cidrs]
+}
+
+run "admin_routes_allowlist_with_managed_waf_plans" {
+  command = plan
+
+  variables {
+    enable_waf                 = true
+    admin_routes_allowed_cidrs = ["203.0.113.10/32", "2001:db8:1::/64"]
+  }
+
+  assert {
+    condition     = length(terraform_data.validate_admin_routes_allowed_cidrs) == 1
+    error_message = "A valid admin allowlist with the managed Web ACL should pass validation."
+  }
+}

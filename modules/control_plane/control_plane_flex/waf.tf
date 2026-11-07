@@ -41,6 +41,54 @@ resource "aws_wafv2_ip_set" "allowed_ips_ipv6" {
   }
 }
 
+resource "aws_wafv2_ip_set" "admin_routes_allowed_ipv4" {
+  count              = local.restrict_admin_routes && length(local.admin_routes_allowed_ipv4_cidrs) > 0 ? 1 : 0
+  name               = "${var.stack_name}-admin-allowed-ips-ipv4"
+  scope              = "REGIONAL"
+  ip_address_version = "IPV4"
+  addresses          = local.admin_routes_allowed_ipv4_cidrs
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${var.stack_name}-admin-allowed-ips-ipv4"
+    }
+  )
+}
+
+resource "aws_wafv2_ip_set" "admin_routes_allowed_ipv6" {
+  count              = local.restrict_admin_routes && length(local.admin_routes_allowed_ipv6_cidrs) > 0 ? 1 : 0
+  name               = "${var.stack_name}-admin-allowed-ips-ipv6"
+  scope              = "REGIONAL"
+  ip_address_version = "IPV6"
+  addresses          = local.admin_routes_allowed_ipv6_cidrs
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${var.stack_name}-admin-allowed-ips-ipv6"
+    }
+  )
+}
+
+locals {
+  # Keys come from the CIDR lists, so they stay known at plan time while the IP set ARNs are not.
+  admin_routes_allow_rules = local.restrict_admin_routes ? {
+    for family, rule in {
+      IPv4 = {
+        priority   = 1
+        cidrs      = local.admin_routes_allowed_ipv4_cidrs
+        ip_set_arn = try(aws_wafv2_ip_set.admin_routes_allowed_ipv4[0].arn, "")
+      }
+      IPv6 = {
+        priority   = 4
+        cidrs      = local.admin_routes_allowed_ipv6_cidrs
+        ip_set_arn = try(aws_wafv2_ip_set.admin_routes_allowed_ipv6[0].arn, "")
+      }
+    } : family => rule if length(rule.cidrs) > 0
+  } : {}
+}
+
 resource "aws_cloudwatch_log_group" "github_waf_sync_lambda" {
   count             = local.using_managed_public_ingress_waf ? 1 : 0
   name              = "/runs-on/${var.stack_name}/lambda/github-waf-sync"
@@ -225,38 +273,94 @@ resource "aws_wafv2_web_acl" "this" {
     block {}
   }
 
-  rule {
-    name     = "AllowNonWebhookPaths"
-    priority = 1
+  # Without an admin allowlist, every path except the webhook is open (the admin routes have no sign-in).
+  dynamic "rule" {
+    for_each = local.restrict_admin_routes ? [] : [1]
 
-    action {
-      allow {}
-    }
+    content {
+      name     = "AllowNonWebhookPaths"
+      priority = 1
 
-    statement {
-      not_statement {
-        statement {
-          byte_match_statement {
-            positional_constraint = "ENDS_WITH"
-            search_string         = "/github/webhooks"
+      action {
+        allow {}
+      }
 
-            field_to_match {
-              uri_path {}
-            }
+      statement {
+        not_statement {
+          statement {
+            byte_match_statement {
+              positional_constraint = "ENDS_WITH"
+              search_string         = "/github/webhooks"
 
-            text_transformation {
-              priority = 0
-              type     = "NONE"
+              field_to_match {
+                uri_path {}
+              }
+
+              text_transformation {
+                priority = 0
+                type     = "NONE"
+              }
             }
           }
         }
       }
-    }
 
-    visibility_config {
-      cloudwatch_metrics_enabled = true
-      metric_name                = "${var.stack_name}-allow-non-webhook-paths"
-      sampled_requests_enabled   = true
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${var.stack_name}-allow-non-webhook-paths"
+        sampled_requests_enabled   = true
+      }
+
+    }
+  }
+
+  # With an admin allowlist, paths other than the webhook are open only to the allowed CIDRs.
+  dynamic "rule" {
+    for_each = local.admin_routes_allow_rules
+
+    content {
+      name     = "AllowAdminRoutes${rule.key}"
+      priority = rule.value.priority
+
+      action {
+        allow {}
+      }
+
+      statement {
+        and_statement {
+          statement {
+            not_statement {
+              statement {
+                byte_match_statement {
+                  positional_constraint = "ENDS_WITH"
+                  search_string         = "/github/webhooks"
+
+                  field_to_match {
+                    uri_path {}
+                  }
+
+                  text_transformation {
+                    priority = 0
+                    type     = "NONE"
+                  }
+                }
+              }
+            }
+          }
+
+          statement {
+            ip_set_reference_statement {
+              arn = rule.value.ip_set_arn
+            }
+          }
+        }
+      }
+
+      visibility_config {
+        cloudwatch_metrics_enabled = true
+        metric_name                = "${var.stack_name}-allow-admin-routes-${lower(rule.key)}"
+        sampled_requests_enabled   = true
+      }
     }
   }
 

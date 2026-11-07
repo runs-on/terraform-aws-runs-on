@@ -466,6 +466,118 @@ run "user_managed_waf_skips_sync_resources" {
   }
 }
 
+run "managed_waf_without_admin_allowlist_keeps_admin_routes_open" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 0
+      enable_cost_reports               = "no"
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = true
+      public_ingress_web_acl_arn        = ""
+    }
+  }
+
+  assert {
+    condition     = toset([for rule in aws_wafv2_web_acl.this[0].rule : rule.name]) == toset(["AllowNonWebhookPaths", "AllowWebhookIPv4", "AllowWebhookIPv6"])
+    error_message = "Without admin_routes_allowed_cidrs, the managed Web ACL should keep its existing three rules."
+  }
+
+  assert {
+    condition     = length(aws_wafv2_ip_set.admin_routes_allowed_ipv4) == 0 && length(aws_wafv2_ip_set.admin_routes_allowed_ipv6) == 0
+    error_message = "Without admin_routes_allowed_cidrs, no admin IP sets should be created."
+  }
+}
+
+run "managed_waf_restricts_admin_routes_to_allowed_cidrs" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 0
+      enable_cost_reports               = "no"
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = true
+      public_ingress_web_acl_arn        = ""
+      admin_routes_allowed_cidrs        = ["203.0.113.10/32", "198.51.100.0/24", "2001:db8:1::/64"]
+    }
+  }
+
+  assert {
+    condition     = toset([for rule in aws_wafv2_web_acl.this[0].rule : rule.name]) == toset(["AllowAdminRoutesIPv4", "AllowAdminRoutesIPv6", "AllowWebhookIPv4", "AllowWebhookIPv6"])
+    error_message = "With admin_routes_allowed_cidrs, the open non-webhook rule should be replaced by per-family admin allow rules."
+  }
+
+  assert {
+    condition     = toset(aws_wafv2_ip_set.admin_routes_allowed_ipv4[0].addresses) == toset(["203.0.113.10/32", "198.51.100.0/24"]) && aws_wafv2_ip_set.admin_routes_allowed_ipv4[0].ip_address_version == "IPV4"
+    error_message = "The admin IPv4 IP set should hold exactly the IPv4 CIDRs."
+  }
+
+  assert {
+    condition     = toset(aws_wafv2_ip_set.admin_routes_allowed_ipv6[0].addresses) == toset(["2001:db8:1::/64"]) && aws_wafv2_ip_set.admin_routes_allowed_ipv6[0].ip_address_version == "IPV6"
+    error_message = "The admin IPv6 IP set should hold exactly the IPv6 CIDRs."
+  }
+
+  assert {
+    condition     = length(aws_lambda_function.github_waf_sync) == 1 && length(aws_wafv2_ip_set.allowed_ips_ipv4) == 1 && length(aws_wafv2_ip_set.allowed_ips_ipv6) == 1
+    error_message = "The admin allowlist should not change GitHub webhook IP synchronization."
+  }
+}
+
+run "managed_waf_admin_allowlist_ipv4_only" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 0
+      enable_cost_reports               = "no"
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = true
+      public_ingress_web_acl_arn        = ""
+      admin_routes_allowed_cidrs        = ["203.0.113.10/32"]
+    }
+  }
+
+  assert {
+    condition     = toset([for rule in aws_wafv2_web_acl.this[0].rule : rule.name]) == toset(["AllowAdminRoutesIPv4", "AllowWebhookIPv4", "AllowWebhookIPv6"])
+    error_message = "An IPv4-only allowlist should add only the IPv4 admin rule and block admin routes over IPv6."
+  }
+
+  assert {
+    condition     = length(aws_wafv2_ip_set.admin_routes_allowed_ipv4) == 1 && length(aws_wafv2_ip_set.admin_routes_allowed_ipv6) == 0
+    error_message = "An IPv4-only allowlist should create only the IPv4 admin IP set."
+  }
+}
+
+run "user_managed_waf_ignores_admin_allowlist" {
+  command = plan
+
+  variables {
+    operations = {
+      app_budget_daily_usd              = 0
+      enable_cost_reports               = "no"
+      spot_circuit_breaker              = ""
+      integration_step_security_api_key = ""
+      enable_admin_routes               = true
+      enable_waf                        = true
+      public_ingress_web_acl_arn        = "arn:aws:wafv2:us-east-1:123456789012:regional/webacl/custom/abcd1234"
+      admin_routes_allowed_cidrs        = ["203.0.113.10/32"]
+    }
+  }
+
+  assert {
+    condition     = length(aws_wafv2_web_acl.this) == 0 && length(aws_wafv2_ip_set.admin_routes_allowed_ipv4) == 0
+    error_message = "A user-managed Web ACL should not get managed admin IP sets; the Flex root rejects this combination."
+  }
+}
+
 run "admin_routes_disabled_skips_setup_resources" {
   command = plan
 
