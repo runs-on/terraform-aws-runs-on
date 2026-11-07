@@ -47,6 +47,9 @@ locals {
   public_ingress_web_acl_arn_trimmed    = trimspace(local.operations.public_ingress_web_acl_arn)
   using_user_managed_public_ingress_waf = local.operations.enable_waf && local.public_ingress_web_acl_arn_trimmed != ""
   using_managed_public_ingress_waf      = local.operations.enable_waf && local.public_ingress_web_acl_arn_trimmed == "" && trimspace(local.github.enterprise_url) == ""
+  admin_routes_allowed_ipv4_cidrs       = [for cidr in local.operations.admin_routes_allowed_cidrs : cidr if !strcontains(cidr, ":")]
+  admin_routes_allowed_ipv6_cidrs       = [for cidr in local.operations.admin_routes_allowed_cidrs : cidr if strcontains(cidr, ":")]
+  restrict_admin_routes                 = local.using_managed_public_ingress_waf && length(local.operations.admin_routes_allowed_cidrs) > 0
   # Keep the association gate based on input-only state so count stays known during plan.
   public_ingress_web_acl_association_enabled = local.using_user_managed_public_ingress_waf || local.using_managed_public_ingress_waf
   effective_public_ingress_web_acl_arn = local.using_user_managed_public_ingress_waf ? local.public_ingress_web_acl_arn_trimmed : (

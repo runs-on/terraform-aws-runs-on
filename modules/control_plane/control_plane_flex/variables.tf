@@ -186,6 +186,8 @@ variable "operations" {
     enable_admin_routes               = bool
     enable_waf                        = bool
     public_ingress_web_acl_arn        = string
+    # IPv4/IPv6 CIDRs allowed to reach the admin routes through the managed Web ACL. Empty allows every source.
+    admin_routes_allowed_cidrs = optional(list(string), [])
     # Opt-in: runner extras (e.g. s3-cache, otel) that are always enabled for
     # every runner, regardless of label or repo config overrides.
     mandatory_extras = optional(list(string), [])

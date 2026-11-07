@@ -31,6 +31,20 @@ resource "terraform_data" "validate_public_subnets" {
   }
 }
 
+# An allowlist without the managed Web ACL would leave the admin routes open, so fail the plan.
+resource "terraform_data" "validate_admin_routes_allowed_cidrs" {
+  count = length(var.admin_routes_allowed_cidrs) > 0 ? 1 : 0
+
+  input = var.admin_routes_allowed_cidrs
+
+  lifecycle {
+    precondition {
+      condition     = var.enable_waf && trimspace(var.public_ingress_web_acl_arn) == "" && trimspace(var.github_enterprise_url) == ""
+      error_message = "admin_routes_allowed_cidrs requires the RunsOn-managed Web ACL: set enable_waf = true and leave public_ingress_web_acl_arn and github_enterprise_url empty. With a user-managed Web ACL, restrict the admin routes in that ACL."
+    }
+  }
+}
+
 check "ghes_waf_requires_public_ingress_web_acl" {
   assert {
     condition     = !var.enable_waf || trimspace(var.github_enterprise_url) == "" || trimspace(var.public_ingress_web_acl_arn) != ""
@@ -124,6 +138,7 @@ locals {
     enable_admin_routes                        = var.enable_admin_routes
     enable_waf                                 = var.enable_waf
     public_ingress_web_acl_arn                 = var.public_ingress_web_acl_arn
+    admin_routes_allowed_cidrs                 = var.admin_routes_allowed_cidrs
     mandatory_extras                           = var.mandatory_extras
     log_retention_days                         = var.log_retention_days
     locks_table_point_in_time_recovery_enabled = var.locks_table_point_in_time_recovery_enabled

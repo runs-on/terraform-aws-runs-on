@@ -636,6 +636,18 @@ variable "public_ingress_web_acl_arn" {
   default     = ""
 }
 
+variable "admin_routes_allowed_cidrs" {
+  description = "IPv4 and IPv6 CIDR blocks allowed to reach the admin routes (`/`, `/setup`, `/setup/{proxy+}`, `/readyz`) through the RunsOn-managed Web ACL. Requires enable_waf = true, an empty public_ingress_web_acl_arn and github.com. Empty allows every source. Webhook rules and GitHub IP synchronization are unchanged."
+  type        = list(string)
+  default     = []
+  nullable    = false
+
+  validation {
+    condition     = alltrue([for cidr in var.admin_routes_allowed_cidrs : can(cidrhost(cidr, 0))])
+    error_message = "admin_routes_allowed_cidrs entries must be valid IPv4 or IPv6 CIDR blocks."
+  }
+}
+
 variable "enable_cache_isolation" {
   description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in"
   type        = bool
