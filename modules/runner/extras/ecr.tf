@@ -63,12 +63,12 @@ resource "aws_ecr_lifecycle_policy" "ephemeral" {
     rules = [
       {
         rulePriority = 1
-        description  = "Expire images older than 10 days"
+        description  = "Expire images older than ${var.ecr_expiration_days} days"
         selection = {
           tagStatus   = "any"
           countType   = "sinceImagePushed"
           countUnit   = "days"
-          countNumber = 10
+          countNumber = var.ecr_expiration_days
         }
         action = {
           type = "expire"
