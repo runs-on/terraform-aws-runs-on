@@ -57,6 +57,7 @@ No modules.
 | <a name="input_memory"></a> [memory](#input\_memory) | Task memory in MiB | `number` | n/a | yes |
 | <a name="input_region"></a> [region](#input\_region) | AWS region | `string` | n/a | yes |
 | <a name="input_runner_instance_role_arn"></a> [runner\_instance\_role\_arn](#input\_runner\_instance\_role\_arn) | Runner EC2 role ARN | `string` | n/a | yes |
+| <a name="input_runner_subnet_ids"></a> [runner\_subnet\_ids](#input\_runner\_subnet\_ids) | All public and private subnet IDs in which the control plane can launch runners | `list(string)` | n/a | yes |
 | <a name="input_security_group_ids"></a> [security\_group\_ids](#input\_security\_group\_ids) | Task security groups | `list(string)` | n/a | yes |
 | <a name="input_service_name"></a> [service\_name](#input\_service\_name) | ECS service name | `string` | n/a | yes |
 | <a name="input_stack_name"></a> [stack\_name](#input\_stack\_name) | Stack name | `string` | n/a | yes |

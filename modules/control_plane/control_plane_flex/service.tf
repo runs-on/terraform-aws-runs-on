@@ -150,6 +150,7 @@ module "runtime" {
   assign_public_ip                = local.runtime.private_mode == "false"
   security_group_ids              = var.network.security_group_ids
   subnet_ids                      = local.runtime.private_mode == "false" ? var.network.public_subnet_ids : var.network.private_subnet_ids
+  runner_subnet_ids               = concat(var.network.public_subnet_ids, var.network.private_subnet_ids)
   tags                            = local.common_tags
   container_definitions = [
     {
