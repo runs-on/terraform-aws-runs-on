@@ -142,6 +142,37 @@ func TestPlanUpgradeMovesV30Addresses(t *testing.T) {
 			},
 		}, ecr("ephemeral_protected")...),
 		"unprotected ECR": ecr("ephemeral_unprotected"),
+		// v3.0.0-v3.6.0 counted the admin routes; they no longer are (#76).
+		"admin routes": {
+			{
+				module: "module.control_plane", kind: "aws_api_gateway_rest_api", name: "public_ingress",
+				attributes: map[string]any{
+					"id": "testapi123", "name": "test-plan-public-ingress", "root_resource_id": "testroot",
+					"endpoint_configuration": []any{map[string]any{"types": []string{"REGIONAL"}}},
+				},
+			},
+			{
+				module: "module.control_plane", kind: "aws_api_gateway_resource", name: "setup", counted: true,
+				attributes: map[string]any{"id": "setup1", "rest_api_id": "testapi123", "parent_id": "testroot", "path_part": "setup", "path": "/setup"},
+				to:         "module.control_plane.aws_api_gateway_resource.setup",
+			},
+			{
+				module: "module.control_plane", kind: "aws_api_gateway_method", name: "root", counted: true,
+				attributes: map[string]any{
+					"id": "agm-testapi123-testroot-GET", "rest_api_id": "testapi123", "resource_id": "testroot",
+					"http_method": "GET", "authorization": "NONE",
+				},
+				to: "module.control_plane.aws_api_gateway_method.root",
+			},
+			{
+				module: "module.control_plane", kind: "aws_api_gateway_integration", name: "root", counted: true,
+				attributes: map[string]any{
+					"id": "agi-testapi123-testroot-GET", "rest_api_id": "testapi123", "resource_id": "testroot",
+					"http_method": "GET", "type": "AWS_PROXY", "integration_http_method": "POST",
+				},
+				to: "module.control_plane.aws_api_gateway_integration.root",
+			},
+		},
 	}
 	for name, objects := range states {
 		t.Run(name, func(t *testing.T) {

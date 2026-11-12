@@ -466,7 +466,7 @@ run "user_managed_waf_skips_sync_resources" {
   }
 }
 
-run "admin_routes_disabled_skips_setup_resources" {
+run "admin_routes_disabled_locks_setup_routes" {
   command = plan
 
   variables {
@@ -486,9 +486,13 @@ run "admin_routes_disabled_skips_setup_resources" {
     error_message = "Admin setup Lambda should be absent when admin routes are disabled."
   }
 
+  # Deleted routes would stay in the stage (#76): they stay in the API, locked.
   assert {
-    condition     = length(aws_api_gateway_resource.setup) == 0 && length(aws_api_gateway_resource.readyz) == 0
-    error_message = "Admin API routes should be absent when admin routes are disabled."
+    condition = alltrue([
+      for method in [aws_api_gateway_method.root, aws_api_gateway_method.setup, aws_api_gateway_method.setup_proxy, aws_api_gateway_method.readyz] :
+      method.authorization == "AWS_IAM"
+    ])
+    error_message = "Admin API routes should require IAM authorization when admin routes are disabled."
   }
 }
 

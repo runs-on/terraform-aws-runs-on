@@ -342,8 +342,6 @@ func TestPlanConditionalResources(t *testing.T) {
 			},
 			expectAbsent: []string{
 				"aws_lambda_function.github_apps_setup",
-				"aws_api_gateway_resource.setup",
-				"aws_api_gateway_resource.readyz",
 			},
 		},
 		{

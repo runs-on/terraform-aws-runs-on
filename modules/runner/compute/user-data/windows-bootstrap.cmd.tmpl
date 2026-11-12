@@ -16,13 +16,15 @@ sc start AmazonSSMAgent >nul 2>&1
 sc start docker >nul 2>&1
 set BOOTSTRAP=C:\runs-on\bootstrap-${BootstrapTag}.exe
 set BOOTSTRAP_URL=https://github.com/runs-on/bootstrap/releases/download/${BootstrapTag}/bootstrap-${BootstrapTag}-windows-%PROCESSOR_ARCHITECTURE%.exe
+rem Downloads go to a .part file, renamed only on success: a cut transfer must not
+rem leave a file that skips the fallback or the download at the next boot.
 if not exist "%BOOTSTRAP%" (
   mkdir C:\runs-on >nul 2>&1
-  where curl.exe >nul 2>&1 && curl.exe -fsSL --retry 3 -o "%BOOTSTRAP%" "%BOOTSTRAP_URL%"
+  where curl.exe >nul 2>&1 && curl.exe -fsSL --retry 3 -o "%BOOTSTRAP%.part" "%BOOTSTRAP_URL%" && move /y "%BOOTSTRAP%.part" "%BOOTSTRAP%" >nul
 )
 rem Windows Server 2016 ships no curl.exe: fall back to PowerShell with TLS 1.2, as the previous user data did.
 if not exist "%BOOTSTRAP%" (
-  powershell.exe -NoProfile -NonInteractive -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%BOOTSTRAP_URL%' -OutFile '%BOOTSTRAP%' -UseBasicParsing"
+  powershell.exe -NoProfile -NonInteractive -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri '%BOOTSTRAP_URL%' -OutFile '%BOOTSTRAP%.part' -UseBasicParsing" && move /y "%BOOTSTRAP%.part" "%BOOTSTRAP%" >nul
 )
 rem Only images that still ship Defender need the exclusion, and only they pay for PowerShell here.
 sc query WinDefend >nul 2>&1 && powershell.exe -NoProfile -NonInteractive -Command "Add-MpPreference -ExclusionProcess '%BOOTSTRAP%' -ErrorAction SilentlyContinue"

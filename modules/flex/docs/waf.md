@@ -14,14 +14,14 @@ When RunsOn manages the ACL:
 2. Requests to `/github/webhooks` are allowed only from GitHub webhook IP ranges.
 3. The GitHub IP sync Lambda seeds the IP sets on first deploy and refreshes them every hour after that.
 
-If `enable_admin_routes = false`, the admin Lambda exposure is removed entirely, including `/`, `/setup`, `/setup/{proxy+}`, and `/readyz`.
+If `enable_admin_routes = false`, the admin Lambda is removed, and `/`, `/setup`, `/setup/{proxy+}`, and `/readyz` answer `403 {"message":"Missing Authentication Token"}` like any unknown path. The routes stay in the API, locked with IAM authorization, so that turning them off takes effect in a single apply.
 
 ## Example
 
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.0"
+  version = "v3.6.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -39,7 +39,7 @@ module "runs-on" {
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.0"
+  version = "v3.6.1"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

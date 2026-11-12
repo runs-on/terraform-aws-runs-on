@@ -450,8 +450,14 @@ function requiredNumericClaim(raw, name) {
   if (claimMissing(raw)) {
     throw new Error(`runtime token has no ${name} claim`);
   }
-  const value = Number(raw);
-  if (!Number.isSafeInteger(value) || value <= 0) {
+  // Only plain decimal IDs: Number() alone would also take '0x3e9', '1e3',
+  // ' 12 ' or true.
+  const text = typeof raw === 'number' ? String(raw) : raw;
+  if (typeof text !== 'string' || !/^[1-9][0-9]*$/.test(text)) {
+    throw new Error(`runtime token ${name} claim is invalid`);
+  }
+  const value = Number(text);
+  if (!Number.isSafeInteger(value)) {
     throw new Error(`runtime token ${name} claim is invalid`);
   }
   return value;

@@ -100,28 +100,3 @@ resource "aws_sqs_queue" "events" {
     }
   )
 }
-
-###########################
-# Queue Policies
-###########################
-
-resource "aws_sqs_queue_policy" "webhooks_dead_letter" {
-  queue_url = aws_sqs_queue.webhooks_dead_letter.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect    = "Allow"
-        Principal = "*"
-        Action    = "sqs:SendMessage"
-        Resource  = aws_sqs_queue.webhooks_dead_letter.arn
-        Condition = {
-          ArnEquals = {
-            "aws:SourceArn" = aws_sqs_queue.webhooks.arn
-          }
-        }
-      }
-    ]
-  })
-}

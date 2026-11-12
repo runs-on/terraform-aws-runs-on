@@ -968,9 +968,10 @@ function webhookFailureHint(statusCode) {
   return 'Open the App\'s recent deliveries on GitHub to see the response.';
 }
 
-// summarizeWebhooks turns the App's webhook config and its latest deliveries
-// (newest first) into one indicator.
-function summarizeWebhooks(config, deliveries, expectedUrl, nowMs) {
+// summarizeWebhooks turns the App's webhook config, its latest deliveries
+// (newest first) and the events it subscribes to into one indicator. events is
+// undefined when unknown.
+function summarizeWebhooks(config, deliveries, expectedUrl, nowMs, events) {
   const indicator = { name: 'GitHub webhooks', status: 'healthy', message: '' };
   // The App's webhook URL may be a custom domain in front of this stack, so a
   // different URL is not an error by itself: the deliveries decide.
@@ -997,6 +998,18 @@ function summarizeWebhooks(config, deliveries, expectedUrl, nowMs) {
   }
   if (otherUrl && indicator.status !== 'healthy') {
     indicator.hint += ' The App\'s webhook URL is not this stack\'s own URL: unless it is your custom domain for this stack, point it back here in the App settings.';
+  }
+  // An App created by hand (for example with Terraform's github_app_* inputs)
+  // can miss the events RunsOn's own App manifest subscribes to.
+  const subscribed = Array.isArray(events) ? events : null;
+  if (subscribed && !subscribed.includes('workflow_job')) {
+    indicator.status = 'error';
+    indicator.message = 'The GitHub App is not subscribed to the "Workflow job" event';
+    indicator.hint = 'GitHub sends no webhook when a job is queued, so RunsOn only finds jobs by polling GitHub, which can add several minutes to each job, or more with many repositories. Subscribe to "Workflow job" and "Workflow run" under Permissions & events in the App settings.';
+  } else if (subscribed && !subscribed.includes('workflow_run') && indicator.status === 'healthy') {
+    indicator.status = 'warning';
+    indicator.message += '; the App is not subscribed to the "Workflow run" event';
+    indicator.hint = 'RunsOn then looks up each run\'s workflow file with an extra GitHub API call. Subscribe to "Workflow run" under Permissions & events in the App settings.';
   }
   return indicator;
 }
@@ -1504,11 +1517,12 @@ function createHandler(options = {}) {
       return { name: 'GitHub webhooks', status: 'warning', message: 'Could not check the webhooks', hint: 'GitHub asked RunsOn to slow down. Refresh in a minute.' };
     }
     try {
-      const [config, deliveries] = await Promise.all([
+      const [config, deliveries, app] = await Promise.all([
         githubAsApp(state.persisted?.primary?.app_config, 'app/hook/config'),
         githubAsApp(state.persisted?.primary?.app_config, 'app/hook/deliveries?per_page=50'),
+        githubAsApp(state.persisted?.primary?.app_config, 'app'),
       ]);
-      return summarizeWebhooks(config, deliveries, baseUrl() + '/github/webhooks', now());
+      return summarizeWebhooks(config, deliveries, baseUrl() + '/github/webhooks', now(), app?.events);
     } catch (error) {
       log('warn', 'GitHub webhook check failed', { error: String(error?.message || error) });
       return { name: 'GitHub webhooks', status: 'warning', message: 'Could not check the webhooks', hint: 'Refresh to try again.' };
