@@ -37,10 +37,14 @@ _the_end() {
 }
 trap _the_end EXIT INT TERM
 
+# Download next to the target and rename only once curl succeeds: an HTTP
+# error or a cut transfer must not leave a file that the next boot of a
+# stopped pool instance would skip the download for and run.
 if [ ! -f "$BOOTSTRAP_BIN" ]; then
-  time curl -L --connect-timeout 3 --max-time 15 --retry 5 -s \
+  time curl -fsSL --connect-timeout 3 --max-time 15 --retry 5 \
     "https://github.com/runs-on/bootstrap/releases/download/$RUNS_ON_BOOTSTRAP_TAG/bootstrap-$RUNS_ON_BOOTSTRAP_TAG-linux-$(uname -m)" \
-    -o "$BOOTSTRAP_BIN"
+    -o "$BOOTSTRAP_BIN.part"
+  mv -f "$BOOTSTRAP_BIN.part" "$BOOTSTRAP_BIN"
 fi
 
 chmod a+x "$BOOTSTRAP_BIN"

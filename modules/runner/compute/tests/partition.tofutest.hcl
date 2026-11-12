@@ -102,6 +102,16 @@ run "runner_policies_use_current_partition" {
   }
 
   assert {
+    condition = length([
+      for statement in jsondecode(aws_iam_role_policy.ec2_create_tags.policy).Statement : statement
+      if statement.Effect == "Deny" &&
+      statement.Resource == "arn:aws-eusc:ec2:eusc-de-east-1:123456789012:instance/*" &&
+      toset(try(statement.Condition["ForAnyValue:StringEquals"]["aws:TagKeys"], [])) == toset(["runs-on-stack-name", "runs-on-terminate", "runs-on-launch-token"])
+    ]) == 1
+    error_message = "runner CreateTags policy should deny writing the stack, terminate and launch-token tags on instances."
+  }
+
+  assert {
     condition     = contains(jsondecode(aws_iam_role_policy.ec2_cloudwatch_logs.policy).Statement[0].Resource, "arn:aws-eusc:logs:eusc-de-east-1:123456789012:log-group:test-stack/ec2/instances:*")
     error_message = "runner log policy should use the current AWS partition."
   }

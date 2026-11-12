@@ -192,6 +192,26 @@ resource "aws_iam_role_policy" "ec2_create_tags" {
             "aws:ARN" = "$${ec2:SourceInstanceARN}"
           }
         }
+      },
+      # Control-plane tags the agent never writes: housekeeping finds and
+      # terminates runners by them, so job code must not rewrite them.
+      # Instances only: the legacy v1 snapshot action tags its volumes and
+      # snapshots with the stack name.
+      {
+        Effect = "Deny"
+        Action = [
+          "ec2:CreateTags"
+        ]
+        Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:instance/*"
+        Condition = {
+          "ForAnyValue:StringEquals" = {
+            "aws:TagKeys" = [
+              "runs-on-stack-name",
+              "runs-on-terminate",
+              "runs-on-launch-token",
+            ]
+          }
+        }
       }
     ]
   })

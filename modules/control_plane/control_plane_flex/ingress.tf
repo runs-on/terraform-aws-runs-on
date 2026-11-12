@@ -323,17 +323,82 @@ resource "aws_api_gateway_rest_api" "public_ingress" {
   )
 }
 
+# The admin routes stay in the API when enable_admin_routes is off, locked with
+# IAM authorization: unsigned requests get API Gateway's 403 "Missing
+# Authentication Token", as on any unknown path. Deleting them instead leaves
+# them in the stage: the new deployment is created before Terraform deletes
+# them (it waits for the old deployment), and CloudFormation deletes them only
+# in its cleanup phase. Their integration then points at the always-present
+# public ingress Lambda, which grants API Gateway these paths no permission.
+locals {
+  admin_routes_lock = local.admin_routes_enabled ? "NONE" : "AWS_IAM"
+  admin_routes_uri  = local.admin_routes_enabled ? aws_lambda_function.github_apps_setup[0].invoke_arn : aws_lambda_function.public_ingress.invoke_arn
+}
+
+moved {
+  from = aws_api_gateway_resource.setup[0]
+  to   = aws_api_gateway_resource.setup
+}
+
+moved {
+  from = aws_api_gateway_resource.setup_proxy[0]
+  to   = aws_api_gateway_resource.setup_proxy
+}
+
+moved {
+  from = aws_api_gateway_resource.readyz[0]
+  to   = aws_api_gateway_resource.readyz
+}
+
+moved {
+  from = aws_api_gateway_method.root[0]
+  to   = aws_api_gateway_method.root
+}
+
+moved {
+  from = aws_api_gateway_integration.root[0]
+  to   = aws_api_gateway_integration.root
+}
+
+moved {
+  from = aws_api_gateway_method.setup[0]
+  to   = aws_api_gateway_method.setup
+}
+
+moved {
+  from = aws_api_gateway_integration.setup[0]
+  to   = aws_api_gateway_integration.setup
+}
+
+moved {
+  from = aws_api_gateway_method.setup_proxy[0]
+  to   = aws_api_gateway_method.setup_proxy
+}
+
+moved {
+  from = aws_api_gateway_integration.setup_proxy[0]
+  to   = aws_api_gateway_integration.setup_proxy
+}
+
+moved {
+  from = aws_api_gateway_method.readyz[0]
+  to   = aws_api_gateway_method.readyz
+}
+
+moved {
+  from = aws_api_gateway_integration.readyz[0]
+  to   = aws_api_gateway_integration.readyz
+}
+
 resource "aws_api_gateway_resource" "setup" {
-  count       = local.admin_routes_enabled ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.public_ingress.id
   parent_id   = aws_api_gateway_rest_api.public_ingress.root_resource_id
   path_part   = "setup"
 }
 
 resource "aws_api_gateway_resource" "setup_proxy" {
-  count       = local.admin_routes_enabled ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.public_ingress.id
-  parent_id   = aws_api_gateway_resource.setup[0].id
+  parent_id   = aws_api_gateway_resource.setup.id
   path_part   = "{proxy+}"
 }
 
@@ -350,64 +415,57 @@ resource "aws_api_gateway_resource" "github_webhooks" {
 }
 
 resource "aws_api_gateway_resource" "readyz" {
-  count       = local.admin_routes_enabled ? 1 : 0
   rest_api_id = aws_api_gateway_rest_api.public_ingress.id
   parent_id   = aws_api_gateway_rest_api.public_ingress.root_resource_id
   path_part   = "readyz"
 }
 
 resource "aws_api_gateway_method" "root" {
-  count         = local.admin_routes_enabled ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.public_ingress.id
   resource_id   = aws_api_gateway_rest_api.public_ingress.root_resource_id
   http_method   = "GET"
-  authorization = "NONE"
+  authorization = local.admin_routes_lock
 }
 
 resource "aws_api_gateway_integration" "root" {
-  count                   = local.admin_routes_enabled ? 1 : 0
   rest_api_id             = aws_api_gateway_rest_api.public_ingress.id
   resource_id             = aws_api_gateway_rest_api.public_ingress.root_resource_id
-  http_method             = aws_api_gateway_method.root[0].http_method
+  http_method             = aws_api_gateway_method.root.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.github_apps_setup[0].invoke_arn
+  uri                     = local.admin_routes_uri
 }
 
 resource "aws_api_gateway_method" "setup" {
-  count         = local.admin_routes_enabled ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.public_ingress.id
-  resource_id   = aws_api_gateway_resource.setup[0].id
+  resource_id   = aws_api_gateway_resource.setup.id
   http_method   = "GET"
-  authorization = "NONE"
+  authorization = local.admin_routes_lock
 }
 
 resource "aws_api_gateway_integration" "setup" {
-  count                   = local.admin_routes_enabled ? 1 : 0
   rest_api_id             = aws_api_gateway_rest_api.public_ingress.id
-  resource_id             = aws_api_gateway_resource.setup[0].id
-  http_method             = aws_api_gateway_method.setup[0].http_method
+  resource_id             = aws_api_gateway_resource.setup.id
+  http_method             = aws_api_gateway_method.setup.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.github_apps_setup[0].invoke_arn
+  uri                     = local.admin_routes_uri
 }
 
 resource "aws_api_gateway_method" "setup_proxy" {
-  count         = local.admin_routes_enabled ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.public_ingress.id
-  resource_id   = aws_api_gateway_resource.setup_proxy[0].id
+  resource_id   = aws_api_gateway_resource.setup_proxy.id
   http_method   = "GET"
-  authorization = "NONE"
+  authorization = local.admin_routes_lock
 }
 
 resource "aws_api_gateway_integration" "setup_proxy" {
-  count                   = local.admin_routes_enabled ? 1 : 0
   rest_api_id             = aws_api_gateway_rest_api.public_ingress.id
-  resource_id             = aws_api_gateway_resource.setup_proxy[0].id
-  http_method             = aws_api_gateway_method.setup_proxy[0].http_method
+  resource_id             = aws_api_gateway_resource.setup_proxy.id
+  http_method             = aws_api_gateway_method.setup_proxy.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.github_apps_setup[0].invoke_arn
+  uri                     = local.admin_routes_uri
 }
 
 # Aikido exemption: GitHub webhook ingress is intentionally public. API Gateway cannot require
@@ -430,34 +488,42 @@ resource "aws_api_gateway_integration" "github_webhooks" {
 }
 
 resource "aws_api_gateway_method" "readyz" {
-  count         = local.admin_routes_enabled ? 1 : 0
   rest_api_id   = aws_api_gateway_rest_api.public_ingress.id
-  resource_id   = aws_api_gateway_resource.readyz[0].id
+  resource_id   = aws_api_gateway_resource.readyz.id
   http_method   = "GET"
-  authorization = "NONE"
+  authorization = local.admin_routes_lock
 }
 
 resource "aws_api_gateway_integration" "readyz" {
-  count                   = local.admin_routes_enabled ? 1 : 0
   rest_api_id             = aws_api_gateway_rest_api.public_ingress.id
-  resource_id             = aws_api_gateway_resource.readyz[0].id
-  http_method             = aws_api_gateway_method.readyz[0].http_method
+  resource_id             = aws_api_gateway_resource.readyz.id
+  http_method             = aws_api_gateway_method.readyz.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.github_apps_setup[0].invoke_arn
+  uri                     = local.admin_routes_uri
 }
 
 resource "aws_api_gateway_deployment" "public_ingress" {
   rest_api_id = aws_api_gateway_rest_api.public_ingress.id
 
   triggers = {
+    # Integration and method IDs stay the same when the admin routes are
+    # locked or unlocked in place: hash what changes.
     redeployment = sha1(jsonencode([
       aws_api_gateway_integration.github_webhooks.id,
       aws_lambda_function.public_ingress.source_code_hash,
-      local.admin_routes_enabled ? aws_api_gateway_integration.root[0].id : "",
-      local.admin_routes_enabled ? aws_api_gateway_integration.setup[0].id : "",
-      local.admin_routes_enabled ? aws_api_gateway_integration.setup_proxy[0].id : "",
-      local.admin_routes_enabled ? aws_api_gateway_integration.readyz[0].id : "",
+      [for integration in [
+        aws_api_gateway_integration.root,
+        aws_api_gateway_integration.setup,
+        aws_api_gateway_integration.setup_proxy,
+        aws_api_gateway_integration.readyz,
+      ] : [integration.id, integration.uri]],
+      [for method in [
+        aws_api_gateway_method.root,
+        aws_api_gateway_method.setup,
+        aws_api_gateway_method.setup_proxy,
+        aws_api_gateway_method.readyz,
+      ] : [method.id, method.authorization]],
       local.admin_routes_enabled ? aws_lambda_function.github_apps_setup[0].source_code_hash : "",
     ]))
   }
