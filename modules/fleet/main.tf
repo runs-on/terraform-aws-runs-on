@@ -286,6 +286,7 @@ module "extras" {
   force_destroy_buckets              = var.force_destroy_buckets
   enable_efs                         = false
   enable_ecr                         = var.enable_ecr
+  ecr_expiration_days                = var.ecr_expiration_days
   ecr_pull_through_cache_rules       = var.ecr_pull_through_cache_rules
   prevent_destroy_optional_resources = false
   vpc_id                             = var.vpc_id

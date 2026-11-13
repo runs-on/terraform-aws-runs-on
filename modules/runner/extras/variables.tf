@@ -50,6 +50,16 @@ variable "enable_ecr" {
   type        = bool
 }
 
+variable "ecr_expiration_days" {
+  description = "Number of days to keep images in the ephemeral ECR repository before expiration"
+  type        = number
+
+  validation {
+    condition     = var.ecr_expiration_days >= 1 && var.ecr_expiration_days <= 365
+    error_message = "ECR expiration days must be between 1 and 365."
+  }
+}
+
 variable "ecr_pull_through_cache_rules" {
   description = "Existing ECR pull-through cache rules to reference for runner image pulls"
   type = map(object({

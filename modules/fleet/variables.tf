@@ -403,6 +403,17 @@ variable "enable_ecr" {
   default     = false
 }
 
+variable "ecr_expiration_days" {
+  description = "Number of days to keep images in the ephemeral ECR repository before expiration."
+  type        = number
+  default     = 10
+
+  validation {
+    condition     = var.ecr_expiration_days >= 1 && var.ecr_expiration_days <= 365
+    error_message = "ECR expiration days must be between 1 and 365."
+  }
+}
+
 variable "ecr_pull_through_cache_rules" {
   description = "Existing ECR pull-through cache rules to reference for Fleet runner image pulls. Create or import the regional rules outside the RunsOn module."
   type = map(object({
