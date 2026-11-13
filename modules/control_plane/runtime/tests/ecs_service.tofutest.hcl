@@ -39,6 +39,7 @@ variables {
   assign_public_ip         = false
   security_group_ids       = ["sg-12345678"]
   subnet_ids               = ["subnet-12345678", "subnet-87654321"]
+  runner_subnet_ids        = ["subnet-12345678", "subnet-87654321", "subnet-abcdef01", "subnet-12345678"]
   tags = {
     Environment        = "test"
     "runs-on-stack-id" = "test-stack"
@@ -291,12 +292,39 @@ run "task_policy_scopes_cache_and_snapshot_resources" {
       for statement in jsondecode(aws_iam_role_policy.task.policy).Statement :
       contains(try(statement.Action, []), "ec2:RunInstances") &&
       try(contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:instance/*"), false) &&
-      try(contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:subnet/*"), false) &&
       try(contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:launch-template/*"), false) &&
       try(contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:spot-instances-request/*"), false) &&
       !try(contains(statement.Resource, "arn:aws:ec2:us-east-1:123456789012:*"), false)
     ])
     error_message = "runtime task EC2 launch access should enumerate launch resource types, including spot-instances-request, instead of an account-wide EC2 wildcard."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.task.policy).Statement :
+      statement.Action == ["ec2:RunInstances"] &&
+      try(toset(statement.Resource) == toset([
+        "arn:aws:ec2:us-east-1:*:subnet/subnet-12345678",
+        "arn:aws:ec2:us-east-1:*:subnet/subnet-87654321",
+        "arn:aws:ec2:us-east-1:*:subnet/subnet-abcdef01",
+      ]), false)
+    ])
+    error_message = "Subnet launch permissions should cover all configured runner subnets regardless of owner, including subnets not hosting ECS tasks."
+  }
+
+  assert {
+    condition = alltrue(flatten([
+      for statement in jsondecode(aws_iam_role_policy.task.policy).Statement : [
+        for resource in try(tolist(statement.Resource), [statement.Resource]) :
+        contains([
+          "arn:aws:ec2:us-east-1:*:subnet/subnet-12345678",
+          "arn:aws:ec2:us-east-1:*:subnet/subnet-87654321",
+          "arn:aws:ec2:us-east-1:*:subnet/subnet-abcdef01",
+        ], resource) && statement.Action == ["ec2:RunInstances"]
+        if length(regexall(":subnet/", resource)) > 0
+      ]
+    ]))
+    error_message = "Subnet permissions must not allow unconfigured subnets, wildcard subnet IDs, or subnet tagging."
   }
 
   assert {

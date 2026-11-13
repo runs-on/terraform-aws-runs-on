@@ -33,6 +33,7 @@ variables {
   assign_public_ip         = false
   security_group_ids       = ["sg-12345678"]
   subnet_ids               = ["subnet-12345678", "subnet-87654321"]
+  runner_subnet_ids        = ["subnet-12345678", "subnet-87654321"]
   tags = {
     Environment        = "test"
     "runs-on-stack-id" = "test-stack"
@@ -73,6 +74,18 @@ run "runtime_policies_use_current_partition" {
       try(contains(statement.Resource, "arn:aws-eusc:ec2:eusc-de-east-1:123456789012:spot-instances-request/*"), false)
     ])
     error_message = "runtime EC2 launch policy should use the current AWS partition."
+  }
+
+  assert {
+    condition = anytrue([
+      for statement in jsondecode(aws_iam_role_policy.task.policy).Statement :
+      statement.Action == ["ec2:RunInstances"] &&
+      try(toset(statement.Resource) == toset([
+        "arn:aws-eusc:ec2:eusc-de-east-1:*:subnet/subnet-12345678",
+        "arn:aws-eusc:ec2:eusc-de-east-1:*:subnet/subnet-87654321",
+      ]), false)
+    ])
+    error_message = "Subnet launch permissions should use the current partition while supporting shared subnet owners."
   }
 
   assert {
