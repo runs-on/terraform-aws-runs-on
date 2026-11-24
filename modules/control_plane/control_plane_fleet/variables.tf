@@ -152,6 +152,8 @@ variable "runtime" {
   description = "Fleet ECS runtime settings"
   type = object({
     image                     = string
+    subnet_ids                = optional(list(string), [])
+    security_group_ids        = optional(list(string), [])
     size                      = string
     capacity_provider         = string
     maintenance_mode          = bool
@@ -188,7 +190,7 @@ variable "control_plane" {
 variable "enable_cache_isolation" {
   description = "Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "permission_boundary_arn" {

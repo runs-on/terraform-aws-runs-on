@@ -145,6 +145,11 @@ variable "subnet_ids" {
   type        = list(string)
 }
 
+variable "runner_subnet_ids" {
+  description = "All public and private subnet IDs in which the control plane can launch runners"
+  type        = list(string)
+}
+
 variable "tags" {
   description = "Tags applied to runtime resources"
   type        = map(string)

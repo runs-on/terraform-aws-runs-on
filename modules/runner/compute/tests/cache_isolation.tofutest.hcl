@@ -74,6 +74,10 @@ variables {
 run "cache_isolation_disabled_grants_direct_cache_access" {
   command = plan
 
+  variables {
+    enable_cache_isolation = false
+  }
+
   assert {
     condition     = strcontains(aws_iam_role_policy.ec2_s3_access.policy, "arn:aws:s3:::test-stack-cache/cache/*")
     error_message = "Without cache isolation, runners keep direct access to the cache/* prefix."
@@ -113,12 +117,9 @@ run "cache_isolation_disabled_grants_direct_cache_access" {
   }
 }
 
+# Isolation is the default.
 run "cache_isolation_enabled_preserves_direct_cache_access" {
   command = plan
-
-  variables {
-    enable_cache_isolation = true
-  }
 
   assert {
     condition     = strcontains(aws_iam_role_policy.ec2_s3_access.policy, "arn:aws:s3:::test-stack-cache/cache/*")
