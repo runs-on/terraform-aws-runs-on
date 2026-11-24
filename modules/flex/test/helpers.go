@@ -98,9 +98,10 @@ type ScenarioConfig struct {
 	// runner-local mirror through the real Flex Terraform path.
 	ECRPullThroughCacheRules map[string]map[string]string
 
-	// Isolation flags (default false = legacy behavior). The private and full
-	// scenarios enable both so e2e covers legacy and isolated modes without a
-	// dedicated lane.
+	// Isolation flags. The module defaults both to true, but the harness
+	// always passes them, so the zero value opts out: the basic scenario
+	// covers legacy mode and the private and full scenarios the isolated
+	// default, without a dedicated lane.
 	EnableCacheIsolation      bool
 	EnableStickyDiskIsolation bool
 

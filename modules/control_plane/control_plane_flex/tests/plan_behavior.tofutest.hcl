@@ -761,6 +761,10 @@ run "github_runner_cache_refresh_seed_uses_cache_bucket" {
 run "cache_isolation_disabled_keeps_broker_idle" {
   command = plan
 
+  variables {
+    enable_cache_isolation = false
+  }
+
   assert {
     condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
     error_message = "Cache credential broker Lambda should always be created."
@@ -777,12 +781,9 @@ run "cache_isolation_disabled_keeps_broker_idle" {
   }
 }
 
+# Isolation is the default.
 run "cache_isolation_enabled_deploys_broker" {
   command = plan
-
-  variables {
-    enable_cache_isolation = true
-  }
 
   assert {
     condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"

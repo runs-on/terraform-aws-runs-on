@@ -103,12 +103,20 @@ locals {
         "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
         "arn:${local.partition}:ec2:${var.region}:${var.account_id}:network-interface/*",
         "arn:${local.partition}:ec2:${var.region}:${var.account_id}:security-group/*",
-        "arn:${local.partition}:ec2:${var.region}:${var.account_id}:subnet/*",
         "arn:${local.partition}:ec2:${var.region}:${var.account_id}:launch-template/*",
         "arn:${local.partition}:ec2:${var.region}:${var.account_id}:key-pair/*",
         # Spot launches authorize RunInstances and tag-on-create CreateTags
         # against the spot-instances-request resource.
         "arn:${local.partition}:ec2:${var.region}:${var.account_id}:spot-instances-request/*",
+      ]
+    },
+    {
+      # Shared VPC subnets belong to the network account, not the runner account.
+      Effect = "Allow"
+      Action = ["ec2:RunInstances"]
+      Resource = [
+        for subnet_id in distinct(var.runner_subnet_ids) :
+        "arn:${local.partition}:ec2:${var.region}:*:subnet/${subnet_id}"
       ]
     },
     {

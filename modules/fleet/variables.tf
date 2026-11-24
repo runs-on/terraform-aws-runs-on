@@ -103,7 +103,7 @@ variable "runners" {
       for _, runner in var.runners : can(keys(runner)) ? length(setsubtract(
         toset(keys(runner)),
         # fleet-catalog-contract: RunnerSpec
-        toset(["cpu", "disk", "extras", "family", "id", "image", "nested-virt", "preinstall", "prerun", "private", "ram", "retry", "spot", "ssh", "sticky", "tags", "volume"]),
+        toset(["cpu", "disk", "extras", "family", "id", "image", "nested-virt", "preinstall", "prerun", "private", "ram", "retry", "spot", "ssh", "sticky", "tags", "volume", "zone"]),
       )) == 0 : false
     ]) : false
     error_message = "Each runner must be an object and may only use supported RunnerSpec fields. Fleet does not support runner debug."
@@ -190,10 +190,24 @@ variable "private_subnet_ids" {
   default     = []
 }
 
-variable "security_group_ids" {
-  description = "Security group IDs for runners and the Fleet worker. Leave empty to create a dedicated group."
+variable "control_plane_subnet_ids" {
+  description = "Subnet IDs for the control plane (the ECS Fargate worker service). When set, the service runs in these subnets without a public IP, whatever private_mode is; they need outbound internet access, for example through a NAT gateway. When empty, the service follows private_mode: public subnets with a public IP for false, private_subnet_ids otherwise."
   type        = list(string)
   default     = []
+  nullable    = false
+}
+
+variable "security_group_ids" {
+  description = "Security group IDs for runners and, unless control_plane_security_group_ids is set, the Fleet worker. Leave empty to create a dedicated group."
+  type        = list(string)
+  default     = []
+}
+
+variable "control_plane_security_group_ids" {
+  description = "Security group IDs for the control plane (the ECS Fargate worker service). When set, the service uses these groups instead of security_group_ids, so that a rule admitting the runner groups does not admit the control plane; they must belong to vpc_id and allow outbound access to the GitHub and AWS APIs, and need no inbound rule. When empty, the service shares security_group_ids with the runners."
+  type        = list(string)
+  default     = []
+  nullable    = false
 }
 
 variable "private_mode" {
@@ -251,7 +265,7 @@ variable "tags" {
 variable "runtime_image" {
   description = "RunsOn worker image containing the fleetd binary. Override with a runs-on-ci image for live validation. Passing null falls back to the default, which release publication pins to the released image."
   type        = string
-  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.6.2@sha256:286756600e5b5e83ac552930491adfa8b187965a3315d347a9fb25fa4bfb3c49"
+  default     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:v3.7.0-rc.2@sha256:80f47385600d9da3af29365cd77d25996ed0f6d1bc4126d35b50d1705f91a6b6"
   nullable    = false
 }
 
@@ -353,7 +367,7 @@ variable "bootstrap_tag" {
 variable "app_tag" {
   description = "Application/agent tag published into the cache bucket and passed to runners. Passing null falls back to the default, which release publication pins to the released version."
   type        = string
-  default     = "v3.6.2"
+  default     = "v3.7.0-rc.2"
   nullable    = false
 }
 
@@ -498,13 +512,13 @@ variable "runner_custom_tags" {
 }
 
 variable "enable_cache_isolation" {
-  description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace and are not repository-isolated. Opt-in"
+  description = "Isolate Magic Cache and git cache data per repository and branch under scoped-cache/*, with short-lived credentials the cache broker mints from each job's Actions runtime token (ACTIONS_RUNTIME_TOKEN, not GITHUB_TOKEN, so workflow permissions do not affect it). Default true since v3.7. Turning it on moves Magic Cache objects to a new prefix (one-time cache re-warm; entries under cache/ expire with cache_expiration_days). Setting false lets job code of any repository on the stack read and overwrite every other repository's cache entries. Direct S3 cache integrations keep instance-profile access to the stack-shared cache/* namespace in both modes"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_stickydisk_isolation" {
-  description = "Remove the legacy EBS volume/snapshot permissions from the runner instance role, so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action. Opt-in"
+  description = "Remove the legacy EBS volume/snapshot permissions from the runner instance role, so all sticky-disk EBS operations happen exclusively on the control plane. Default true since v3.7. Sticky disks (sticky= label) keep working and keep their existing snapshots, but the legacy v1 runs-on/snapshot action stops working. Setting false restores, for the v1 action, permissions scoped to this stack's runs-on-stack-name tag: job code can then list every EBS volume and snapshot in the region, create volumes and snapshots tagged for this stack (only from this stack's snapshots and volumes), and attach (to this stack's instances), detach and delete any volume or snapshot tagged for this stack, including other repositories' sticky-disk volumes and snapshots: it can read their data, write to their volumes and delete them. It cannot add tags to existing volumes or snapshots (except runs-on-delete-after on this stack's volumes), write runs-on-stickydisk* tags, or modify EBS resources outside this stack"
   type        = bool
-  default     = false
+  default     = true
 }
