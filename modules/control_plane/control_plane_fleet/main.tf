@@ -299,6 +299,15 @@ resource "aws_dynamodb_table" "claims" {
   )
 }
 
+locals {
+  # Dedicated control plane subnets win over private_mode and never get a public IP.
+  service_default_subnet_ids = local.control_plane.private_mode == "false" ? var.network.public_subnet_ids : var.network.private_subnet_ids
+  service_subnet_ids         = length(local.runtime.subnet_ids) > 0 ? local.runtime.subnet_ids : local.service_default_subnet_ids
+  service_assign_public_ip   = length(local.runtime.subnet_ids) == 0 && local.control_plane.private_mode == "false"
+  # Dedicated control plane security groups replace the runner groups on the service.
+  service_security_group_ids = length(local.runtime.security_group_ids) > 0 ? local.runtime.security_group_ids : var.network.security_group_ids
+}
+
 module "runtime" {
   source = "../runtime"
 
@@ -327,9 +336,10 @@ module "runtime" {
   # Stop the old controller before ECS starts its replacement.
   deployment_maximum_percent = 100
   capacity_provider          = local.runtime.capacity_provider
-  assign_public_ip           = local.control_plane.private_mode == "false"
-  security_group_ids         = var.network.security_group_ids
-  subnet_ids                 = local.control_plane.private_mode == "false" ? var.network.public_subnet_ids : var.network.private_subnet_ids
+  assign_public_ip           = local.service_assign_public_ip
+  security_group_ids         = local.service_security_group_ids
+  subnet_ids                 = local.service_subnet_ids
+  runner_subnet_ids          = concat(var.network.public_subnet_ids, var.network.private_subnet_ids)
   tags                       = var.tags
   container_definitions = [
     {

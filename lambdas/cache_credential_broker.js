@@ -23,6 +23,14 @@ function defaultIssuerForEnterpriseURL(url) {
   if (match) return `https://token.actions.${match[1]}.ghe.com`;
   return `${url}/_services/token`;
 }
+
+// ghesHostForEnterpriseURL returns the host of a GitHub Enterprise Server, and
+// nothing for github.com and GHE.com. The stack's platform alone turns the
+// GHES rules on: a token never selects them by what it lacks.
+function ghesHostForEnterpriseURL(url) {
+  if (!url || /^https:\/\/(?:api\.)?[^./]+\.ghe\.com$/.test(url.toLowerCase())) return '';
+  return new URL(url).host;
+}
 const bucketArn = process.env.CACHE_BUCKET_ARN;
 const bucketName = bucketNameFromArn(bucketArn);
 // This broker isolates only Magic Cache data under scoped-cache/*. Direct S3
@@ -35,6 +43,12 @@ const bucketName = bucketNameFromArn(bucketArn);
 // copy is accepted regardless of age — a stale key set still verifies
 // signatures correctly, and rotation lag is bounded by the refresh interval.
 const jwksObjectKey = 'agents/github-jwks.json';
+// GitHub Enterprise Server signs runtime tokens that name no repository, so
+// there the control plane states which repository an instance runs a job of,
+// in an object it creates once and the instance can neither write nor delete
+// (pkg/cachebinding). Its key ends in the caller's verified STS user ID.
+const ghesHost = ghesHostForEnterpriseURL(enterpriseURL);
+const cacheBindingPrefix = 'runners/cache-bindings/';
 const jwksCacheTTLMS = 2 * 60 * 1000;
 const runnerRoleArn = process.env.RUNNER_ROLE_ARN;
 const expectedAWSPartition = partitionFromArn(runnerRoleArn);
@@ -64,7 +78,15 @@ async function handler(event) {
   // The cache prefix is a pure function of the GitHub-signed token: the same
   // signature that authorizes the ac scopes carries the repository ID, so a
   // token can only ever mint credentials into its own repository's prefix.
-  const { ownerID, repoID } = tokenRepositoryIDs(token.payload);
+  // A GHES token carries no repository, so the instance's binding names it.
+  const ids = await jobRepositoryIDs(token.payload, caller.userID);
+  if (ids === null) {
+    // Fleet runners wait for their binding on most jobs. That wait is an
+    // answer, not a failure: a thrown error would count in the function's
+    // Errors metric at every poll.
+    return { binding_pending: true };
+  }
+  const { ownerID, repoID } = ids;
   const repository = repositoryPath(ownerID, repoID);
 
   if (input.mode === 'git') {
@@ -222,10 +244,13 @@ async function validateRuntimeToken(token) {
   }
   const header = JSON.parse(base64urlDecode(parts[0]).toString('utf8'));
   const payload = JSON.parse(base64urlDecode(parts[1]).toString('utf8'));
-  if (header.alg !== 'RS256' || !header.kid) {
+  // GHES names the signing key by its certificate thumbprint (x5t) and issues
+  // runtime tokens under its bare host, not under the OIDC issuer URL.
+  const keyID = header.kid || (ghesHost !== '' && header.x5t);
+  if (header.alg !== 'RS256' || typeof keyID !== 'string' || keyID === '') {
     throw new Error('runtime token uses an unsupported signing algorithm');
   }
-  if (payload.iss !== issuer) {
+  if (payload.iss !== issuer && (ghesHost === '' || payload.iss !== ghesHost)) {
     throw new Error('runtime token issuer is not trusted');
   }
   const now = Math.floor(Date.now() / 1000);
@@ -236,14 +261,17 @@ async function validateRuntimeToken(token) {
     throw new Error('runtime token is expired');
   }
 
-  let jwk = (await loadJwks()).keys.find((key) => key.kid === header.kid);
+  const signedBy = header.kid
+    ? (key) => key.kid === header.kid
+    : (key) => key.x5t === keyID || key.kid === thumbprintHex(keyID);
+  let jwk = (await loadJwks()).keys.find(signedBy);
   if (!jwk) {
     // A kid miss on a warm Lambda usually means GitHub rotated the signing
     // key inside our in-memory cache window; re-read the S3 copy once before
     // rejecting. If the control plane has not refreshed the copy yet the
     // mint fails until its next 5-minute pass — agents retry.
     cachedJwksExpiresAt = 0;
-    jwk = (await loadJwks()).keys.find((key) => key.kid === header.kid);
+    jwk = (await loadJwks()).keys.find(signedBy);
   }
   if (!jwk) {
     throw new Error('runtime token signing key is not trusted');
@@ -256,6 +284,11 @@ async function validateRuntimeToken(token) {
     throw new Error('runtime token signature is invalid');
   }
   return { header, payload };
+}
+
+// thumbprintHex is an x5t thumbprint the way GHES writes it as a JWKS kid.
+function thumbprintHex(x5t) {
+  return base64urlDecode(x5t).toString('hex').toUpperCase();
 }
 
 async function loadJwks() {
@@ -440,6 +473,39 @@ function tokenRepositoryIDs(payload) {
     ownerID: requiredNumericClaim(payload.repository_owner_id, 'repository_owner_id'),
     repoID,
   };
+}
+
+// jobRepositoryIDs names the repository a validated token's job belongs to:
+// the token's own claims, or on GHES, whose tokens carry none, the repository
+// the control plane bound the calling instance to, or null while it has bound
+// none. Off GHES a token without the claim still fails closed in
+// tokenRepositoryIDs.
+async function jobRepositoryIDs(payload, callerUserID) {
+  if (ghesHost === '' || !claimMissing(payload.repository_id)) {
+    return tokenRepositoryIDs(payload);
+  }
+  // Without s3:ListBucket a missing object reads as AccessDenied: that is
+  // "not bound yet". Fleet binds a runner when its job starts, and the agent
+  // polls while the handler answers binding_pending. Any other failure (S3
+  // unavailable, a binding that does not parse) is an error.
+  let output;
+  try {
+    output = await getS3Client().send(new GetObjectCommand({
+      Bucket: bucketName,
+      Key: `${cacheBindingPrefix}${callerUserID}.json`,
+    }));
+  } catch (error) {
+    const status = error?.$metadata?.httpStatusCode;
+    if (error?.name === 'AccessDenied' || error?.name === 'NoSuchKey' || status === 403 || status === 404) {
+      return null;
+    }
+    throw error;
+  }
+  const binding = JSON.parse(await bodyToString(output.Body));
+  if (!Number.isSafeInteger(binding.repositoryId) || binding.repositoryId <= 0) {
+    throw new Error('runner cache binding names no repository');
+  }
+  return { ownerID: unassertedOwnerID, repoID: binding.repositoryId };
 }
 
 function claimMissing(raw) {
@@ -728,6 +794,7 @@ module.exports = {
   gitPrefixesFor,
   defaultIssuerForEnterpriseURL,
   instanceIDFromCallerUserID,
+  jobRepositoryIDs,
   normalizeAccessControls,
   normalizeCallerIdentityProof,
   normalizeEvent,

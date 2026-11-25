@@ -472,6 +472,7 @@ resource "aws_api_gateway_integration" "setup_proxy" {
 # AWS auth or API keys for GitHub delivery; the Lambda only enqueues the raw payload and
 # X-Hub-Signature-256, and the Flex worker validates the signature after reading the SQS message.
 resource "aws_api_gateway_method" "github_webhooks" {
+  # checkov:skip=CKV_AWS_59:GitHub webhooks cannot send AWS auth; the Flex worker verifies X-Hub-Signature-256.
   rest_api_id   = aws_api_gateway_rest_api.public_ingress.id
   resource_id   = aws_api_gateway_resource.github_webhooks.id
   http_method   = "POST"

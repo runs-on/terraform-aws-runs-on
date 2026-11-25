@@ -61,7 +61,7 @@ Once your app is created, pass the credentials as Terraform variables:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -111,6 +111,7 @@ Once GitHub points at this public URL, you can enable AWS WAF on the API Gateway
 For Flex, `license_key` accepts the key itself or an SSM parameter ARN:
 `arn:PARTITION:ssm:REGION:ACCOUNT:parameter/STACK_NAME/license-key`.
 Use the stack's region, account, and name. The service role can read this parameter but cannot modify it.
+The Terraform state and the stack config secret then hold only the ARN. Create the parameter (`String` or `SecureString`) outside this Terraform configuration, so that the key itself stays out of the state.
 If the parameter uses a customer-managed KMS key, grant the service role `kms:Decrypt` on that key separately.
 
 After updating permissions, restart the ECS service to reload the license key.

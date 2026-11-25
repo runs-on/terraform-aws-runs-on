@@ -368,6 +368,20 @@ run "private_mode_delay_creates_nat_wait" {
   }
 }
 
+run "control_plane_subnets_delay_creates_nat_wait" {
+  command = plan
+
+  variables {
+    control_plane_subnet_ids = ["subnet-33333333"]
+    private_mode_delay       = "60s"
+  }
+
+  assert {
+    condition     = time_sleep.wait_for_nat[0].create_duration == "60s"
+    error_message = "private_mode_delay should also apply when the worker service runs in control_plane_subnet_ids."
+  }
+}
+
 run "invalid_capacity_provider_is_rejected" {
   command = plan
 

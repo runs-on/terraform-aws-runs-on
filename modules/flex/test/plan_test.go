@@ -363,6 +363,22 @@ func TestPlanConditionalResources(t *testing.T) {
 				"aws_efs_file_system",
 				"aws_ecr_repository",
 				"aws_iam_role_policy.ec2_bedrock_access",
+				// Sticky-disk isolation is the default: runners get no
+				// volume/snapshot grants.
+				"aws_iam_role_policy.ec2_snapshot_",
+				"aws_iam_role_policy.ec2_create_tags_volumes",
+			},
+		},
+		{
+			name: "StickyDiskIsolationDisabled",
+			overrides: map[string]any{
+				"enable_stickydisk_isolation": false,
+			},
+			expectPresent: []string{
+				"aws_iam_role_policy.ec2_snapshot_describe[0]",
+				"aws_iam_role_policy.ec2_snapshot_create[0]",
+				"aws_iam_role_policy.ec2_snapshot_lifecycle[0]",
+				"aws_iam_role_policy.ec2_create_tags_volumes[0]",
 			},
 		},
 		{
@@ -633,6 +649,77 @@ func TestPlanEmptyEbsEncryptionKeySkipsKmsLookup(t *testing.T) {
 	assert.NotNil(t, plan, "plan should succeed when ebs_encryption_key_id is empty")
 	assert.True(t, hasResourceChangePrefix(plan, "aws_iam_role_policy.task"),
 		"task policy should still be planned when no explicit EBS KMS key is configured")
+}
+
+// The worker service follows private_mode unless it is given subnets of its
+// own, where it never gets a public IP. It shares the runner security groups
+// unless it is given groups of its own.
+func TestPlanControlPlaneNetwork(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name               string
+		overrides          map[string]any
+		wantSubnets        []any
+		wantPublicIP       bool
+		wantSecurityGroups []any
+	}{
+		{
+			name: "FollowsPrivateModeAndRunnerGroupsByDefault",
+			overrides: map[string]any{
+				"security_group_ids": []string{"sg-11111111"},
+			},
+			wantSubnets:        []any{"subnet-11111111"},
+			wantPublicIP:       true,
+			wantSecurityGroups: []any{"sg-11111111"},
+		},
+		{
+			name: "DedicatedSecurityGroupsReplaceRunnerGroups",
+			overrides: map[string]any{
+				"security_group_ids":               []string{"sg-11111111"},
+				"control_plane_security_group_ids": []string{"sg-22222222"},
+			},
+			wantSubnets:        []any{"subnet-11111111"},
+			wantPublicIP:       true,
+			wantSecurityGroups: []any{"sg-22222222"},
+		},
+		{
+			name: "DedicatedSubnetsWithPrivateModeFalse",
+			overrides: map[string]any{
+				"control_plane_subnet_ids": []string{"subnet-33333333", "subnet-44444444"},
+			},
+			wantSubnets: []any{"subnet-33333333", "subnet-44444444"},
+		},
+		{
+			name: "DedicatedSubnetsWinOverPrivateSubnets",
+			overrides: map[string]any{
+				"private_mode":             "true",
+				"private_subnet_ids":       []string{"subnet-22222222"},
+				"control_plane_subnet_ids": []string{"subnet-33333333"},
+			},
+			wantSubnets: []any{"subnet-33333333"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			plan := loadPlan(t, tc.overrides)
+
+			service := plannedResourceAfter(t, plan, "aws_ecs_service.this")
+			networks, ok := service["network_configuration"].([]any)
+			require.True(t, ok, "expected the worker service network configuration to be a list")
+			require.Len(t, networks, 1)
+			network, ok := networks[0].(map[string]any)
+			require.True(t, ok, "expected the worker service network configuration to be an object")
+
+			assert.ElementsMatch(t, tc.wantSubnets, network["subnets"])
+			assert.Equal(t, tc.wantPublicIP, network["assign_public_ip"])
+			if tc.wantSecurityGroups != nil {
+				assert.ElementsMatch(t, tc.wantSecurityGroups, network["security_groups"])
+			}
+		})
+	}
 }
 
 // TestPlanResourceCounts verifies the baseline deployment creates a reasonable number of resources.
