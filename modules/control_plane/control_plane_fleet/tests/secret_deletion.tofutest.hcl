@@ -375,6 +375,10 @@ run "lambda_log_groups_follow_longer_log_retention" {
 run "cache_isolation_disabled_keeps_broker_idle" {
   command = plan
 
+  variables {
+    enable_cache_isolation = false
+  }
+
   assert {
     condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
     error_message = "Cache credential broker Lambda should always be created."
@@ -400,12 +404,9 @@ run "runtime_secret_preserves_the_validated_catalog" {
   }
 }
 
+# Isolation is the default.
 run "cache_isolation_enabled_deploys_broker" {
   command = plan
-
-  variables {
-    enable_cache_isolation = true
-  }
 
   assert {
     condition     = aws_lambda_function.cache_credential_broker.function_name == "test-plan-cache-broker"
@@ -505,5 +506,37 @@ run "ghe_com_api_host_with_api_path_classifies_data_residency" {
   assert {
     condition     = aws_lambda_function.cache_credential_broker.environment[0].variables.GITHUB_TOKEN_ISSUER == "https://token.actions.sttnwrks.ghe.com"
     error_message = "Fleet should derive the GHE.com Actions OIDC issuer regardless of an /api/v3 path."
+  }
+}
+
+run "dedicated_subnets_and_security_groups_host_the_service" {
+  command = plan
+
+  variables {
+    runtime = {
+      image                     = "public.ecr.aws/c5h5o9k1/runs-on/runs-on:test"
+      subnet_ids                = ["subnet-33333333"]
+      security_group_ids        = ["sg-control-plane"]
+      size                      = "small"
+      capacity_provider         = "FARGATE"
+      maintenance_mode          = false
+      log_retention_days        = 7
+      otel_exporter_endpoint    = ""
+      otel_exporter_headers     = ""
+      otel_exporter_temporality = "cumulative"
+      otel_logs_enabled         = true
+      otel_traces_enabled       = true
+      extra_env_vars            = {}
+    }
+  }
+
+  assert {
+    condition     = local.service_subnet_ids == tolist(["subnet-33333333"]) && !local.service_assign_public_ip
+    error_message = "runtime.subnet_ids should host the Fleet service without a public IP, even with private_mode=false."
+  }
+
+  assert {
+    condition     = local.service_security_group_ids == tolist(["sg-control-plane"])
+    error_message = "runtime.security_group_ids should replace the runner security groups on the Fleet service."
   }
 }

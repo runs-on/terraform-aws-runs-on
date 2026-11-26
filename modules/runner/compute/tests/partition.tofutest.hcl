@@ -106,9 +106,9 @@ run "runner_policies_use_current_partition" {
       for statement in jsondecode(aws_iam_role_policy.ec2_create_tags.policy).Statement : statement
       if statement.Effect == "Deny" &&
       statement.Resource == "arn:aws-eusc:ec2:eusc-de-east-1:123456789012:instance/*" &&
-      toset(try(statement.Condition["ForAnyValue:StringEquals"]["aws:TagKeys"], [])) == toset(["runs-on-stack-name", "runs-on-terminate", "runs-on-launch-token"])
+      toset(try(statement.Condition["ForAnyValue:StringEquals"]["aws:TagKeys"], [])) == toset(["runs-on-stack-name", "runs-on-terminate", "runs-on-launch-token", "runs-on-fleet-standby"])
     ]) == 1
-    error_message = "runner CreateTags policy should deny writing the stack, terminate and launch-token tags on instances."
+    error_message = "runner CreateTags policy should deny writing the stack, terminate, launch-token and fleet-standby tags on instances."
   }
 
   assert {

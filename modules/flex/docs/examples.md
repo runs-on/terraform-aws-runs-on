@@ -28,13 +28,13 @@ variable "vpc_cidr" {
 variable "public_subnet_cidrs" {
   description = "CIDR blocks for public subnets"
   type        = list(string)
-  default     = ["10.17.0.0/20", "10.17.16.0/20"]
+  default     = ["10.17.0.0/20", "10.17.16.0/20", "10.17.32.0/20"]
 }
 
 variable "private_subnet_cidrs" {
   description = "CIDR blocks for private subnets"
   type        = list(string)
-  default     = ["10.17.128.0/20", "10.17.144.0/20"]
+  default     = ["10.17.128.0/20", "10.17.144.0/20", "10.17.160.0/20"]
 }
 
 variable "github_organization" {
@@ -72,8 +72,14 @@ provider "aws" {
   region = var.aws_region
 }
 
+# The Region's own zones, not opted-in Local or Wavelength Zones. No state
+# filter: a zone AWS reports impaired would otherwise drop out of the list and
+# move the later subnets to other zones, which replaces them.
 data "aws_availability_zones" "available" {
-  state = "available"
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
+  }
 }
 
 module "vpc" {
@@ -83,7 +89,9 @@ module "vpc" {
   name = "${var.stack_name}-vpc"
   cidr = var.vpc_cidr
 
-  azs             = slice(data.aws_availability_zones.available.names, 0, 2)
+  # Up to three zones: more zones give runners more EC2 capacity. In a Region
+  # with two (such as us-west-1), the third subnet goes to the first zone.
+  azs             = slice(data.aws_availability_zones.available.names, 0, min(3, length(data.aws_availability_zones.available.names)))
   private_subnets = var.private_subnet_cidrs
   public_subnets  = var.public_subnet_cidrs
 
@@ -111,7 +119,7 @@ module "vpc_endpoints" {
 
 module "runs_on_flex" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   stack_name = var.stack_name
 
@@ -149,7 +157,7 @@ See [Private Networking](private-networking.md) for details on mode options.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -170,7 +178,7 @@ Enable shared persistent storage across all runners:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -190,7 +198,7 @@ Enable image cache across workflow jobs, including Docker build cache:
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -245,7 +253,7 @@ data "aws_ecr_pull_through_cache_rule" "docker_hub" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -295,7 +303,7 @@ resource "aws_ecr_pull_through_cache_rule" "docker_hub" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -329,7 +337,7 @@ See [WAF](waf.md) for managed webhook IP sync, user-managed ACL overrides, and G
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -350,7 +358,7 @@ See [GitHub App Config](github-app-config.md) for details.
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
@@ -450,7 +458,7 @@ module "vpc_endpoints" {
 
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"

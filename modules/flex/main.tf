@@ -93,6 +93,8 @@ locals {
     capacity_provider         = upper(var.app_capacity_provider)
     force_new_deployment      = var.app_force_new_deployment
     private_mode              = var.private_mode
+    subnet_ids                = var.control_plane_subnet_ids
+    security_group_ids        = var.control_plane_security_group_ids
     ecr_repository_url        = var.app_ecr_repository_url
     custom_policy_arns        = var.app_custom_policy_arns
     otel_exporter_endpoint    = var.otel_exporter_endpoint
@@ -278,13 +280,13 @@ locals {
 }
 
 ###########################
-# Wait for NAT Gateway (Private Networking Only)
+# Wait for NAT Gateway (Worker Service in Private Subnets Only)
 # NAT gateways can take time to become fully operational after creation.
 # This delay ensures network connectivity is ready before the worker service starts.
 ###########################
 
 resource "time_sleep" "wait_for_nat" {
-  count = var.private_mode != "false" && var.private_mode_delay != "0s" ? 1 : 0
+  count = (var.private_mode != "false" || length(var.control_plane_subnet_ids) > 0) && var.private_mode_delay != "0s" ? 1 : 0
 
   create_duration = var.private_mode_delay
 }

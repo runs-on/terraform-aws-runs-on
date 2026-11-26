@@ -209,6 +209,7 @@ resource "aws_iam_role_policy" "ec2_create_tags" {
               "runs-on-stack-name",
               "runs-on-terminate",
               "runs-on-launch-token",
+              "runs-on-fleet-standby",
             ]
           }
         }
@@ -242,6 +243,15 @@ moved {
 # Legacy grant for the v1 runs-on/snapshot action (job-side AWS calls).
 # Removed when sticky-disk isolation is on: sticky disks tag at creation from
 # the control plane, and job-writable tags would allow lineage poisoning.
+# The stack tag gates every other legacy EBS grant, so jobs may only set it at
+# creation, to this stack, and never write sticky-disk tags. Afterwards they
+# may only refresh runs-on-delete-after on this stack's volumes (the v1
+# action's post step).
+# Known gap: IAM reads aws:RequestTag/runs-on-stack-name from a tag whose key
+# differs only in case, while EC2 stores both keys, so a request tagging
+# Runs-On-Stack-Name with this stack can also tag a new volume or snapshot
+# runs-on-stack-name with another stack. That gives the job no access to the
+# other stack's resources.
 resource "aws_iam_role_policy" "ec2_create_tags_volumes" {
   count = var.enable_stickydisk_isolation ? 0 : 1
 
@@ -252,14 +262,50 @@ resource "aws_iam_role_policy" "ec2_create_tags_volumes" {
     Version = "2012-10-17"
     Statement = [
       {
+        Effect = "Deny"
+        Action = [
+          "ec2:CreateTags"
+        ]
+        Resource = [
+          "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
+          "arn:${local.partition}:ec2:${var.region}::snapshot/*"
+        ]
+        Condition = {
+          "ForAnyValue:StringLike" = {
+            "aws:TagKeys" = ["runs-on-stickydisk*"]
+          }
+        }
+      },
+      {
         Effect = "Allow"
         Action = [
           "ec2:CreateTags"
         ]
         Resource = [
           "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
-          "arn:${local.partition}:ec2:${var.region}:*:snapshot/*"
+          "arn:${local.partition}:ec2:${var.region}::snapshot/*"
         ]
+        Condition = {
+          StringEquals = {
+            "ec2:CreateAction"                  = ["CreateVolume", "CreateSnapshot"]
+            "aws:RequestTag/runs-on-stack-name" = var.stack_name
+          }
+        }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateTags"
+        ]
+        Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/runs-on-stack-name" = var.stack_name
+          }
+          "ForAllValues:StringEquals" = {
+            "aws:TagKeys" = ["runs-on-delete-after"]
+          }
+        }
       }
     ]
   })
@@ -427,15 +473,16 @@ resource "aws_iam_role_policy" "ec2_s3_access" {
           ]
         },
         {
-          # Volume-scoped sticky-disk clean-unmount markers are the only keys
-          # the instance may write under its runners/ prefix. runner-identity.json
-          # remains unwritable from the instance.
+          # Volume-scoped sticky-disk clean-unmount markers and pool-status.json
+          # are the only keys the instance may write under its runners/ prefix.
+          # runner-identity.json remains unwritable from the instance.
           Effect = "Allow"
           Action = [
             "s3:PutObject"
           ]
           Resource = [
-            "${var.extras.cache.bucket_arn}/runners/$${aws:userid}/stickydisk-clean/*"
+            "${var.extras.cache.bucket_arn}/runners/$${aws:userid}/stickydisk-clean/*",
+            "${var.extras.cache.bucket_arn}/runners/$${aws:userid}/pool-status.json",
           ]
         },
         {
@@ -603,6 +650,9 @@ resource "aws_iam_role_policy" "ec2_snapshot_describe" {
   })
 }
 
+# IAM checks each resource of the call: the new volume or snapshot must be
+# born with this stack's tag, and the source snapshot or volume must already
+# carry it.
 resource "aws_iam_role_policy" "ec2_snapshot_create" {
   count = var.enable_stickydisk_isolation ? 0 : 1
 
@@ -613,15 +663,44 @@ resource "aws_iam_role_policy" "ec2_snapshot_create" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "ec2:CreateVolume",
-          "ec2:CreateSnapshot"
-        ]
-        Resource = [
-          "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*",
-          "arn:${local.partition}:ec2:${var.region}::snapshot/*"
-        ]
+        Effect   = "Allow"
+        Action   = ["ec2:CreateVolume"]
+        Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestTag/runs-on-stack-name" = var.stack_name
+          }
+        }
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:CreateVolume"]
+        Resource = "arn:${local.partition}:ec2:${var.region}::snapshot/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/runs-on-stack-name" = var.stack_name
+          }
+        }
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:CreateSnapshot"]
+        Resource = "arn:${local.partition}:ec2:${var.region}:${var.account_id}:volume/*"
+        Condition = {
+          StringEquals = {
+            "aws:ResourceTag/runs-on-stack-name" = var.stack_name
+          }
+        }
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ec2:CreateSnapshot"]
+        Resource = "arn:${local.partition}:ec2:${var.region}::snapshot/*"
+        Condition = {
+          StringEquals = {
+            "aws:RequestTag/runs-on-stack-name" = var.stack_name
+          }
+        }
       }
     ]
   })

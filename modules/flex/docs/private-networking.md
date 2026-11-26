@@ -18,6 +18,31 @@ Private networking gives runners static egress IPs via NAT Gateway, useful for I
 - `public_subnet_ids` must be provided unless `private_mode` is `"only"`
 - EFS mount targets prefer private subnets when configured, and fall back to public subnets for public-only deployments. Existing mixed public/private deployments may replace EFS mount targets after upgrading.
 
+## Control Plane Placement
+
+By default the control plane (the ECS Fargate worker service) follows `private_mode`: with `"false"` it runs in the public subnets with a public IP, and with any other value it runs in `private_subnet_ids` without one.
+
+Set `control_plane_subnet_ids` to run it in subnets of your choice, without a public IP, whatever `private_mode` is. Use it to keep the control plane private while runners stay in public subnets, where jobs cannot opt in to private subnets:
+
+```hcl
+  private_mode             = "false"
+  control_plane_subnet_ids = ["subnet-priv1", "subnet-priv2"]
+```
+
+Those subnets must belong to `vpc_id` and need outbound internet access for GitHub and AWS APIs, typically through a NAT Gateway. `private_mode_delay` also applies when `control_plane_subnet_ids` is set.
+
+## Control Plane Security Groups
+
+By default the control plane shares `security_group_ids` with the runners, so a rule that admits the runner groups (on a test database, for example) also admits the control plane.
+
+Set `control_plane_security_group_ids` to give the control plane groups of its own. Runners keep `security_group_ids`, or the group the module creates when that list is empty:
+
+```hcl
+  control_plane_security_group_ids = [aws_security_group.runs_on_control_plane.id]
+```
+
+Those groups must belong to `vpc_id` and allow outbound access to the GitHub and AWS APIs. The service takes no inbound connections, so they need no inbound rule.
+
 ## Cost Considerations
 
 | Resource | Approximate Cost |
@@ -33,7 +58,7 @@ For fresh NAT Gateway deployments, set `private_mode_delay = "60s"` to allow the
 ```hcl
 module "runs-on" {
   source  = "runs-on/runs-on/aws//modules/flex"
-  version = "v3.6.2"
+  version = "v3.7.0"
 
   github_organization = "my-org"
   license_key         = "your-license-key"
