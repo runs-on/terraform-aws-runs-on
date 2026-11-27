@@ -94,13 +94,13 @@ variable "enable_bedrock" {
 variable "enable_cache_isolation" {
   description = "Enable brokered, per-repository/per-branch credentials for Magic Cache data under scoped-cache/*. Direct S3 cache integrations always keep instance-profile access to the stack-shared cache/* namespace"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "enable_stickydisk_isolation" {
-  description = "Remove the legacy EBS volume/snapshot permissions from the runner instance role so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action"
+  description = "Remove the legacy EBS volume/snapshot permissions from the runner instance role so all sticky-disk EBS operations happen exclusively on the control plane. Breaks the legacy v1 runs-on/snapshot action. When false, job code can list every EBS volume and snapshot in the region, create volumes and snapshots tagged for this stack (only from this stack's snapshots and volumes), and attach, detach and delete any volume or snapshot tagged for this stack, including other repositories' sticky-disk volumes and snapshots. It cannot add tags to existing volumes or snapshots (except runs-on-delete-after on this stack's volumes), write runs-on-stickydisk* tags, or modify EBS resources outside this stack."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "app_tag" {

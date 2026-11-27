@@ -16,9 +16,14 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Get available AZs
+# The Region's own zones, not opted-in Local or Wavelength Zones. No state
+# filter: a zone AWS reports impaired would otherwise drop out of the list and
+# move the later subnets to other zones, which replaces them.
 data "aws_availability_zones" "available" {
-  state = "available"
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
+  }
 }
 
 # VPC Module - Creates full networking infrastructure
@@ -29,7 +34,9 @@ module "vpc" {
   name = "${var.stack_name}-vpc"
   cidr = var.vpc_cidr
 
-  azs             = slice(data.aws_availability_zones.available.names, 0, 3)
+  # Up to three zones: more zones give runners more EC2 capacity. In a Region
+  # with two (such as us-west-1), the third subnet goes to the first zone.
+  azs             = slice(data.aws_availability_zones.available.names, 0, min(3, length(data.aws_availability_zones.available.names)))
   private_subnets = var.private_subnet_cidrs
   public_subnets  = var.public_subnet_cidrs
 

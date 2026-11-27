@@ -92,14 +92,18 @@ resource "aws_iam_role_policy" "cache_credential_broker_read_jwks" {
 
   # The control plane publishes GitHub's OIDC JWKS to this single key
   # (pkg/jwkscache); the broker validates runtime tokens exclusively against
-  # it and holds no other S3 permissions.
+  # it. On GitHub Enterprise Server it also reads the calling instance's
+  # repository binding (pkg/cachebinding). It holds no other S3 permissions.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {
-        Effect   = "Allow"
-        Action   = ["s3:GetObject"]
-        Resource = "${var.extras.cache.bucket_arn}/agents/github-jwks.json"
+        Effect = "Allow"
+        Action = ["s3:GetObject"]
+        Resource = [
+          "${var.extras.cache.bucket_arn}/agents/github-jwks.json",
+          "${var.extras.cache.bucket_arn}/runners/cache-bindings/*",
+        ]
       }
     ]
   })

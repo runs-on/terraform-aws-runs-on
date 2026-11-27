@@ -76,6 +76,8 @@ locals {
 
   fleet_runtime = {
     image                     = var.runtime_image
+    subnet_ids                = var.control_plane_subnet_ids
+    security_group_ids        = var.control_plane_security_group_ids
     size                      = var.app_size
     capacity_provider         = upper(var.app_capacity_provider)
     maintenance_mode          = var.maintenance_mode

@@ -149,6 +149,8 @@ variable "runtime" {
     capacity_provider         = string
     force_new_deployment      = bool
     private_mode              = string
+    subnet_ids                = optional(list(string), [])
+    security_group_ids        = optional(list(string), [])
     ecr_repository_url        = string
     custom_policy_arns        = list(string)
     otel_exporter_endpoint    = string
@@ -228,7 +230,7 @@ variable "tags" {
 variable "enable_cache_isolation" {
   description = "Vend brokered, per-repository credentials for Magic Cache data under scoped-cache/*. The always-created broker stays idle when false; direct cache/* access is stack-shared in both modes"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "permission_boundary_arn" {
