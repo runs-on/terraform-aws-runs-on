@@ -33,6 +33,7 @@ variables {
   assign_public_ip         = false
   security_group_ids       = ["sg-12345678"]
   subnet_ids               = ["subnet-12345678", "subnet-87654321"]
+  runner_subnet_ids        = ["subnet-12345678", "subnet-87654321"]
   tags = {
     Environment        = "test"
     "runs-on-stack-id" = "test-stack"

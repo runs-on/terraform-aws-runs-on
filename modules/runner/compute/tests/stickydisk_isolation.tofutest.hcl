@@ -74,6 +74,10 @@ variables {
 run "stickydisk_isolation_disabled_keeps_legacy_snapshot_policies" {
   command = plan
 
+  variables {
+    enable_stickydisk_isolation = false
+  }
+
   assert {
     condition     = length(aws_iam_role_policy.ec2_snapshot_describe) == 1
     error_message = "Without sticky-disk isolation, the VolumeSnapshotDescribe policy remains for the v1 snapshot action."
@@ -93,14 +97,37 @@ run "stickydisk_isolation_disabled_keeps_legacy_snapshot_policies" {
     condition     = length(aws_iam_role_policy.ec2_create_tags_volumes) == 1
     error_message = "Without sticky-disk isolation, the CreateTagsOnVolumesAndSnapshots policy remains for the v1 snapshot action."
   }
+
+  assert {
+    condition = alltrue(flatten([
+      for policy in [aws_iam_role_policy.ec2_create_tags_volumes[0].policy, aws_iam_role_policy.ec2_snapshot_create[0].policy] : [
+        for statement in jsondecode(policy).Statement :
+        statement.Effect == "Deny" || anytrue([for key, value in try(statement.Condition.StringEquals, {}) : startswith(key, "aws:") && value == "test-stack"])
+      ]
+    ]))
+    error_message = "Legacy runner EBS create and tag grants must be bound to this stack's runs-on-stack-name tag."
+  }
+
+  # Writing the stack tag onto an existing resource would let a job adopt
+  # another stack's volumes and snapshots, so a CreateTags grant must either
+  # apply only at creation or only refresh runs-on-delete-after on this
+  # stack's resources.
+  assert {
+    condition = alltrue([
+      for statement in jsondecode(aws_iam_role_policy.ec2_create_tags_volumes[0].policy).Statement :
+      statement.Effect != "Allow" || !contains(flatten([statement.Action]), "ec2:CreateTags") || (
+        can(statement.Condition.StringEquals["aws:ResourceTag/runs-on-stack-name"])
+        ? try(statement.Condition["ForAllValues:StringEquals"]["aws:TagKeys"], null) == ["runs-on-delete-after"]
+        : length(try(flatten([statement.Condition.StringEquals["ec2:CreateAction"]]), [])) > 0
+      )
+    ])
+    error_message = "Every legacy CreateTags grant without an aws:ResourceTag condition must require ec2:CreateAction, and one with it may only write runs-on-delete-after."
+  }
 }
 
+# Isolation is the default.
 run "stickydisk_isolation_enabled_removes_runner_ebs_permissions" {
   command = plan
-
-  variables {
-    enable_stickydisk_isolation = true
-  }
 
   assert {
     condition     = length(aws_iam_role_policy.ec2_snapshot_describe) == 0

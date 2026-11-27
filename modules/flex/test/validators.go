@@ -198,7 +198,7 @@ func runFunctionalValidations(t *testing.T, clients *AWSClients, r ScenarioResul
 	})
 
 	t.Run("EBSPermissions", func(t *testing.T) {
-		ValidateEBSPermissionsFromEC2(t, clients, instanceID, r.Config.EnableStickyDiskIsolation)
+		ValidateEBSPermissionsFromEC2(t, clients, instanceID, r.StackName(), r.Config.EnableStickyDiskIsolation)
 	})
 
 	if r.Config.EnableEFS {
@@ -480,8 +480,8 @@ func ValidateS3AccessFromEC2(t *testing.T, clients *AWSClients, instanceID, cach
 // ValidateEBSPermissionsFromEC2 verifies the runner's EBS surface matches the sticky-disk
 // isolation mode: with isolation on, jobs must hold zero volume/snapshot permissions (all
 // EBS operations happen on the control plane); with isolation off, the legacy v1
-// runs-on/snapshot action permissions remain.
-func ValidateEBSPermissionsFromEC2(t *testing.T, clients *AWSClients, instanceID string, stickyDiskIsolation bool) {
+// runs-on/snapshot action permissions remain, bound to the stack's own tag.
+func ValidateEBSPermissionsFromEC2(t *testing.T, clients *AWSClients, instanceID string, stackName string, stickyDiskIsolation bool) {
 	describeCmd := fmt.Sprintf("aws ec2 describe-snapshots --owner-ids self --max-items 1 --region %s 2>&1", GetAWSRegion())
 	stdout, _, err := RunSSMCommand(t, clients, instanceID, []string{describeCmd})
 	if stickyDiskIsolation {
@@ -492,6 +492,49 @@ func ValidateEBSPermissionsFromEC2(t *testing.T, clients *AWSClients, instanceID
 	} else {
 		require.NoError(t, err, "Legacy mode should allow describing snapshots for the v1 snapshot action. output: %s", stdout)
 		t.Logf("CAN describe snapshots with raw instance-profile credentials (legacy mode)")
+
+		// A volume must be born with this stack's tag; any other volume stays
+		// out of reach of the legacy grants.
+		imds := `TOKEN=$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 60'); ` +
+			`imds() { curl -s -H "X-aws-ec2-metadata-token: $TOKEN" "http://169.254.169.254/latest/meta-data/$1"; }; `
+		createVolume := imds + fmt.Sprintf(`aws ec2 create-volume --dry-run --size 1 --availability-zone "$(imds placement/availability-zone)" --region %s`, GetAWSRegion())
+		for _, tc := range []struct {
+			name string
+			tags string
+			want string
+		}{
+			{name: "untagged", want: "UnauthorizedOperation"},
+			{name: "other stack", tags: "{Key=runs-on-stack-name,Value=not-" + stackName + "}", want: "UnauthorizedOperation"},
+			{name: "own stack", tags: "{Key=runs-on-stack-name,Value=" + stackName + "}", want: "DryRunOperation"},
+			// Only the runs-on-stickydisk* Deny refuses this one.
+			{name: "own stack with a sticky-disk key", tags: "{Key=runs-on-stack-name,Value=" + stackName + "},{Key=runs-on-stickydisk-repo,Value=acme/widgets}", want: "UnauthorizedOperation"},
+		} {
+			cmd := createVolume
+			if tc.tags != "" {
+				cmd += fmt.Sprintf(` --tag-specifications 'ResourceType=volume,Tags=[%s]'`, tc.tags)
+			}
+			stdout, _, _ := RunSSMCommand(t, clients, instanceID, []string{cmd + " 2>&1"})
+			assert.Contains(t, stdout, tc.want, "create-volume --dry-run (%s)", tc.name)
+		}
+
+		// After creation, the only tag a job may write is runs-on-delete-after,
+		// on this stack's volumes: the instance's root volume carries the stack
+		// tag from the launch template, so the first row also proves the others
+		// are refused for their keys.
+		rootVolume := imds + fmt.Sprintf(`VOL=$(aws ec2 describe-volumes --region %s --filters "Name=attachment.instance-id,Values=$(imds instance-id)" --query 'Volumes[0].VolumeId' --output text); `, GetAWSRegion())
+		for _, tc := range []struct {
+			name string
+			tags string
+			want string
+		}{
+			{name: "refresh delete-after", tags: "Key=runs-on-delete-after,Value=0", want: "DryRunOperation"},
+			{name: "re-tag stack name", tags: "Key=runs-on-stack-name,Value=" + stackName, want: "UnauthorizedOperation"},
+			{name: "sticky-disk key", tags: "Key=runs-on-stickydisk,Value=true", want: "UnauthorizedOperation"},
+		} {
+			cmd := rootVolume + fmt.Sprintf(`aws ec2 create-tags --dry-run --region %s --resources "$VOL" --tags %s 2>&1`, GetAWSRegion(), tc.tags)
+			stdout, _, _ := RunSSMCommand(t, clients, instanceID, []string{cmd})
+			assert.Contains(t, stdout, tc.want, "create-tags --dry-run on the root volume (%s)", tc.name)
+		}
 	}
 }
 
